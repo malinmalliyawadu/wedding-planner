@@ -239,8 +239,12 @@ async function main() {
   }
 
   // Seat a handful of confirmed guests so the tables page shows occupancy.
+  // Infants sit on laps, so the seating solver never places them and they
+  // should not arrive already holding a chair.
   const allGuests = await db.select().from(guests);
-  const attending = allGuests.filter((g) => g.rsvpStatus === "attending");
+  const attending = allGuests.filter(
+    (g) => g.rsvpStatus === "attending" && g.ageBracket !== "infant",
+  );
   for (let i = 0; i < Math.min(attending.length, 24); i++) {
     const table = insertedTables[i % 3];
     await db

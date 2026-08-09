@@ -1,0 +1,1 @@
+ALTER TABLE "guests" ADD COLUMN "pinned" boolean DEFAULT false NOT NULL;

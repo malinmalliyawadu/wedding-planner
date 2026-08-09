@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Armchair,
   LayoutDashboard,
+  LayoutGrid,
   Mail,
   PiggyBank,
   Scale,
@@ -16,6 +17,7 @@ const ITEMS = [
   { href: "/guests", label: "Guests", icon: Users, countKey: "guests" },
   { href: "/households", label: "Households", icon: Mail, countKey: "households" },
   { href: "/tables", label: "Tables", icon: Armchair, countKey: "tables" },
+  { href: "/seating", label: "Seating", icon: LayoutGrid },
   { href: "/budget", label: "Budget", icon: Scale },
   { href: "/savings", label: "Savings", icon: PiggyBank },
 ] as const;

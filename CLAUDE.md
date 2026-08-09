@@ -129,6 +129,48 @@ never rests on colour alone: position against a labelled zero line is the
 primary encoding, with hatching on the overdrawn region and a direct
 "Short from <date>" label reinforcing it.
 
+## Seating solver (M4)
+
+`src/lib/seating.ts`. The objective function, which is the whole design:
+
+```
+cost =  2000 x (guests left without a seat)
+     +  1000 x (seats each table is over capacity, summed)
+     +    Σ    the weight of every violated constraint
+     +     3 x (extra tables each household spills into)
+```
+
+- Constraints are binary: `together` breaks when the pair sit apart,
+  `apart` breaks when they sit together, costing the weight (1-10). That
+  is what makes weights mean something - one broken "absolutely not"
+  outranks five broken "would be nice", so the soft rules go first.
+- Capacity is **soft but expensive**, not forbidden. At 1000 a seat it
+  dominates any realistic pile of weights, but keeping it soft lets the
+  annealer pass through infeasible states instead of getting stuck. When
+  the seats genuinely do not exist it overfills rather than stranding
+  someone (2000 > 1000) and reports it.
+- The **household term is an addition to the brief**, adjustable in the
+  UI and settable to 0. Without it, few constraints over many guests
+  leaves the objective nearly unconstrained and families get scattered.
+- Simulated annealing with a seeded PRNG (`mulberry32`) so runs are
+  reproducible and testable. `scoreAssignment` is the reference cost;
+  `SolverState` tracks the same number incrementally (only the tables,
+  household and constraints a move touches). A test pins the two
+  together - if you change the objective, change **both**.
+- Pinned guests are excluded from the movable set entirely. A pin wins
+  even when it forces a constraint to break, and the report says so.
+- Seats attending, non-infant guests. Infants sit on laps, consistent
+  with the budget treating them as free.
+
+A real run is ~40ms for a wedding-sized problem, so it runs in the
+browser on demand; "Save arrangement" persists seats and pins together.
+Constraints naming someone who is not being seated are filtered out
+before they reach the solver - they can be neither met nor broken.
+
+`buildReport` is the "never silently produce a bad arrangement" half:
+violations with both names and both tables, sorted loudest first, plus
+over-capacity tables, unseated guests and split households.
+
 ## Design language ("engraved stationery meets ledger")
 
 - Single deliberate light theme; no dark mode.
@@ -151,8 +193,8 @@ primary encoding, with hatching on the overdrawn region and a direct
 ## Milestones
 
 M1 foundation (done) → M2 budget & scenarios (done) → M3 savings
-projection (done) → M4 seating solver → M5 timeline → M6 run sheet
-export. Stop at the end of each milestone and wait for go-ahead.
+projection (done) → M4 seating solver (done) → M5 timeline → M6 run
+sheet export. Stop at the end of each milestone and wait for go-ahead.
 
 The couple are Ru (side A, sage) and Malin (side B, rose); names live in
 the `settings` row and drive every side label in the UI. Edit them, the

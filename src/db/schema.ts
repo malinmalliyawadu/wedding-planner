@@ -93,6 +93,8 @@ export const guests = pgTable("guests", {
   tableId: integer("table_id").references(() => tables.id, {
     onDelete: "set null",
   }),
+  /** Placed by hand; the seating solver will not move them. */
+  pinned: boolean("pinned").notNull().default(false),
 });
 
 /**
