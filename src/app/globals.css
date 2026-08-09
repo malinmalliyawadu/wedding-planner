@@ -1,26 +1,153 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/*
+ * Design language: "engraved stationery meets ledger".
+ * Warm ivory paper, deep evergreen ink, brass accent. Marcellus for
+ * display, Figtree for UI, IBM Plex Mono for money and counts.
+ * Side A (sage) and side B (rose) thread through the whole app.
+ * Single deliberate light theme - no dark mode.
+ */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@theme {
+  --color-*: initial;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  /* Surfaces */
+  --color-paper: #f6f3ec;
+  --color-card: #fdfcf8;
+  --color-spine: #1d2621; /* sidebar: the cloth spine of the ledger */
+  --color-spine-raised: #29332d;
+
+  /* Ink */
+  --color-ink: #212b25;
+  --color-ink-soft: #59645d;
+  --color-ink-faint: #8b948d;
+  --color-spine-ink: #ece7da; /* text on the spine */
+  --color-spine-ink-soft: #a4ae9f;
+
+  /* Rules and hairlines */
+  --color-hairline: #ddd6c6;
+  --color-hairline-strong: #c3bba7;
+  --color-spine-hairline: #3a453d;
+
+  /* Brass accent */
+  --color-brass: #7a5d24;
+  --color-brass-bright: #c9a961;
+  --color-brass-tint: #efe7d3;
+
+  /* The couple: side A sage, side B rose */
+  --color-sage: #43604f;
+  --color-sage-mid: #6d8877;
+  --color-sage-tint: #e2eae2;
+  --color-sage-bright: #a9c2ae;
+  --color-rose: #7e4550;
+  --color-rose-mid: #a8737d;
+  --color-rose-tint: #f2e2e3;
+  --color-rose-bright: #d5a7ad;
+
+  /* Semantics */
+  --color-fern: #35673f;
+  --color-fern-tint: #e1ecdd;
+  --color-madder: #96372d;
+  --color-madder-tint: #f4e2dd;
+
+  --color-white: #ffffff;
+  --color-black: #000000;
+  --color-transparent: transparent;
+
+  /* Type */
+  --font-display: var(--font-marcellus);
+  --font-sans: var(--font-figtree);
+  --font-mono: var(--font-plex-mono);
+
+  --tracking-caps: 0.14em;
+  --tracking-caps-wide: 0.22em;
+
+  --shadow-card: 0 1px 2px rgb(33 43 37 / 0.04), 0 4px 16px rgb(33 43 37 / 0.05);
+  --shadow-overlay: 0 8px 40px rgb(29 38 33 / 0.28);
+
+  --animate-rise: rise 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-fade: fade 0.2s ease-out;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer base {
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 0.9375rem;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: var(--color-brass-tint);
+    color: var(--color-brass);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brass);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  button,
+  [role="button"] {
+    cursor: pointer;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility eyebrow {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps-wide);
+  text-transform: uppercase;
+}
+
+/* Double hairline: the engraved stationery rule under headers. */
+@utility rule-double {
+  border-bottom: 1px solid var(--color-hairline-strong);
+  position: relative;
+}
+.rule-double::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+/* Tabular money/count figures. */
+@utility figures {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
 }

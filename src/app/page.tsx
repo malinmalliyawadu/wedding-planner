@@ -1,69 +1,163 @@
-import Image from "next/image";
+import Link from "next/link";
+import { db } from "@/db";
+import { getSettings } from "@/lib/queries";
+import { daysUntilNZ, formatDateLong } from "@/lib/dates";
+import { Duogram } from "@/components/duogram";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+const STAGE_LABELS: Record<string, string> = {
+  confirmed: "Confirmed",
+  invited: "Invited",
+  save_the_date: "Save the date",
+  not_invited: "Not invited",
+};
+
+function CornerMark({ position }: { position: string }) {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <span
+      aria-hidden
+      className={`absolute h-5 w-5 border-brass-bright/70 ${position}`}
+    />
+  );
+}
+
+export default async function OverviewPage() {
+  const [settings, allGuests, allHouseholds, allTables] = await Promise.all([
+    getSettings(),
+    db.query.guests.findMany(),
+    db.query.households.findMany(),
+    db.query.tables.findMany({ with: { guests: true } }),
+  ]);
+
+  const attending = allGuests.filter((g) => g.rsvpStatus === "attending");
+  const pending = allGuests.filter((g) => g.rsvpStatus === "pending").length;
+  const declined = allGuests.filter((g) => g.rsvpStatus === "declined").length;
+  const dietary = allGuests.filter((g) => g.dietaryNotes !== null).length;
+  const seats = allTables.reduce((n, t) => n + t.capacity, 0);
+  const seated = allTables.reduce((n, t) => n + t.guests.length, 0);
+  const days =
+    settings.weddingDate !== null ? daysUntilNZ(settings.weddingDate) : null;
+
+  const stageCounts = ["confirmed", "invited", "save_the_date", "not_invited"]
+    .map((stage) => ({
+      stage,
+      count: allHouseholds.filter((h) => h.inviteStage === stage).length,
+    }));
+  const maxStage = Math.max(1, ...stageCounts.map((s) => s.count));
+
+  const stats = [
+    { label: "Attending", value: attending.length, href: "/guests?rsvp=attending" },
+    { label: "Awaiting reply", value: pending, href: "/guests?rsvp=pending" },
+    { label: "Declined", value: declined, href: "/guests?rsvp=declined" },
+    { label: "Dietary notes", value: dietary, href: "/guests" },
+  ];
+
+  return (
+    <>
+      {/* The invitation: the app's front page is the wedding itself. */}
+      <section className="relative mx-auto max-w-3xl rounded-lg border border-hairline bg-card px-8 py-14 text-center shadow-card">
+        <CornerMark position="top-3 left-3 border-t border-l" />
+        <CornerMark position="top-3 right-3 border-t border-r" />
+        <CornerMark position="bottom-3 left-3 border-b border-l" />
+        <CornerMark position="bottom-3 right-3 border-b border-r" />
+
+        <Duogram a={settings.partnerAName} b={settings.partnerBName} tone="dark" />
+        <p className="eyebrow mt-6 text-brass">Together with their families</p>
+        <h1 className="mt-4 font-display text-5xl leading-tight tracking-wide">
+          {settings.partnerAName}{" "}
+          <span className="text-brass">&amp;</span> {settings.partnerBName}
+        </h1>
+        {settings.weddingDate !== null && (
+          <p className="mt-4 text-sm tracking-widest text-ink-soft uppercase">
+            {formatDateLong(settings.weddingDate)}
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        )}
+        {days !== null && days >= 0 && (
+          <p className="mt-8 flex items-center justify-center gap-4 text-ink-soft">
+            <span aria-hidden className="h-px w-12 bg-hairline-strong" />
+            <span className="text-xs tracking-caps uppercase">
+              <span className="figures text-base text-ink">{days}</span> days to
+              go
+            </span>
+            <span aria-hidden className="h-px w-12 bg-hairline-strong" />
+          </p>
+        )}
+      </section>
+
+      {/* The ledger line: headline numbers as tabular figures. */}
+      <section className="mx-auto mt-10 max-w-3xl">
+        <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-hairline bg-hairline sm:grid-cols-4">
+          {stats.map((s) => (
+            <Link
+              key={s.label}
+              href={s.href}
+              className="group bg-card px-5 py-4 transition-colors duration-150 hover:bg-brass-tint/30"
+            >
+              <dd className="figures text-2xl text-ink">{s.value}</dd>
+              <dt className="eyebrow mt-1 text-ink-faint group-hover:text-brass">
+                {s.label}
+              </dt>
+            </Link>
+          ))}
+        </dl>
+      </section>
+
+      <section className="mx-auto mt-10 grid max-w-3xl gap-6 sm:grid-cols-2">
+        <div className="rounded-lg border border-hairline bg-card p-6 shadow-card">
+          <h2 className="eyebrow text-brass">Invitations by household</h2>
+          <ul className="mt-4 space-y-3">
+            {stageCounts.map(({ stage, count }) => (
+              <li key={stage}>
+                <div className="flex items-baseline justify-between text-sm">
+                  <span className="text-ink-soft">{STAGE_LABELS[stage]}</span>
+                  <span className="figures text-xs">{count}</span>
+                </div>
+                <div className="mt-1 h-1 rounded-full bg-paper">
+                  <div
+                    className={`h-1 rounded-full ${stage === "confirmed" ? "bg-fern" : stage === "not_invited" ? "bg-hairline-strong" : "bg-brass-bright"}`}
+                    style={{ width: `${(count / maxStage) * 100}%` }}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/households"
+            className="mt-5 inline-block text-xs font-medium text-ink-soft underline-offset-2 hover:text-ink hover:underline"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+            All households
+          </Link>
+        </div>
+
+        <div className="rounded-lg border border-hairline bg-card p-6 shadow-card">
+          <h2 className="eyebrow text-brass">Seating</h2>
+          <p className="mt-4">
+            <span className="figures text-2xl">{seated}</span>
+            <span className="text-sm text-ink-soft">
+              {" "}
+              of <span className="figures">{seats}</span> seats assigned
+            </span>
+          </p>
+          <div className="mt-3 h-1 rounded-full bg-paper">
+            <div
+              className="h-1 rounded-full bg-sage-mid"
+              style={{ width: `${seats === 0 ? 0 : Math.min(100, (seated / seats) * 100)}%` }}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          </div>
+          <p className="mt-4 text-xs leading-relaxed text-ink-faint">
+            {attending.length} attending so far against {seats} seats. The
+            seating solver arrives in milestone 4; for now, assign tables from
+            each guest&rsquo;s edit form.
+          </p>
+          <Link
+            href="/tables"
+            className="mt-3 inline-block text-xs font-medium text-ink-soft underline-offset-2 hover:text-ink hover:underline"
           >
-            Documentation
-          </a>
+            All tables
+          </Link>
         </div>
-      </main>
-    </div>
+      </section>
+    </>
   );
 }

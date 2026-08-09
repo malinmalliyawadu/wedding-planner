@@ -1,0 +1,68 @@
+import { count } from "drizzle-orm";
+import { connection } from "next/server";
+import { db } from "@/db";
+import { guests, households, tables } from "@/db/schema";
+import { getSettings } from "@/lib/queries";
+import { daysUntilNZ, formatDateLong } from "@/lib/dates";
+import { Duogram } from "./duogram";
+import { NavList } from "./nav-list";
+
+export async function Sidebar() {
+  // Render at request time, never at build time: the build environment
+  // has no database (see Dockerfile), and counts must be fresh anyway.
+  await connection();
+
+  const [settings, [guestCount], [householdCount], [tableCount]] =
+    await Promise.all([
+      getSettings(),
+      db.select({ n: count() }).from(guests),
+      db.select({ n: count() }).from(households),
+      db.select({ n: count() }).from(tables),
+    ]);
+
+  const days =
+    settings.weddingDate !== null ? daysUntilNZ(settings.weddingDate) : null;
+
+  return (
+    <aside className="sticky top-0 flex h-dvh w-64 shrink-0 flex-col bg-spine text-spine-ink">
+      <div className="px-6 pt-8 pb-6">
+        <Duogram a={settings.partnerAName} b={settings.partnerBName} />
+        <p className="mt-4 font-display text-xl leading-snug">
+          {settings.partnerAName}{" "}
+          <span className="text-brass-bright">&amp;</span>{" "}
+          {settings.partnerBName}
+        </p>
+        {settings.weddingDate !== null && (
+          <p className="mt-1 text-xs text-spine-ink-soft">
+            {formatDateLong(settings.weddingDate)}
+          </p>
+        )}
+      </div>
+
+      <div className="mx-6 border-t border-spine-hairline" />
+
+      <NavList
+        counts={{
+          guests: guestCount.n,
+          households: householdCount.n,
+          tables: tableCount.n,
+        }}
+      />
+
+      <div className="mt-auto px-6 pb-8">
+        <div className="border-t border-spine-hairline pt-5">
+          {days !== null && days >= 0 ? (
+            <p className="text-xs text-spine-ink-soft">
+              <span className="figures text-2xl text-spine-ink">{days}</span>
+              <span className="ml-2 eyebrow tracking-caps">
+                days to go
+              </span>
+            </p>
+          ) : (
+            <p className="eyebrow text-spine-ink-soft">The Wedding Ledger</p>
+          )}
+        </div>
+      </div>
+    </aside>
+  );
+}
