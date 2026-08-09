@@ -88,6 +88,47 @@ Budget item and tier CRUD was not in the M2 brief but is included: the
 budget table is unmaintainable without it. Scenario choices store only
 overrides - an item at base costs has no row.
 
+## Savings projection (M3)
+
+`src/lib/projection.ts` is the second pure, heavily tested module. The
+question it answers is *not* "will we have saved enough by the wedding" -
+it is "is the balance ever negative on a day a payment falls due".
+
+- `projectCashflow` walks today → wedding date event by event and returns
+  the balance curve, the first negative date, the low point and totals.
+  Opening balance = contributions banked less payments already settled.
+- `requiredMonthlyContribution` solves for the smallest monthly amount
+  that keeps every payment date solvent. At each due date the money
+  available is opening + one-offs + M x (contributions landed by then),
+  which gives a lower bound on M; the answer is the largest bound. A
+  naive total/months figure is wrong and will bounce an early payment.
+  Payments falling due before any contribution lands are reported in
+  `unreachable` - no monthly plan fixes those, only a lump sum.
+- **Convention**: a contribution and a payment on the same date apply
+  contribution first. Money in on the 1st covers a bill due the 1st.
+- `ceilDiv` is exact: `Math.ceil(a / b)` can land the wrong side of an
+  integer, so the quotient is corrected with integer multiplication.
+
+The savings page recomputes client-side as the contribution slider moves;
+"Save as the plan" persists it to settings. Payments and contributions
+get CRUD here (again not in the brief, but the projection is frozen
+without them), plus a paid/unpaid toggle.
+
+### The projection chart
+
+Inline SVG in `src/app/savings/projection-chart.tsx` - no chart library,
+which keeps it self-contained and on-palette. It is a **step** line: the
+balance is flat between events and jumps on each one, which is what
+actually happens. Positive and negative regions are split exactly at zero
+with two clipPaths rather than by interpolating a crossing point.
+
+Colour is `--color-plot-positive` / `--color-plot-negative`, a validated
+diverging pair (see the note in `globals.css`). Do not swap in the softer
+UI greens - they fail the chroma floor and read as gray as marks. Meaning
+never rests on colour alone: position against a labelled zero line is the
+primary encoding, with hatching on the overdrawn region and a direct
+"Short from <date>" label reinforcing it.
+
 ## Design language ("engraved stationery meets ledger")
 
 - Single deliberate light theme; no dark mode.
@@ -110,10 +151,10 @@ overrides - an item at base costs has no row.
 ## Milestones
 
 M1 foundation (done) → M2 budget & scenarios (done) → M3 savings
-projection → M4 seating solver → M5 timeline → M6 run sheet export.
-Stop at the end of each milestone and wait for go-ahead.
+projection (done) → M4 seating solver → M5 timeline → M6 run sheet
+export. Stop at the end of each milestone and wait for go-ahead.
 
 The couple are Ru (side A, sage) and Malin (side B, rose); names live in
-the `settings` row and drive every side label in the UI. There is no
-settings editor yet - it lands with M3, when the wedding date and the
-monthly contribution become load-bearing.
+the `settings` row and drive every side label in the UI. Edit them, the
+wedding date and the savings plan at `/settings` (gear in the sidebar
+footer).

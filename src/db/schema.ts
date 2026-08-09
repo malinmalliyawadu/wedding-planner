@@ -47,8 +47,18 @@ export const settings = pgTable(
     monthlyContributionCents: integer("monthly_contribution_cents")
       .notNull()
       .default(0),
+    /** Day of the month the monthly saving lands; clamped in short months. */
+    contributionDayOfMonth: integer("contribution_day_of_month")
+      .notNull()
+      .default(1),
   },
-  (t) => [check("settings_singleton", sql`${t.id} = 1`)],
+  (t) => [
+    check("settings_singleton", sql`${t.id} = 1`),
+    check(
+      "settings_contribution_day_range",
+      sql`${t.contributionDayOfMonth} between 1 and 31`,
+    ),
+  ],
 );
 
 export const households = pgTable("households", {

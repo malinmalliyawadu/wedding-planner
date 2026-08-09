@@ -1,0 +1,2 @@
+ALTER TABLE "settings" ADD COLUMN "contribution_day_of_month" integer DEFAULT 1 NOT NULL;--> statement-breakpoint
+ALTER TABLE "settings" ADD CONSTRAINT "settings_contribution_day_range" CHECK ("settings"."contribution_day_of_month" between 1 and 31);

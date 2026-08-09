@@ -1,5 +1,7 @@
 import { count } from "drizzle-orm";
+import Link from "next/link";
 import { connection } from "next/server";
+import { Settings } from "lucide-react";
 import { db } from "@/db";
 import { guests, households, tables } from "@/db/schema";
 import { getSettings } from "@/lib/queries";
@@ -50,7 +52,7 @@ export async function Sidebar() {
       />
 
       <div className="mt-auto px-6 pb-8">
-        <div className="border-t border-spine-hairline pt-5">
+        <div className="flex items-end justify-between gap-3 border-t border-spine-hairline pt-5">
           {days !== null && days >= 0 ? (
             <p className="text-xs text-spine-ink-soft">
               <span className="figures text-2xl text-spine-ink">{days}</span>
@@ -61,6 +63,14 @@ export async function Sidebar() {
           ) : (
             <p className="eyebrow text-spine-ink-soft">The Wedding Ledger</p>
           )}
+          <Link
+            href="/settings"
+            aria-label="Settings"
+            title="Settings"
+            className="rounded-md p-1.5 text-spine-ink-soft transition-colors duration-150 hover:bg-spine-raised hover:text-spine-ink"
+          >
+            <Settings size={16} strokeWidth={1.75} aria-hidden />
+          </Link>
         </div>
       </div>
     </aside>

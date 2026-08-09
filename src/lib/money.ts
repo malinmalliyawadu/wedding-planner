@@ -48,6 +48,23 @@ export function parseDollarsToCents(input: string): number | null {
   return sign === "-" ? -cents : cents;
 }
 
+/**
+ * Cents to the plain dollar string a form input should hold: 16500 becomes
+ * "165", 16550 becomes "165.50". Null becomes "" so a blank input can mean
+ * "not set". The inverse of parseDollarsToCents for editing.
+ */
+export function centsToInput(cents: number | null): string {
+  if (cents === null) return "";
+  assertIntegerCents(cents);
+  const sign = cents < 0 ? "-" : "";
+  const abs = Math.abs(cents);
+  const whole = Math.trunc(abs / 100);
+  const fraction = abs - whole * 100;
+  return fraction === 0
+    ? `${sign}${whole}`
+    : `${sign}${whole}.${String(fraction).padStart(2, "0")}`;
+}
+
 function assertIntegerCents(cents: number): void {
   if (!Number.isInteger(cents)) {
     throw new Error(`Money must be integer cents, got ${cents}`);

@@ -206,6 +206,7 @@ async function main() {
     partnerBName: "Malin",
     weddingDate: "2027-03-20",
     monthlyContributionCents: 250_000,
+    contributionDayOfMonth: 1,
   });
 
   const insertedTables = await db

@@ -7,7 +7,7 @@ import { DeleteButton } from "@/components/delete-button";
 import { Dialog } from "@/components/dialog";
 import { Field, inputClass } from "@/components/ui";
 import type { BudgetItem, BudgetOption } from "@/lib/budget";
-import { formatCentsWhole } from "@/lib/money";
+import { centsToInput, formatCentsWhole } from "@/lib/money";
 import {
   createBudgetItem,
   createItemOption,
@@ -15,12 +15,6 @@ import {
   updateBudgetItem,
   updateItemOption,
 } from "./actions";
-
-/** Cents to a plain dollar string for editing: 16500 -> "165". */
-function centsToInput(cents: number | null): string {
-  if (cents === null) return "";
-  return cents % 100 === 0 ? String(cents / 100) : (cents / 100).toFixed(2);
-}
 
 export function BudgetItemDialog({
   item,

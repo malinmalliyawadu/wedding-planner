@@ -50,6 +50,17 @@
   --color-madder: #96372d;
   --color-madder-tint: #f4e2dd;
 
+  /*
+   * Chart marks. This pair is the diverging scale for the savings
+   * projection: solvent above the zero line, overdrawn below it. The
+   * values are validated (lightness band, chroma floor, contrast, and
+   * CVD separation in the legal band given the zero line, hatching and
+   * direct labels that carry the meaning alongside colour). Do not
+   * substitute the softer UI greens here - they read as gray as marks.
+   */
+  --color-plot-positive: #35804f;
+  --color-plot-negative: #96372d;
+
   --color-white: #ffffff;
   --color-black: #000000;
   --color-transparent: transparent;
