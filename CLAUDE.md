@@ -61,6 +61,33 @@ projection (M3). Everything else is supporting structure.
   (esbuild output of `src/db/migrate.ts`) before starting the server.
 - **The dev DB** listens on 5433 to avoid clashing with any local Postgres.
 
+## Budget maths (M2)
+
+`src/lib/budget.ts` is the single source of truth for what the wedding
+costs and is the most heavily tested module in the repo. It is pure: no
+DB, no React, integer cents only. Anything that needs a number asks it.
+
+- `computeLine` / `computeBudget` - fixed + perAdult x adults +
+  perChild x children, per item, with tier overrides and exclusions.
+- `marginalAdultCents` / `marginalChildCents` - what one more guest costs
+  across the whole budget. This is the number that decides the B-list.
+- `tierStops` / `activeTierIndex` - the stops for an item's tier slider.
+  Base costs only get their own stop when no tier reproduces them.
+- `compromiseOrder` - combined priority ascending, then cost descending;
+  already-cut lines sink to the bottom. `isContested` flags a priority
+  gap of 2 or more. `cumulativeSavings` gives the running "cut to here".
+- `compareBudgets` - per-line deltas against the first scenario given.
+
+The modeller (`/budget`) holds guest counts and tier choices in client
+state and recomputes on every change, so nothing round-trips to the
+server until you save a scenario. `/budget/scenarios` compares two or
+three; `/budget/compromise` ranks the cuts. Scenario selection is in the
+URL (`?s=`) on both, so a view can be shared between the two of you.
+
+Budget item and tier CRUD was not in the M2 brief but is included: the
+budget table is unmaintainable without it. Scenario choices store only
+overrides - an item at base costs has no row.
+
 ## Design language ("engraved stationery meets ledger")
 
 - Single deliberate light theme; no dark mode.
@@ -73,9 +100,20 @@ projection (M3). Everything else is supporting structure.
   hairline header rules use `.rule-double`.
 - UI primitives in `src/components/ui.tsx`; forms post to server actions via
   `ActionForm` (returns `ActionResult`), dialogs use native `<dialog>`.
+- Sliders use the shared `<Slider>` (`src/components/slider.tsx`) and the
+  `.slider` utility. The input is deliberately much taller than its
+  hairline track so it stays easy to grab; `--fill` paints the travelled
+  part. Never hand-roll a range input.
+- `PriorityBars` renders the two of you as stacked sage/rose five-step
+  bars - the visual shorthand for agreement and disagreement.
 
 ## Milestones
 
-M1 foundation (done) → M2 budget & scenarios → M3 savings projection →
-M4 seating solver → M5 timeline → M6 run sheet export. Stop at the end of
-each milestone and wait for go-ahead.
+M1 foundation (done) → M2 budget & scenarios (done) → M3 savings
+projection → M4 seating solver → M5 timeline → M6 run sheet export.
+Stop at the end of each milestone and wait for go-ahead.
+
+The couple are Ru (side A, sage) and Malin (side B, rose); names live in
+the `settings` row and drive every side label in the UI. There is no
+settings editor yet - it lands with M3, when the wedding date and the
+monthly contribution become load-bearing.

@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Armchair, LayoutDashboard, Mail, Users } from "lucide-react";
+import { Armchair, LayoutDashboard, Mail, Scale, Users } from "lucide-react";
 
 const ITEMS = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
   { href: "/guests", label: "Guests", icon: Users, countKey: "guests" },
   { href: "/households", label: "Households", icon: Mail, countKey: "households" },
   { href: "/tables", label: "Tables", icon: Armchair, countKey: "tables" },
+  { href: "/budget", label: "Budget", icon: Scale },
 ] as const;
 
 export function NavList({

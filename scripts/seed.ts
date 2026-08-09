@@ -36,7 +36,7 @@ type SeedHousehold = {
   members: SeedGuest[];
 };
 
-// Side a = Aroha, side b = Ben.
+// Side a = Ru, side b = Malin.
 const HOUSEHOLDS: SeedHousehold[] = [
   { name: "Ngata Whānau", address: "14 Kōwhai St, Rotorua", stage: "confirmed", members: [
     { first: "Hine", last: "Ngata", side: "a", rsvp: "attending" },
@@ -44,7 +44,7 @@ const HOUSEHOLDS: SeedHousehold[] = [
     { first: "Anahera", last: "Ngata", side: "a", age: "child", rsvp: "attending" },
     { first: "Nikau", last: "Ngata", side: "a", age: "infant", rsvp: "attending" },
   ]},
-  { name: "Margaret & John Calder", address: "8 Rimu Rd, Cambridge", stage: "confirmed", notes: "Ben's grandparents - need seats near the front", members: [
+  { name: "Margaret & John Calder", address: "8 Rimu Rd, Cambridge", stage: "confirmed", notes: "Malin's grandparents - need seats near the front", members: [
     { first: "Margaret", last: "Calder", side: "b", rsvp: "attending", diet: "No shellfish" },
     { first: "John", last: "Calder", side: "b", rsvp: "attending" },
   ]},
@@ -111,7 +111,7 @@ const HOUSEHOLDS: SeedHousehold[] = [
     { first: "Teuila", last: "Faleolo", side: "a", rsvp: "pending" },
     { first: "Manaia", last: "Faleolo", side: "a", age: "child", rsvp: "pending" },
   ]},
-  { name: "George Papadopoulos", stage: "invited", notes: "Ben's uni flatmate", members: [
+  { name: "George Papadopoulos", stage: "invited", notes: "Malin's uni flatmate", members: [
     { first: "George", last: "Papadopoulos", side: "b", rsvp: "attending" },
   ]},
   { name: "Holly & Mark Stein", address: "2/18 Kelburn Parade, Wellington", stage: "invited", members: [
@@ -120,7 +120,7 @@ const HOUSEHOLDS: SeedHousehold[] = [
   ]},
   { name: "The Kereopa Whānau", address: "11 Ngāpuhi Rd, Kaikohe", stage: "invited", members: [
     { first: "Rangi", last: "Kereopa", side: "a", rsvp: "pending" },
-    { first: "Aroha", last: "Kereopa", side: "a", rsvp: "pending" },
+    { first: "Awhina", last: "Kereopa", side: "a", rsvp: "pending" },
     { first: "Moana", last: "Kereopa", side: "a", age: "child", rsvp: "pending" },
     { first: "Tāne", last: "Kereopa", side: "a", age: "child", rsvp: "pending" },
   ]},
@@ -148,7 +148,7 @@ const HOUSEHOLDS: SeedHousehold[] = [
     { first: "Harpreet", last: "Singh", side: "b" },
     { first: "Simran", last: "Singh", side: "b", diet: "Vegetarian" },
   ]},
-  { name: "Bella Firth", stage: "save_the_date", notes: "Work friend of Aroha", members: [
+  { name: "Bella Firth", stage: "save_the_date", notes: "Work friend of Ru", members: [
     { first: "Bella", last: "Firth", side: "a" },
   ]},
   { name: "Nikolai & Emily Petrov", address: "23 The Terrace, Wellington", stage: "save_the_date", members: [
@@ -202,8 +202,8 @@ async function main() {
 
   await db.insert(settings).values({
     id: 1,
-    partnerAName: "Aroha",
-    partnerBName: "Ben",
+    partnerAName: "Ru",
+    partnerBName: "Malin",
     weddingDate: "2027-03-20",
     monthlyContributionCents: 250_000,
   });
@@ -259,7 +259,7 @@ async function main() {
       { category: "Ceremony", name: "Celebrant", fixedCostCents: 120_000, perHeadCostCents: 0, priorityA: 5, priorityB: 5 },
       { category: "Ceremony", name: "Marriage licence", fixedCostCents: 15_000, perHeadCostCents: 0, priorityA: 5, priorityB: 5, notes: "Legal requirement - confirm current fee" },
       { category: "Photography", name: "Photographer", fixedCostCents: 550_000, perHeadCostCents: 0, priorityA: 5, priorityB: 3 },
-      { category: "Photography", name: "Videographer", fixedCostCents: 420_000, perHeadCostCents: 0, priorityA: 4, priorityB: 1, notes: "Aroha wants this, Ben thinks photos are enough" },
+      { category: "Photography", name: "Videographer", fixedCostCents: 420_000, perHeadCostCents: 0, priorityA: 4, priorityB: 1, notes: "Ru wants this, Malin thinks photos are enough" },
       { category: "Photography", name: "Photo booth", fixedCostCents: 120_000, perHeadCostCents: 0, priorityA: 1, priorityB: 4 },
       { category: "Attire", name: "Dress & alterations", fixedCostCents: 350_000, perHeadCostCents: 0, priorityA: 5, priorityB: 2 },
       { category: "Attire", name: "Suit", fixedCostCents: 180_000, perHeadCostCents: 0, priorityA: 2, priorityB: 4 },
@@ -323,6 +323,15 @@ async function main() {
       notes: "Everyone we'd love to have, full-day photography, live band",
     })
     .returning();
+  const [middle] = await db
+    .insert(scenarios)
+    .values({
+      name: "Middle ground",
+      adultCount: 70,
+      childCount: 5,
+      notes: "Trim to 70, keep the band, drop the photo booth",
+    })
+    .returning();
   const [tighter] = await db
     .insert(scenarios)
     .values({
@@ -355,6 +364,9 @@ async function main() {
     { ...choose(dream.id, "Music"), itemOptionId: optionId("Music", "Live band") },
     { ...choose(dream.id, "Catering"), itemOptionId: optionId("Catering", "Plated three-course") },
     { ...choose(dream.id, "Drinks package"), itemOptionId: optionId("Drinks package", "Open bar") },
+    { ...choose(middle.id, "Music"), itemOptionId: optionId("Music", "Live band") },
+    { ...choose(middle.id, "Catering"), itemOptionId: optionId("Catering", "Family-style shared") },
+    choose(middle.id, "Photo booth", true),
     { ...choose(tighter.id, "Photographer"), itemOptionId: optionId("Photographer", "Half day (6 hrs)") },
     { ...choose(tighter.id, "Music"), itemOptionId: optionId("Music", "DJ") },
     { ...choose(tighter.id, "Catering"), itemOptionId: optionId("Catering", "Buffet") },
@@ -408,13 +420,13 @@ async function main() {
 
   // Contributions to date: joint savings since engagement.
   await db.insert(contributions).values([
-    { date: "2026-01-15", amountCents: 500_000, source: "Joint savings kickoff", notes: "Engagement present from Aroha's parents included" },
+    { date: "2026-01-15", amountCents: 500_000, source: "Joint savings kickoff", notes: "Engagement present from Ru's parents included" },
     { date: "2026-02-01", amountCents: 250_000, source: "Monthly savings" },
     { date: "2026-03-01", amountCents: 250_000, source: "Monthly savings" },
     { date: "2026-04-01", amountCents: 250_000, source: "Monthly savings" },
     { date: "2026-05-01", amountCents: 250_000, source: "Monthly savings" },
     { date: "2026-06-01", amountCents: 250_000, source: "Monthly savings" },
-    { date: "2026-06-20", amountCents: 300_000, source: "Ben's tax refund" },
+    { date: "2026-06-20", amountCents: 300_000, source: "Malin's tax refund" },
     { date: "2026-07-01", amountCents: 250_000, source: "Monthly savings" },
     { date: "2026-08-01", amountCents: 250_000, source: "Monthly savings" },
   ]);
