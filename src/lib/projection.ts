@@ -11,6 +11,15 @@
  * due on the 1st.
  */
 
+import {
+  compareISO,
+  daysInMonth,
+  formatISO,
+  parseISO,
+} from "./iso-date";
+
+export { compareISO, daysBetween } from "./iso-date";
+
 export type ContributionRecord = {
   date: string;
   amountCents: number;
@@ -76,37 +85,6 @@ export type RequiredContribution = {
 };
 
 /* ------------------------------------------------------------------ dates */
-
-type YMD = { year: number; month: number; day: number };
-
-function parseISO(iso: string): YMD {
-  const [year, month, day] = iso.split("-").map(Number);
-  return { year, month, day };
-}
-
-function formatISO({ year, month, day }: YMD): string {
-  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
-
-function daysInMonth(year: number, month: number): number {
-  return new Date(Date.UTC(year, month, 0)).getUTCDate();
-}
-
-/** Whole days from a to b. Negative when b is before a. */
-export function daysBetween(a: string, b: string): number {
-  const pa = parseISO(a);
-  const pb = parseISO(b);
-  const msPerDay = 24 * 60 * 60 * 1000;
-  return Math.round(
-    (Date.UTC(pb.year, pb.month - 1, pb.day) -
-      Date.UTC(pa.year, pa.month - 1, pa.day)) /
-      msPerDay,
-  );
-}
-
-export function compareISO(a: string, b: string): number {
-  return a < b ? -1 : a > b ? 1 : 0;
-}
 
 /**
  * The monthly contribution dates strictly after `after`, up to and

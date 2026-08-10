@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Armchair,
+  CalendarDays,
   LayoutDashboard,
   LayoutGrid,
   Mail,
@@ -20,6 +21,7 @@ const ITEMS = [
   { href: "/seating", label: "Seating", icon: LayoutGrid },
   { href: "/budget", label: "Budget", icon: Scale },
   { href: "/savings", label: "Savings", icon: PiggyBank },
+  { href: "/timeline", label: "Timeline", icon: CalendarDays },
 ] as const;
 
 export function NavList({

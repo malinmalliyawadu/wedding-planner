@@ -146,16 +146,22 @@ export default async function OverviewPage() {
             />
           </div>
           <p className="mt-4 text-xs leading-relaxed text-ink-faint">
-            {attending.length} attending so far against {seats} seats. The
-            seating solver arrives in milestone 4; for now, assign tables from
-            each guest&rsquo;s edit form.
+            {attending.length} attending so far against {seats} seats.
           </p>
-          <Link
-            href="/tables"
-            className="mt-3 inline-block text-xs font-medium text-ink-soft underline-offset-2 hover:text-ink hover:underline"
-          >
-            All tables
-          </Link>
+          <div className="mt-3 flex gap-4">
+            <Link
+              href="/seating"
+              className="text-xs font-medium text-ink-soft underline-offset-2 hover:text-ink hover:underline"
+            >
+              Seating plan
+            </Link>
+            <Link
+              href="/tables"
+              className="text-xs font-medium text-ink-soft underline-offset-2 hover:text-ink hover:underline"
+            >
+              All tables
+            </Link>
+          </div>
         </div>
       </section>
     </>

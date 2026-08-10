@@ -451,18 +451,32 @@ async function main() {
     { guestAId: guestId("Bruce", "Henderson"), guestBId: guestId("Dan", "Kowalski"), kind: "apart", weight: 4, },
   ]);
 
+  // A partly-worked plan. Titles that exist in the timeline template match
+  // it exactly, so regenerating fills the gaps instead of duplicating;
+  // the rest are the couple's own additions, which it leaves alone.
   await db.insert(tasks).values([
-    { title: "Book venue", dueDate: "2026-05-01", owner: "both", done: true, category: "Venue" },
-    { title: "Book celebrant", dueDate: "2026-08-01", owner: "a", done: true, category: "Ceremony" },
+    { title: "Book the venue", dueDate: "2026-05-01", owner: "both", done: true, category: "Venue" },
+    { title: "Book the celebrant", dueDate: "2026-08-01", owner: "a", done: true, category: "Ceremony" },
     { title: "Send save-the-dates", dueDate: "2026-10-10", owner: "both", done: true, category: "Guests" },
+    { title: "Buy the rings", dueDate: "2026-12-10", owner: "b", done: false, category: "Attire" },
+    { title: "Hair and makeup trial", dueDate: "2026-11-20", owner: "a", done: false, category: "Attire" },
+    { title: "Send the invitations", dueDate: "2026-12-20", owner: "both", done: false, category: "Guests" },
+    {
+      title: "Apply for the marriage licence",
+      dueDate: "2027-01-20",
+      owner: "both",
+      done: false,
+      category: "Ceremony",
+      needsConfirmation: true,
+      notes:
+        "PLACEHOLDER DATE - confirm this one. How far ahead you must apply, " +
+        "how long the licence stays valid and what it costs all depend on " +
+        "where you are marrying. Look up the rule, then set the real date.",
+    },
+    { title: "Write your vows", dueDate: "2027-03-13", owner: "a", done: false, category: "Ceremony" },
+    // The couple's own, not from the template.
     { title: "Book videographer or decide against", dueDate: "2026-11-01", owner: "a", done: false, category: "Photography" },
-    { title: "Order rings", dueDate: "2026-12-10", owner: "b", done: false, category: "Attire" },
-    { title: "Hair & makeup trial", dueDate: "2026-11-20", owner: "a", done: false, category: "Attire" },
-    { title: "Send invitations", dueDate: "2026-12-20", owner: "both", done: false, category: "Guests" },
     { title: "Suit fitting", dueDate: "2027-01-15", owner: "b", done: false, category: "Attire" },
-    { title: "Apply for marriage licence", dueDate: "2027-02-25", owner: "both", done: false, category: "Ceremony", },
-    { title: "Final catering numbers to venue", dueDate: "2027-03-01", owner: "both", done: false, category: "Food & drink" },
-    { title: "Write vows", dueDate: "2027-03-13", owner: "a", done: false, category: "Ceremony" },
     { title: "Confirm run sheet with MC", dueDate: "2027-03-15", owner: "b", done: false, category: "Logistics" },
   ]);
 

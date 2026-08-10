@@ -22,6 +22,13 @@
       "when": 1786269290424,
       "tag": "0002_organic_captain_universe",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1786331473897,
+      "tag": "0003_material_kid_colt",
+      "breakpoints": true
     }
   ]
 }

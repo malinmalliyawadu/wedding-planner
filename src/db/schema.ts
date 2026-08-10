@@ -217,6 +217,12 @@ export const tasks = pgTable("tasks", {
   owner: taskOwnerEnum("owner").notNull().default("both"),
   done: boolean("done").notNull().default(false),
   category: text("category"),
+  notes: text("notes"),
+  /**
+   * The due date is a placeholder that depends on something outside this
+   * app - local marriage law, most obviously - and needs checking.
+   */
+  needsConfirmation: boolean("needs_confirmation").notNull().default(false),
 });
 
 export const householdsRelations = relations(households, ({ many }) => ({

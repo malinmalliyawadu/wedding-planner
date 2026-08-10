@@ -171,6 +171,40 @@ before they reach the solver - they can be neither met nor broken.
 violations with both names and both tables, sorted loudest first, plus
 over-capacity tables, unseated guests and split households.
 
+## Timeline and calendar (M5)
+
+`src/lib/timeline.ts` holds `TIMELINE_TEMPLATE`: every task defined by
+how long *before* the wedding it wants doing, so the whole plan falls out
+of one date. `generateTimeline` dates it backwards and **skips titles
+that already exist**, so the button is safe to press again after you have
+edited things - it fills gaps and never touches what is already there.
+
+**No jurisdiction-specific legal deadline is encoded anywhere.** The
+marriage licence carries a placeholder date, `needsConfirmation`, and a
+note saying to look up the real rule. Tests assert the template mentions
+no country, no "N days", no fee and no registry wording - if you extend
+the template, keep it that way.
+
+Because the wedding is usually nearer than the longest lead time, freshly
+generated plans legitimately land tasks in the past. They show as Overdue
+rather than being clamped to today: "you are behind on this" is true and
+useful, "do this now" would not be.
+
+`src/lib/ics.ts` writes the subscribable feed served at
+`/timeline/tasks.ics`. The two things that quietly break real calendar
+clients are both handled and both tested: **line folding at 75 octets**
+(bytes, not characters - a single macron shifts the boundary, and a fold
+must never split a character) and TEXT escaping (backslash first, then
+`;` `,` and newlines). All-day `VEVENT`s with stable per-task UIDs so
+subscribers update rather than duplicate; done and undated tasks are
+left out. Subscribing goes through Traefik basicauth, so the URL a
+calendar client needs carries those credentials.
+
+Shared calendar arithmetic lives in `src/lib/iso-date.ts` and works on
+the date string, never a `Date` in some local zone, so a date cannot
+drift a day because of where the server is. `addMonths` clamps to the
+end of a shorter month.
+
 ## Design language ("engraved stationery meets ledger")
 
 - Single deliberate light theme; no dark mode.
@@ -193,8 +227,9 @@ over-capacity tables, unseated guests and split households.
 ## Milestones
 
 M1 foundation (done) → M2 budget & scenarios (done) → M3 savings
-projection (done) → M4 seating solver (done) → M5 timeline → M6 run
-sheet export. Stop at the end of each milestone and wait for go-ahead.
+projection (done) → M4 seating solver (done) → M5 timeline (done) →
+M6 run sheet export. Stop at the end of each milestone and wait for
+go-ahead.
 
 The couple are Ru (side A, sage) and Malin (side B, rose); names live in
 the `settings` row and drive every side label in the UI. Edit them, the
