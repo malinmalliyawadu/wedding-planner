@@ -1,5 +1,8 @@
 import type { ComponentPropsWithoutRef, ReactNode } from "react";
 
+// Re-exported so a form can pull its label and its inputs from one place.
+export { Field } from "./field";
+
 const BUTTON_VARIANTS = {
   primary:
     "bg-ink text-paper hover:bg-spine-raised border border-transparent",
@@ -27,7 +30,7 @@ export function Button({
 }) {
   return (
     <button
-      className={`inline-flex items-center justify-center gap-2 rounded-md font-medium transition-colors duration-150 disabled:pointer-events-none disabled:opacity-45 ${BUTTON_VARIANTS[variant]} ${BUTTON_SIZES[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-md font-medium whitespace-nowrap transition-colors duration-150 disabled:pointer-events-none disabled:opacity-45 ${BUTTON_VARIANTS[variant]} ${BUTTON_SIZES[size]} ${className}`}
       {...props}
     />
   );
@@ -45,15 +48,18 @@ export function PageHeader({
   children?: ReactNode;
 }) {
   return (
-    <header className="mb-8">
-      <div className="flex items-end justify-between gap-6 pb-4 rule-double">
+    <header className="mb-6 sm:mb-8">
+      {/* Actions sit beside the title on a wide screen and under it on a phone. */}
+      <div className="flex flex-col gap-3 pb-4 rule-double sm:flex-row sm:items-end sm:justify-between sm:gap-6">
         <div>
           <p className="eyebrow text-brass">{eyebrow}</p>
-          <h1 className="mt-1.5 font-display text-3xl leading-tight">
+          <h1 className="mt-1.5 font-display text-2xl leading-tight sm:text-3xl">
             {title}
           </h1>
         </div>
-        {actions && <div className="flex shrink-0 gap-2 pb-1">{actions}</div>}
+        {actions && (
+          <div className="flex flex-wrap gap-2 sm:shrink-0 sm:pb-1">{actions}</div>
+        )}
       </div>
       {children}
     </header>
@@ -133,30 +139,45 @@ export function StageChip({ stage }: { stage: keyof typeof STAGE_LABELS }) {
   return <Chip tone={tone}>{STAGE_LABELS[stage]}</Chip>;
 }
 
-export function Field({
-  label,
-  children,
-  hint,
-}: {
-  label: string;
-  children: ReactNode;
-  hint?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-xs font-semibold tracking-wide text-ink-soft">
-        {label}
-      </span>
-      {children}
-      {hint && <span className="mt-1 block text-xs text-ink-faint">{hint}</span>}
-    </label>
-  );
-}
-
+/*
+ * Controls are comfortable on a desktop and finger-sized on a touch screen:
+ * 44px tall, and 16px text, below which iOS zooms the page on focus.
+ */
 export const inputBaseClass =
-  "rounded-md border border-hairline-strong bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-brass focus:outline-none";
+  "rounded-md border border-hairline-strong bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-faint transition-colors duration-150 focus:border-brass focus:outline-none pointer-coarse:min-h-11 pointer-coarse:text-base";
 
 export const inputClass = `w-full ${inputBaseClass}`;
+
+/**
+ * A small square button carrying a single icon: edit, delete, page a
+ * calendar. Needs a label, because the icon is the only other clue.
+ */
+export function IconButton({
+  label,
+  tone = "quiet",
+  className = "",
+  children,
+  ...props
+}: ComponentPropsWithoutRef<"button"> & {
+  label: string;
+  tone?: "quiet" | "danger";
+}) {
+  const tones = {
+    quiet: "text-ink-faint hover:bg-brass-tint/60 hover:text-ink",
+    danger: "text-ink-faint hover:bg-madder-tint hover:text-madder",
+  } as const;
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      className={`inline-flex items-center justify-center rounded-md p-1.5 transition-colors duration-150 disabled:pointer-events-none disabled:opacity-45 pointer-coarse:p-2.5 ${tones[tone]} ${className}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
 
 export function EmptyState({
   title,

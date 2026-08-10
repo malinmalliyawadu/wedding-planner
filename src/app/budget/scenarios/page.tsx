@@ -137,7 +137,7 @@ export default async function ScenariosPage({
               {/* Line by line. Unchanged lines are dimmed, not hidden: the
                   point is to see what a scenario leaves alone as well. */}
               <div className="mt-8 overflow-x-auto rounded-lg border border-hairline bg-card shadow-card">
-                <table className="w-full text-sm">
+                <table className="w-full min-w-3xl text-sm">
                   <thead>
                     <tr className="border-b border-hairline text-left">
                       <th className="eyebrow px-4 py-3 font-semibold text-ink-faint">

@@ -6,11 +6,14 @@ export function Duogram({
   a,
   b,
   tone = "light",
+  size = "lg",
 }: {
   a: string;
   b: string;
   /** "light" for dark surfaces (sidebar), "dark" for paper surfaces. */
   tone?: "light" | "dark";
+  /** "sm" for the phone header, where the mark sits beside the names. */
+  size?: "sm" | "lg";
 }) {
   const initialA = (a[0] ?? "A").toUpperCase();
   const initialB = (b[0] ?? "B").toUpperCase();
@@ -21,7 +24,9 @@ export function Duogram({
   return (
     <span
       aria-hidden
-      className="relative inline-block font-display text-[2.75rem] leading-none select-none"
+      className={`relative inline-block font-display leading-none select-none ${
+        size === "sm" ? "text-2xl" : "text-[2.75rem]"
+      }`}
     >
       <span className={colorA}>{initialA}</span>
       <span className={`-ml-[0.32em] ${colorB}`}>{initialB}</span>

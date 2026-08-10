@@ -180,7 +180,7 @@ export default async function RunSheetPage() {
                   <Download size={13} aria-hidden />
                   PDF
                 </a>
-                <span className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                <span className="flex shrink-0 gap-0.5 row-actions">
                   <RecipientDialog
                     recipient={recipient}
                     nextSortOrder={recipient.sortOrder}
@@ -255,7 +255,7 @@ export default async function RunSheetPage() {
                   </div>
                 </div>
 
-                <span className="flex shrink-0 gap-0.5 pt-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                <span className="flex shrink-0 gap-0.5 pt-0.5 row-actions">
                   <RunSheetItemDialog item={item} recipients={recipients} />
                   <DeleteButton
                     action={deleteRunSheetItem.bind(null, item.id)}

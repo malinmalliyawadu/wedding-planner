@@ -56,7 +56,7 @@ export default async function OverviewPage() {
   return (
     <>
       {/* The invitation: the app's front page is the wedding itself. */}
-      <section className="relative mx-auto max-w-3xl rounded-lg border border-hairline bg-card px-8 py-14 text-center shadow-card">
+      <section className="relative mx-auto max-w-3xl rounded-lg border border-hairline bg-card px-5 py-10 text-center shadow-card sm:px-8 sm:py-14">
         <CornerMark position="top-3 left-3 border-t border-l" />
         <CornerMark position="top-3 right-3 border-t border-r" />
         <CornerMark position="bottom-3 left-3 border-b border-l" />
@@ -64,7 +64,8 @@ export default async function OverviewPage() {
 
         <Duogram a={settings.partnerAName} b={settings.partnerBName} tone="dark" />
         <p className="eyebrow mt-6 text-brass">Together with their families</p>
-        <h1 className="mt-4 font-display text-5xl leading-tight tracking-wide">
+        {/* Long names have to fit a phone, so the display size steps up. */}
+        <h1 className="mt-4 font-display text-[clamp(2rem,9vw,3rem)] leading-tight tracking-wide text-balance">
           {settings.partnerAName}{" "}
           <span className="text-brass">&amp;</span> {settings.partnerBName}
         </h1>
@@ -103,7 +104,7 @@ export default async function OverviewPage() {
         </dl>
       </section>
 
-      <section className="mx-auto mt-10 grid max-w-3xl gap-6 sm:grid-cols-2">
+      <section className="mx-auto mt-10 grid max-w-3xl grid-cols-1 gap-6 sm:grid-cols-2">
         <div className="rounded-lg border border-hairline bg-card p-6 shadow-card">
           <h2 className="eyebrow text-brass">Invitations by household</h2>
           <ul className="mt-4 space-y-3">

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { inputBaseClass } from "@/components/ui";
+import { Select } from "@/components/select";
 
 /** Which set of choices and guest counts the ranking is measured against. */
 export function CompromiseScenarioPicker({
@@ -18,25 +18,24 @@ export function CompromiseScenarioPicker({
   const params = useSearchParams();
 
   return (
-    <label className="flex items-center gap-2 text-xs text-ink-soft">
-      <span className="eyebrow text-ink-faint">Measured against</span>
-      <select
-        value={selected ?? ""}
-        onChange={(e) => {
+    <div className="flex min-w-0 items-center gap-2 text-xs text-ink-soft">
+      <span className="eyebrow shrink-0 text-ink-faint">Measured against</span>
+      <Select
+        label="Which scenario the ranking is measured against"
+        size="sm"
+        width="auto"
+        value={selected === null ? "" : String(selected)}
+        onChange={(value) => {
           const search = new URLSearchParams(params);
-          if (e.target.value === "") search.delete("s");
-          else search.set("s", e.target.value);
+          if (value === "") search.delete("s");
+          else search.set("s", value);
           router.replace(`${pathname}?${search.toString()}`, { scroll: false });
         }}
-        className={`${inputBaseClass} py-1.5 text-xs`}
-      >
-        <option value="">{guestListLabel}</option>
-        {scenarios.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.name}
-          </option>
-        ))}
-      </select>
-    </label>
+        options={[
+          { value: "", label: guestListLabel },
+          ...scenarios.map((s) => ({ value: String(s.id), label: s.name })),
+        ]}
+      />
+    </div>
   );
 }

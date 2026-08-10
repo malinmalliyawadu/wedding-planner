@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Pencil, Plus } from "lucide-react";
 import { ActionForm } from "@/components/action-form";
 import { Dialog } from "@/components/dialog";
-import { Button, Field, inputClass } from "@/components/ui";
+import { Select } from "@/components/select";
+import { Button, Field, IconButton, inputClass } from "@/components/ui";
 import { createHousehold, updateHousehold } from "./actions";
 
 export type HouseholdFormValues = {
@@ -26,14 +27,9 @@ export function HouseholdDialog({
   return (
     <>
       {editing ? (
-        <button
-          onClick={() => setOpen(true)}
-          aria-label={`Edit ${household.name}`}
-          title="Edit"
-          className="rounded-md p-1.5 text-ink-faint transition-colors duration-150 hover:bg-brass-tint/60 hover:text-ink"
-        >
+        <IconButton label={`Edit ${household.name}`} onClick={() => setOpen(true)}>
           <Pencil size={15} aria-hidden />
-        </button>
+        </IconButton>
       ) : (
         <Button onClick={() => setOpen(true)}>
           <Plus size={15} aria-hidden />
@@ -69,16 +65,16 @@ export function HouseholdDialog({
             />
           </Field>
           <Field label="Invite stage">
-            <select
+            <Select
               name="inviteStage"
               defaultValue={household?.inviteStage ?? "not_invited"}
-              className={inputClass}
-            >
-              <option value="not_invited">Not invited</option>
-              <option value="save_the_date">Save the date</option>
-              <option value="invited">Invited</option>
-              <option value="confirmed">Confirmed</option>
-            </select>
+              options={[
+                { value: "not_invited", label: "Not invited" },
+                { value: "save_the_date", label: "Save the date" },
+                { value: "invited", label: "Invited" },
+                { value: "confirmed", label: "Confirmed" },
+              ]}
+            />
           </Field>
           <Field label="Notes">
             <textarea

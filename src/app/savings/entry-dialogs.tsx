@@ -3,8 +3,10 @@
 import { useState, type ReactNode } from "react";
 import { Pencil } from "lucide-react";
 import { ActionForm } from "@/components/action-form";
+import { DatePicker } from "@/components/date-picker";
 import { Dialog } from "@/components/dialog";
-import { Field, inputClass } from "@/components/ui";
+import { Select } from "@/components/select";
+import { Field, IconButton, inputClass } from "@/components/ui";
 import { centsToInput } from "@/lib/money";
 import {
   createContribution,
@@ -15,14 +17,9 @@ import {
 
 function EditTrigger({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      title="Edit"
-      className="rounded-md p-1.5 text-ink-faint transition-colors duration-150 hover:bg-brass-tint/60 hover:text-ink"
-    >
+    <IconButton label={label} onClick={onClick}>
       <Pencil size={15} aria-hidden />
-    </button>
+    </IconButton>
   );
 }
 
@@ -68,7 +65,7 @@ export function ContributionDialog({
           submitLabel={editing ? "Save changes" : "Add contribution"}
         >
           {editing && <input type="hidden" name="id" value={contribution.id} />}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Amount">
               <input
                 name="amount"
@@ -83,12 +80,10 @@ export function ContributionDialog({
               />
             </Field>
             <Field label="Date">
-              <input
-                type="date"
+              <DatePicker
                 name="date"
                 defaultValue={contribution?.date ?? today}
-                className={inputClass}
-                required
+                clearable={false}
               />
             </Field>
           </div>
@@ -157,23 +152,19 @@ export function PaymentDialog({
         >
           {editing && <input type="hidden" name="id" value={payment.id} />}
           <Field label="What it pays for">
-            <select
+            <Select
               name="budgetItemId"
-              defaultValue={payment?.budgetItemId ?? ""}
-              className={inputClass}
+              defaultValue={payment ? String(payment.budgetItemId) : ""}
+              placeholder="Choose a budget item…"
               required
-            >
-              <option value="" disabled>
-                Choose a budget item…
-              </option>
-              {budgetItems.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.category} · {item.name}
-                </option>
-              ))}
-            </select>
+              options={budgetItems.map((item) => ({
+                value: String(item.id),
+                label: item.name,
+                hint: item.category,
+              }))}
+            />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Amount">
               <input
                 name="amount"
@@ -185,21 +176,18 @@ export function PaymentDialog({
               />
             </Field>
             <Field label="Due">
-              <input
-                type="date"
+              <DatePicker
                 name="dueDate"
                 defaultValue={payment?.dueDate ?? today}
-                className={inputClass}
-                required
+                clearable={false}
               />
             </Field>
           </div>
           <Field label="Paid on" hint="Leave blank while it is still owing">
-            <input
-              type="date"
+            <DatePicker
               name="paidDate"
               defaultValue={payment?.paidDate ?? ""}
-              className={inputClass}
+              placeholder="Still owing"
             />
           </Field>
           <Field label="Notes">

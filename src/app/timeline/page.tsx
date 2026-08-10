@@ -253,7 +253,7 @@ function TaskRow({
         </Chip>
       </span>
 
-      <span className="flex shrink-0 gap-0.5 pt-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+      <span className="flex shrink-0 gap-0.5 pt-0.5 row-actions">
         <TaskDialog task={values} nameA={nameA} nameB={nameB} />
         <DeleteButton
           action={deleteTask.bind(null, task.id)}

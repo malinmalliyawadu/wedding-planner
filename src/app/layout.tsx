@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { Figtree, IBM_Plex_Mono, Marcellus } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/sidebar";
+import { AppShell } from "@/components/app-shell";
+import { Sidebar, SpineBrand } from "@/components/sidebar";
 
 const marcellus = Marcellus({
   weight: "400",
@@ -32,12 +33,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${marcellus.variable} ${figtree.variable} ${plexMono.variable}`}
     >
       <body className="min-h-dvh">
-        <div className="flex min-h-dvh">
-          <Sidebar />
-          <main className="min-w-0 flex-1">
-            <div className="mx-auto max-w-6xl px-8 py-10">{children}</div>
-          </main>
-        </div>
+        <AppShell spine={<Sidebar />} brand={<SpineBrand />}>
+          {children}
+        </AppShell>
       </body>
     </html>
   );

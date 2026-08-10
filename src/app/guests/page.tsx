@@ -98,7 +98,7 @@ export default async function GuestsPage({
         />
       ) : (
         <div className="overflow-x-auto rounded-lg border border-hairline bg-card shadow-card">
-          <table className="w-full text-sm">
+          <table className="w-full min-w-4xl text-sm">
             <thead>
               <tr className="border-b border-hairline text-left">
                 <th className="eyebrow px-4 py-3 font-semibold text-ink-faint">
@@ -160,7 +160,7 @@ export default async function GuestsPage({
                     {g.table?.name ?? "—"}
                   </td>
                   <td className="px-2 py-2.5">
-                    <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                    <div className="flex items-center justify-end gap-0.5 row-actions">
                       <GuestDialog
                         households={householdOptions}
                         tables={tableOptions}

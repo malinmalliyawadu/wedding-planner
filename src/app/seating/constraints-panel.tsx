@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { ActionForm } from "@/components/action-form";
 import { DeleteButton } from "@/components/delete-button";
 import { Dialog } from "@/components/dialog";
+import { Select } from "@/components/select";
 import { Button, Chip, Field, inputClass } from "@/components/ui";
 import { createSeatingConstraint, deleteSeatingConstraint } from "./actions";
 
@@ -26,10 +27,11 @@ export function ConstraintsPanel({
   guests: Array<{ id: number; name: string }>;
 }) {
   const [open, setOpen] = useState(false);
+  const guestOptions = guests.map((g) => ({ value: String(g.id), label: g.name }));
 
   return (
     <section className="mt-8 rounded-lg border border-hairline bg-card shadow-card">
-      <header className="flex items-center justify-between border-b border-hairline px-5 py-4">
+      <header className="flex flex-col items-start gap-3 border-b border-hairline px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="eyebrow text-brass">Who sits with whom</h2>
           <p className="mt-1 text-xs text-ink-soft">
@@ -65,7 +67,7 @@ export function ConstraintsPanel({
                 </span>{" "}
                 {c.guestBName}
               </span>
-              <span className="shrink-0 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+              <span className="shrink-0 row-actions">
                 <DeleteButton
                   action={deleteSeatingConstraint.bind(null, c.id)}
                   label={`Delete rule between ${c.guestAName} and ${c.guestBName}`}
@@ -83,34 +85,30 @@ export function ConstraintsPanel({
           submitLabel="Add rule"
         >
           <Field label="Guest">
-            <select name="guestAId" className={inputClass} required defaultValue="">
-              <option value="" disabled>
-                Choose a guest…
-              </option>
-              {guests.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
+            <Select
+              name="guestAId"
+              placeholder="Choose a guest…"
+              required
+              options={guestOptions}
+            />
           </Field>
           <Field label="Should sit">
-            <select name="kind" className={inputClass} defaultValue="together">
-              <option value="together">Together with</option>
-              <option value="apart">Away from</option>
-            </select>
+            <Select
+              name="kind"
+              defaultValue="together"
+              options={[
+                { value: "together", label: "Together with" },
+                { value: "apart", label: "Away from" },
+              ]}
+            />
           </Field>
           <Field label="Guest">
-            <select name="guestBId" className={inputClass} required defaultValue="">
-              <option value="" disabled>
-                Choose a guest…
-              </option>
-              {guests.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
+            <Select
+              name="guestBId"
+              placeholder="Choose a guest…"
+              required
+              options={guestOptions}
+            />
           </Field>
           <Field
             label="Strength"

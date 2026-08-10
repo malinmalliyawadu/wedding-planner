@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
+import { Select } from "@/components/select";
 import { inputBaseClass } from "@/components/ui";
 
 /**
@@ -20,11 +21,10 @@ export function GuestFilters({ nameA, nameB }: { nameA: string; nameB: string })
     router.replace(`${pathname}?${next.toString()}`, { scroll: false });
   }
 
-  const selectClass = `${inputBaseClass} py-1.5 text-xs`;
-
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative">
+      {/* The search takes its own line on a phone; the three filters share one. */}
+      <div className="relative w-full sm:w-56">
         <Search
           size={14}
           aria-hidden
@@ -36,42 +36,48 @@ export function GuestFilters({ nameA, nameB }: { nameA: string; nameB: string })
           placeholder="Search guests…"
           defaultValue={params.get("q") ?? ""}
           onChange={(e) => setParam("q", e.target.value.trim())}
-          className={`${inputBaseClass} w-56 py-1.5 pl-8 text-xs`}
+          className={`${inputBaseClass} w-full py-1.5 pl-8 text-xs`}
         />
       </div>
-      <select
-        aria-label="Filter by side"
+      <Select
+        label="Filter by side"
+        size="sm"
+        width="auto"
         value={params.get("side") ?? ""}
-        onChange={(e) => setParam("side", e.target.value)}
-        className={selectClass}
-      >
-        <option value="">Either side</option>
-        <option value="a">{nameA}&rsquo;s side</option>
-        <option value="b">{nameB}&rsquo;s side</option>
-        <option value="both">Both</option>
-      </select>
-      <select
-        aria-label="Filter by RSVP"
+        onChange={(value) => setParam("side", value)}
+        options={[
+          { value: "", label: "Either side" },
+          { value: "a", label: `${nameA}’s side` },
+          { value: "b", label: `${nameB}’s side` },
+          { value: "both", label: "Both" },
+        ]}
+      />
+      <Select
+        label="Filter by RSVP"
+        size="sm"
+        width="auto"
         value={params.get("rsvp") ?? ""}
-        onChange={(e) => setParam("rsvp", e.target.value)}
-        className={selectClass}
-      >
-        <option value="">Any RSVP</option>
-        <option value="attending">Attending</option>
-        <option value="pending">Pending</option>
-        <option value="declined">Declined</option>
-      </select>
-      <select
-        aria-label="Filter by age"
+        onChange={(value) => setParam("rsvp", value)}
+        options={[
+          { value: "", label: "Any RSVP" },
+          { value: "attending", label: "Attending" },
+          { value: "pending", label: "Pending" },
+          { value: "declined", label: "Declined" },
+        ]}
+      />
+      <Select
+        label="Filter by age"
+        size="sm"
+        width="auto"
         value={params.get("age") ?? ""}
-        onChange={(e) => setParam("age", e.target.value)}
-        className={selectClass}
-      >
-        <option value="">All ages</option>
-        <option value="adult">Adults</option>
-        <option value="child">Children</option>
-        <option value="infant">Infants</option>
-      </select>
+        onChange={(value) => setParam("age", value)}
+        options={[
+          { value: "", label: "All ages" },
+          { value: "adult", label: "Adults" },
+          { value: "child", label: "Children" },
+          { value: "infant", label: "Infants" },
+        ]}
+      />
     </div>
   );
 }

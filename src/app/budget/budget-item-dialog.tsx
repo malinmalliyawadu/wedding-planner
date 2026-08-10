@@ -5,7 +5,7 @@ import { Pencil, Plus } from "lucide-react";
 import { ActionForm } from "@/components/action-form";
 import { DeleteButton } from "@/components/delete-button";
 import { Dialog } from "@/components/dialog";
-import { Field, inputClass } from "@/components/ui";
+import { Field, IconButton, inputClass } from "@/components/ui";
 import type { BudgetItem, BudgetOption } from "@/lib/budget";
 import { centsToInput, formatCentsWhole } from "@/lib/money";
 import {
@@ -31,14 +31,12 @@ export function BudgetItemDialog({
       {trigger ? (
         <span onClick={() => setOpen(true)}>{trigger}</span>
       ) : (
-        <button
+        <IconButton
+          label={`Edit ${item?.name ?? "item"}`}
           onClick={() => setOpen(true)}
-          aria-label={`Edit ${item?.name ?? "item"}`}
-          title="Edit"
-          className="rounded-md p-1.5 text-ink-faint transition-colors duration-150 hover:bg-brass-tint/60 hover:text-ink"
         >
           <Pencil size={15} aria-hidden />
-        </button>
+        </IconButton>
       )}
 
       <Dialog
@@ -52,7 +50,7 @@ export function BudgetItemDialog({
           submitLabel={editing ? "Save changes" : "Add item"}
         >
           {editing && <input type="hidden" name="id" value={item.id} />}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Name">
               <input
                 name="name"
@@ -73,7 +71,7 @@ export function BudgetItemDialog({
             </Field>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Field label="Fixed cost" hint="Whatever the numbers">
               <input
                 name="fixedCost"
@@ -100,7 +98,7 @@ export function BudgetItemDialog({
             </Field>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Priority A" hint="1 = could lose it, 5 = essential">
               <input
                 name="priorityA"
@@ -212,7 +210,7 @@ function TierRow({ item, option }: { item: BudgetItem; option: BudgetOption }) {
           </span>
         )}
       </span>
-      <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+      <span className="flex shrink-0 items-center gap-0.5 row-actions">
         <button
           onClick={() => setEditing(true)}
           aria-label={`Edit tier ${option.label}`}
@@ -259,7 +257,7 @@ function TierForm({
           autoFocus
         />
       </Field>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Field label="Fixed">
           <input
             name="fixedCost"

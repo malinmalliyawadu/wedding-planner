@@ -102,9 +102,9 @@ export default async function SavingsPage() {
       />
 
       {/* The two ledgers the projection is built from. */}
-      <div className="mt-8 grid gap-6 lg:grid-cols-2">
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <section className="rounded-lg border border-hairline bg-card shadow-card">
-          <header className="flex items-center justify-between border-b border-hairline px-5 py-4">
+          <header className="flex flex-col items-start gap-3 border-b border-hairline px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="eyebrow text-brass">Still to pay</h2>
               <p className="figures mt-1 text-lg">
@@ -153,7 +153,7 @@ export default async function SavingsPage() {
                     <span className="figures text-sm">
                       {formatCentsWhole(p.amountCents)}
                     </span>
-                    <span className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    <span className="flex shrink-0 gap-0.5 row-actions">
                       <PaymentDialog
                         payment={{
                           id: p.id,
@@ -203,7 +203,7 @@ export default async function SavingsPage() {
                     <span className="figures text-sm">
                       {formatCentsWhole(p.amountCents)}
                     </span>
-                    <span className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                    <span className="flex shrink-0 gap-0.5 row-actions">
                       <PaymentDialog
                         payment={{
                           id: p.id,
@@ -229,7 +229,7 @@ export default async function SavingsPage() {
         </section>
 
         <section className="rounded-lg border border-hairline bg-card shadow-card">
-          <header className="flex items-center justify-between border-b border-hairline px-5 py-4">
+          <header className="flex flex-col items-start gap-3 border-b border-hairline px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="eyebrow text-brass">Put away so far</h2>
               <p className="figures mt-1 text-lg">
@@ -267,7 +267,7 @@ export default async function SavingsPage() {
                   <span className="figures text-sm text-fern">
                     +{formatCentsWhole(c.amountCents)}
                   </span>
-                  <span className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                  <span className="flex shrink-0 gap-0.5 row-actions">
                     <ContributionDialog
                       today={today}
                       contribution={{

@@ -48,6 +48,34 @@ export function addDays(iso: string, days: number): string {
   });
 }
 
+/** Day of the week, Monday = 0 through Sunday = 6. */
+export function weekdayIndex(iso: string): number {
+  const { year, month, day } = parseISO(iso);
+  return (new Date(Date.UTC(year, month - 1, day)).getUTCDay() + 6) % 7;
+}
+
+/** The first of the month the given date falls in. */
+export function startOfMonth(iso: string): string {
+  const { year, month } = parseISO(iso);
+  return formatISO({ year, month, day: 1 });
+}
+
+/** "YYYY-MM", for asking whether two dates share a month. */
+export function monthKey(iso: string): string {
+  return iso.slice(0, 7);
+}
+
+/**
+ * The grid a calendar draws for the month containing `iso`: 42 dates from
+ * the Monday on or before the 1st. Always six weeks, so paging through
+ * months never changes the height of the popover under the pointer.
+ */
+export function monthGrid(iso: string): string[] {
+  const first = startOfMonth(iso);
+  const start = addDays(first, -weekdayIndex(first));
+  return Array.from({ length: 42 }, (_, i) => addDays(start, i));
+}
+
 /**
  * Shift by whole months, clamping to the end of a shorter month: one
  * month before 31 March is 28 February, not 3 March.
