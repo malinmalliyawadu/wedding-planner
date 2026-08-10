@@ -29,6 +29,13 @@
       "when": 1786331473897,
       "tag": "0003_material_kid_colt",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786332312118,
+      "tag": "0004_complete_gorilla_man",
+      "breakpoints": true
     }
   ]
 }

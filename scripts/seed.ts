@@ -11,6 +11,9 @@ import {
   households,
   itemOptions,
   payments,
+  runSheetItemRecipients,
+  runSheetItems,
+  runSheetRecipients,
   scenarioChoices,
   scenarios,
   seatingConstraints,
@@ -194,6 +197,7 @@ const TABLE_NAMES: Array<[string, number]> = [
 async function main() {
   await db.execute(sql`
     truncate table
+      run_sheet_item_recipients, run_sheet_items, run_sheet_recipients,
       seating_constraints, scenario_choices, scenarios, payments,
       contributions, item_options, budget_items, guests, households,
       tables, tasks, settings
@@ -480,11 +484,80 @@ async function main() {
     { title: "Confirm run sheet with MC", dueDate: "2027-03-15", owner: "b", done: false, category: "Logistics" },
   ]);
 
+  // The day itself: one canonical run sheet, and who needs which parts.
+  const recipients = await db
+    .insert(runSheetRecipients)
+    .values([
+      { name: "Ana Whitfield", role: "Photographer", sortOrder: 0, notes: "Arrive at the house, not the venue. Park on the street." },
+      { name: "Rev. Tomasi Leota", role: "Celebrant", sortOrder: 1, notes: "Sound check with the venue before guests arrive." },
+      { name: "Harvest Kitchen", role: "Caterer", sortOrder: 2, notes: "Two vegan, one coeliac, one severe nut allergy. Confirmed numbers on the day sheet." },
+      { name: "George Papadopoulos", role: "MC", sortOrder: 3, notes: "Keep speeches to 20 minutes total. Cut the mic gently if needed." },
+      { name: "Sophie, Lucy, Tom and Aiden", role: "Wedding party", sortOrder: 4, notes: "Eat something before you arrive. Please." },
+      { name: "Kauri Sound", role: "Band", sortOrder: 5, notes: "Load in through the side gate; the main doors are for guests." },
+    ])
+    .returning();
+
+  const byRole = new Map(recipients.map((r) => [r.role, r.id]));
+  const to = (...roles: string[]) => roles.map((r) => byRole.get(r)!);
+
+  const runSheet: Array<{
+    start: string;
+    end?: string;
+    title: string;
+    detail?: string;
+    location?: string;
+    lead?: string;
+    to: number[];
+  }> = [
+    { start: "09:00", end: "12:00", title: "Hair and makeup", location: "The house", lead: "Ru", to: to("Photographer", "Wedding party"), detail: "Ru first, bridesmaids from 10:00." },
+    { start: "10:30", title: "Photographer arrives", location: "The house", to: to("Photographer"), detail: "Getting-ready shots, rings, shoes, the dress on the door." },
+    { start: "11:00", end: "13:00", title: "Caterer load-in", location: "Venue kitchen", lead: "Harvest Kitchen", to: to("Caterer"), detail: "Side gate. Power is on the north wall." },
+    { start: "12:00", end: "13:00", title: "Band load-in and sound check", location: "Marquee", lead: "Kauri Sound", to: to("Band", "Celebrant"), detail: "Celebrant to test the ceremony mic in the same window." },
+    { start: "13:00", title: "Wedding party leaves for the venue", location: "The house", to: to("Wedding party", "Photographer"), detail: "Two cars. Do not forget the licence." },
+    { start: "13:30", end: "14:00", title: "Guests arrive", location: "Front lawn", lead: "George Papadopoulos", to: to("MC", "Celebrant", "Photographer"), detail: "Welcome drinks on the lawn. MC to gather everyone at 13:55." },
+    { start: "14:00", end: "14:30", title: "Ceremony", location: "Under the pōhutukawa", lead: "Rev. Tomasi Leota", to: to("Celebrant", "Photographer", "MC", "Wedding party", "Band"), detail: "Processional, vows, rings, signing, recessional. Signing needs two witnesses: Sophie and Tom." },
+    { start: "14:30", end: "15:30", title: "Canapés and drinks", location: "Front lawn", lead: "Harvest Kitchen", to: to("Caterer", "Band", "Photographer", "MC"), detail: "Band plays acoustic. Two vegan and one gluten-free platter kept separate." },
+    { start: "14:45", end: "15:30", title: "Family and couple photos", location: "The paddock", lead: "Ana Whitfield", to: to("Photographer", "Wedding party"), detail: "Family list is on the back of this sheet. Grandparents first so they can sit down." },
+    { start: "15:45", title: "Guests seated for dinner", location: "Marquee", lead: "George Papadopoulos", to: to("MC", "Caterer"), detail: "MC to call everyone in. Seating plan at the entrance." },
+    { start: "16:00", end: "17:30", title: "Dinner served", location: "Marquee", lead: "Harvest Kitchen", to: to("Caterer", "MC", "Photographer"), detail: "Family-style shared. Dietary plates go out first and are labelled." },
+    { start: "17:30", end: "18:00", title: "Speeches", location: "Marquee", lead: "George Papadopoulos", to: to("MC", "Photographer", "Band"), detail: "Father of the bride, best man, then the couple. Twenty minutes total." },
+    { start: "18:00", title: "Cake cut", location: "Marquee", to: to("Photographer", "Caterer", "MC"), detail: "Caterer to take the cake away and plate it for supper." },
+    { start: "18:15", title: "First dance", location: "Marquee", lead: "Kauri Sound", to: to("Band", "Photographer", "MC") },
+    { start: "18:30", end: "23:00", title: "Dancing", location: "Marquee", lead: "Kauri Sound", to: to("Band", "MC"), detail: "Two sets with a half-hour break at 20:00." },
+    { start: "20:00", title: "Supper out", location: "Marquee", lead: "Harvest Kitchen", to: to("Caterer") },
+    { start: "22:00", title: "Photographer finishes", to: to("Photographer"), detail: "Last shots on the dance floor, then away." },
+    { start: "23:00", title: "Last song", location: "Marquee", lead: "Kauri Sound", to: to("Band", "MC") },
+    { start: "23:30", title: "Carriages", location: "Front gate", to: to("MC", "Wedding party"), detail: "Two vans booked. MC to make the announcement at 23:15." },
+  ];
+
+  for (const entry of runSheet) {
+    const [inserted] = await db
+      .insert(runSheetItems)
+      .values({
+        startTime: entry.start,
+        endTime: entry.end ?? null,
+        title: entry.title,
+        detail: entry.detail ?? null,
+        location: entry.location ?? null,
+        lead: entry.lead ?? null,
+      })
+      .returning();
+    if (entry.to.length > 0) {
+      await db.insert(runSheetItemRecipients).values(
+        entry.to.map((recipientId) => ({
+          itemId: inserted.id,
+          recipientId,
+        })),
+      );
+    }
+  }
+
   const counts = {
     households: HOUSEHOLDS.length,
     guests: allGuests.length,
     tables: insertedTables.length,
     budgetItems: items.length,
+    runSheetItems: runSheet.length,
   };
   console.log("Seeded:", counts);
   process.exit(0);

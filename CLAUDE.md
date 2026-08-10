@@ -205,6 +205,40 @@ the date string, never a `Date` in some local zone, so a date cannot
 drift a day because of where the server is. `addMonths` clamps to the
 end of a shorter month.
 
+## Run sheet (M6)
+
+**One canonical timeline.** `run_sheet_items` is the day; a recipient's
+sheet is that timeline filtered through `run_sheet_item_recipients`.
+There is deliberately no per-recipient copy of the schedule that could
+drift out of step - edit a moment once and every sheet follows. An item
+with no recipients stays on the master sheet only.
+
+`src/lib/run-sheet.ts` is the pure half (times, ordering, filtering,
+problem detection). `findProblems` reports a **double booking - the same
+recipient due in two places at once** - not a bare overlap. Overlapping
+stretches are normal (hair and makeup at the house while the caterer
+loads in at the venue); flagging those trains you to ignore the panel.
+
+### PDFs
+
+`src/lib/run-sheet-pdf.ts` renders with pdfkit. Two things matter:
+
+1. **Fonts are vendored TTFs** in `src/assets/fonts` and embedded. The
+   PDF standard-14 fonts are WinAnsi-encoded and cannot represent a
+   macron, which would mangle "Kōwhai" and "pōhutukawa". Do not switch to
+   the built-ins to save 168KB.
+2. **pdfkit is in `serverExternalPackages`** (next.config.ts). It reads
+   its own font metrics off disk when a document is constructed;
+   bundling rewrites those paths and construction fails with ENOENT.
+
+The Dockerfile copies `src/assets/fonts` explicitly - the fonts are read
+from `process.cwd()` at request time and standalone output tracing does
+not know about them. If you change where fonts live, change both.
+
+Sheets are generated per request at `/run-sheet/[recipient]/sheet.pdf`,
+with `everyone` for the master copy, so a download always matches what
+is on screen.
+
 ## Design language ("engraved stationery meets ledger")
 
 - Single deliberate light theme; no dark mode.
@@ -226,10 +260,10 @@ end of a shorter month.
 
 ## Milestones
 
-M1 foundation (done) → M2 budget & scenarios (done) → M3 savings
-projection (done) → M4 seating solver (done) → M5 timeline (done) →
-M6 run sheet export. Stop at the end of each milestone and wait for
-go-ahead.
+All six milestones are done: M1 foundation, M2 budget & scenarios,
+M3 savings projection, M4 seating solver, M5 timeline, M6 run sheet.
+The brief is complete; anything further is a new request, so ask before
+starting one.
 
 The couple are Ru (side A, sage) and Malin (side B, rose); names live in
 the `settings` row and drive every side label in the UI. Edit them, the

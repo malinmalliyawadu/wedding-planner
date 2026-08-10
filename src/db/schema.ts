@@ -9,6 +9,7 @@ import {
   serial,
   smallint,
   text,
+  time,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -225,9 +226,72 @@ export const tasks = pgTable("tasks", {
   needsConfirmation: boolean("needs_confirmation").notNull().default(false),
 });
 
+/**
+ * The day itself. One canonical run sheet; each recipient gets the
+ * moments that concern them, never a separate rewritten timeline.
+ */
+export const runSheetItems = pgTable("run_sheet_items", {
+  id: serial("id").primaryKey(),
+  startTime: time("start_time").notNull(),
+  /** Null for a moment rather than a stretch. */
+  endTime: time("end_time"),
+  title: text("title").notNull(),
+  detail: text("detail"),
+  location: text("location"),
+  /** Who is running this moment, in plain words. */
+  lead: text("lead"),
+});
+
+export const runSheetRecipients = pgTable("run_sheet_recipients", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  /** e.g. "Photographer", "Celebrant" - what they are to the day. */
+  role: text("role").notNull(),
+  notes: text("notes"),
+  sortOrder: integer("sort_order").notNull().default(0),
+});
+
+export const runSheetItemRecipients = pgTable(
+  "run_sheet_item_recipients",
+  {
+    itemId: integer("item_id")
+      .notNull()
+      .references(() => runSheetItems.id, { onDelete: "cascade" }),
+    recipientId: integer("recipient_id")
+      .notNull()
+      .references(() => runSheetRecipients.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.itemId, t.recipientId] })],
+);
+
 export const householdsRelations = relations(households, ({ many }) => ({
   guests: many(guests),
 }));
+
+export const runSheetItemsRelations = relations(runSheetItems, ({ many }) => ({
+  recipients: many(runSheetItemRecipients),
+}));
+
+export const runSheetRecipientsRelations = relations(
+  runSheetRecipients,
+  ({ many }) => ({
+    items: many(runSheetItemRecipients),
+  }),
+);
+
+export const runSheetItemRecipientsRelations = relations(
+  runSheetItemRecipients,
+  ({ one }) => ({
+    item: one(runSheetItems, {
+      fields: [runSheetItemRecipients.itemId],
+      references: [runSheetItems.id],
+    }),
+    recipient: one(runSheetRecipients, {
+      fields: [runSheetItemRecipients.recipientId],
+      references: [runSheetRecipients.id],
+    }),
+  }),
+);
 
 export const guestsRelations = relations(guests, ({ one }) => ({
   household: one(households, {

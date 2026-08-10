@@ -26,6 +26,9 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/migrate.js ./migrate.js
 COPY --from=builder /app/drizzle ./drizzle
+# The run sheet PDFs embed these; they are read from process.cwd() at
+# request time and standalone output tracing does not know about them.
+COPY --from=builder /app/src/assets/fonts ./src/assets/fonts
 
 EXPOSE 3000
 
