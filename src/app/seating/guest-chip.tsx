@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Pin } from "lucide-react";
 import { Dialog } from "@/components/dialog";
-import { Button, Field, inputClass, SideChip } from "@/components/ui";
+import { Select } from "@/components/select";
+import { Button, Field, SideChip } from "@/components/ui";
 
 export type BoardGuest = {
   id: number;
@@ -104,23 +105,16 @@ export function GuestChip({
           )}
 
           <Field label="Table">
-            <select
-              value={tableId ?? ""}
-              onChange={(e) =>
-                onMove(
-                  e.target.value === "" ? null : Number(e.target.value),
-                  e.target.value !== "",
-                )
+            <Select
+              value={tableId === null ? "" : String(tableId)}
+              onChange={(value) =>
+                onMove(value === "" ? null : Number(value), value !== "")
               }
-              className={inputClass}
-            >
-              <option value="">Not seated</option>
-              {tables.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: "", label: "Not seated" },
+                ...tables.map((t) => ({ value: String(t.id), label: t.name })),
+              ]}
+            />
           </Field>
 
           <label className="flex items-center gap-2 text-sm">

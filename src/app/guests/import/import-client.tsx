@@ -150,7 +150,7 @@ export function ImportClient() {
           </div>
 
           <div className="overflow-x-auto rounded-lg border border-hairline bg-card shadow-card">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-3xl text-sm">
               <thead>
                 <tr className="border-b border-hairline text-left">
                   {["Line", "Household", "Name", "Side", "Age", "Dietary", "Status"].map(

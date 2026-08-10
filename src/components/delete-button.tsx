@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Trash2 } from "lucide-react";
+import { IconButton } from "./ui";
 
 /**
  * Two-step inline delete: first click reveals a confirm, second click
@@ -42,13 +43,8 @@ export function DeleteButton({
   }
 
   return (
-    <button
-      onClick={() => setConfirming(true)}
-      aria-label={label}
-      title={label}
-      className="rounded-md p-1.5 text-ink-faint transition-colors duration-150 hover:bg-madder-tint hover:text-madder"
-    >
+    <IconButton label={label} tone="danger" onClick={() => setConfirming(true)}>
       <Trash2 size={15} aria-hidden />
-    </button>
+    </IconButton>
   );
 }

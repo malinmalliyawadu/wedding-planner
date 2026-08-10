@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { Pencil } from "lucide-react";
 import { ActionForm } from "@/components/action-form";
 import { Dialog } from "@/components/dialog";
-import { Field, inputClass } from "@/components/ui";
+import { Field, IconButton, inputClass } from "@/components/ui";
 import type { Recipient, RunSheetItem } from "@/lib/run-sheet";
 import {
   createRecipient,
@@ -15,14 +15,9 @@ import {
 
 function EditTrigger({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      aria-label={label}
-      title="Edit"
-      className="rounded-md p-1.5 text-ink-faint transition-colors duration-150 hover:bg-brass-tint/60 hover:text-ink"
-    >
+    <IconButton label={label} onClick={onClick}>
       <Pencil size={15} aria-hidden />
-    </button>
+    </IconButton>
   );
 }
 
@@ -75,7 +70,7 @@ export function RunSheetItemDialog({
               autoFocus
             />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Starts">
               <input
                 type="time"
@@ -94,7 +89,7 @@ export function RunSheetItemDialog({
               />
             </Field>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Where">
               <input
                 name="location"
@@ -196,7 +191,7 @@ export function RecipientDialog({
             name="sortOrder"
             value={recipient?.sortOrder ?? nextSortOrder}
           />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Role" hint="Heads their sheet">
               <input
                 name="role"

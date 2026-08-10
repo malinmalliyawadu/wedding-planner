@@ -221,7 +221,7 @@ export function SeatingBoard({
       {/* Everything the arrangement gets wrong, said out loud. */}
       <ReportPanel report={report} totalSeats={totalSeats} seated={seatedCount} />
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {tables.map((table) => {
           const seated = guests.filter((g) => seats.get(g.id) === table.id);
           const over = seated.length > table.capacity;

@@ -90,7 +90,7 @@ export default async function TablesPage() {
                   </p>
                 )}
 
-                <div className="mt-3 flex justify-end gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                <div className="mt-3 flex justify-end gap-0.5 row-actions">
                   <TableDialog
                     table={{ id: t.id, name: t.name, capacity: t.capacity }}
                   />

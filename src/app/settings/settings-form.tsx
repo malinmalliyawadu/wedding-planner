@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { Check } from "lucide-react";
+import { DatePicker } from "@/components/date-picker";
 import { Button, Field, inputClass } from "@/components/ui";
 import { idleResult } from "@/lib/action-result";
 import { centsToInput } from "@/lib/money";
@@ -18,7 +19,7 @@ export function SettingsForm({ settings }: { settings: Settings }) {
     <form action={formAction} className="space-y-5">
       <fieldset className="space-y-4">
         <legend className="eyebrow mb-3 text-brass">The two of you</legend>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Name" hint="Side A, shown in sage">
             <input
               name="partnerAName"
@@ -44,18 +45,17 @@ export function SettingsForm({ settings }: { settings: Settings }) {
           label="Wedding date"
           hint="Everything counts backwards from here"
         >
-          <input
-            type="date"
+          <DatePicker
             name="weddingDate"
             defaultValue={settings.weddingDate ?? ""}
-            className={inputClass}
+            placeholder="Not set yet"
           />
         </Field>
       </fieldset>
 
       <fieldset className="space-y-4 border-t border-hairline pt-5">
         <legend className="eyebrow mb-3 text-brass">Saving</legend>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Monthly contribution" hint="What you put aside">
             <input
               name="monthlyContribution"

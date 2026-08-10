@@ -275,6 +275,47 @@ is on screen.
   `.slider` utility. The input is deliberately much taller than its
   hairline track so it stays easy to grab; `--fill` paints the travelled
   part. Never hand-roll a range input.
+- **No native `<select>` or `<input type="date">` anywhere.** Use
+  `<Select>` (`src/components/select.tsx`) and `<DatePicker>`
+  (`src/components/date-picker.tsx`). Both post through a hidden input, so
+  they drop into an `ActionForm` where the native control used to sit, and
+  both take `value`/`onChange` for the client-state pages instead.
+  - Both sit on `<Popover>` (`src/components/popover.tsx`), which uses the
+    native popover API. That is what lets a menu open inside a `<dialog>`:
+    the UA stylesheet gives dialogs `overflow: auto`, which would clip an
+    absolutely positioned panel. Placement is ours; dismissal is the
+    platform's.
+  - `Select` is the APG select-only combobox: focus stays on the trigger,
+    `aria-activedescendant` tracks the row, and arrows, Home/End and
+    type-ahead all work. `DatePicker` is a `role="grid"` calendar with a
+    roving tabindex; arrows move a day, PageUp/Down a month, with Shift a
+    year. Its arithmetic is `iso-date.ts` string maths, never a local
+    `Date`.
+  - A required date is expressed as `clearable={false}` rather than a
+    `required` flag: there is then no empty state to submit.
+- `Field` (`src/components/field.tsx`) hands its caption's id down through
+  context. A control built out of a button has to point `aria-labelledby`
+  at it, or name computation folds in the button's own text and announces
+  "Side Ru's" instead of "Side".
+
+## Working on a phone
+
+The two of you plan on phones as much as on a laptop, so every page has to
+hold up at 390px.
+
+- The spine is a column at `lg` and up and a drawer below it, one DOM
+  instance either way (`src/components/app-shell.tsx`).
+- Row actions use the `.row-actions` utility, not `group-hover:opacity-100`:
+  a phone has no hover, and hidden edit and delete buttons are unreachable.
+- Controls carry `pointer-coarse:min-h-11` and `pointer-coarse:text-base`
+  (below 16px, iOS zooms the page on focus). `IconButton` grows its padding
+  the same way. Prefer the `pointer-coarse:` variant over a width
+  breakpoint - it asks the real question, which is whether this is a finger.
+- Any `grid` with a responsive column count needs an explicit `grid-cols-1`
+  as well. Without it the implicit track is `auto`, which sizes to content
+  and pushes a card wider than the phone.
+- A wide table lives in `overflow-x-auto` **and** carries a `min-w-*`, so it
+  scrolls rather than squashing its columns to nothing.
 - `PriorityBars` renders the two of you as stacked sage/rose five-step
   bars - the visual shorthand for agreement and disagreement.
 

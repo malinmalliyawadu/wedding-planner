@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import { X } from "lucide-react";
+import { IconButton } from "./ui";
 
 /**
  * Modal built on the native <dialog> element: focus trapping, Escape to
@@ -39,19 +40,15 @@ export function Dialog({
         // Click on the backdrop (the dialog element itself) closes.
         if (e.target === ref.current) onClose();
       }}
-      className="m-auto w-full max-w-md animate-rise rounded-lg bg-card p-0 text-ink shadow-overlay backdrop:bg-spine/55 backdrop:backdrop-blur-[2px]"
+      className="m-auto w-[calc(100%-1.5rem)] max-w-md animate-rise rounded-lg bg-card p-0 text-ink shadow-overlay backdrop:bg-spine/55 backdrop:backdrop-blur-[2px]"
     >
-      <div className="flex items-center justify-between border-b border-hairline px-6 py-4">
+      <div className="flex items-center justify-between border-b border-hairline px-5 py-4 sm:px-6">
         <h2 className="font-display text-lg">{title}</h2>
-        <button
-          onClick={onClose}
-          aria-label="Close"
-          className="rounded-md p-1 text-ink-faint transition-colors hover:bg-brass-tint/60 hover:text-ink"
-        >
+        <IconButton label="Close" onClick={onClose}>
           <X size={16} aria-hidden />
-        </button>
+        </IconButton>
       </div>
-      <div className="px-6 py-5">{children}</div>
+      <div className="px-5 py-5 sm:px-6">{children}</div>
     </dialog>
   );
 }

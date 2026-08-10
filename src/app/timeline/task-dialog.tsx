@@ -3,8 +3,10 @@
 import { useState, type ReactNode } from "react";
 import { Pencil } from "lucide-react";
 import { ActionForm } from "@/components/action-form";
+import { DatePicker } from "@/components/date-picker";
 import { Dialog } from "@/components/dialog";
-import { Field, inputClass } from "@/components/ui";
+import { Select } from "@/components/select";
+import { Field, IconButton, inputClass } from "@/components/ui";
 import { createTask, updateTask } from "./actions";
 
 export type TaskValues = {
@@ -36,14 +38,12 @@ export function TaskDialog({
       {trigger ? (
         <span onClick={() => setOpen(true)}>{trigger}</span>
       ) : (
-        <button
+        <IconButton
+          label={`Edit ${task?.title ?? "task"}`}
           onClick={() => setOpen(true)}
-          aria-label={`Edit ${task?.title ?? "task"}`}
-          title="Edit"
-          className="rounded-md p-1.5 text-ink-faint transition-colors duration-150 hover:bg-brass-tint/60 hover:text-ink"
         >
           <Pencil size={15} aria-hidden />
-        </button>
+        </IconButton>
       )}
 
       <Dialog
@@ -67,25 +67,24 @@ export function TaskDialog({
               autoFocus
             />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Due">
-              <input
-                type="date"
+              <DatePicker
                 name="dueDate"
                 defaultValue={task?.dueDate ?? ""}
-                className={inputClass}
+                placeholder="No date"
               />
             </Field>
             <Field label="Whose job">
-              <select
+              <Select
                 name="owner"
                 defaultValue={task?.owner ?? "both"}
-                className={inputClass}
-              >
-                <option value="a">{nameA}</option>
-                <option value="b">{nameB}</option>
-                <option value="both">Both</option>
-              </select>
+                options={[
+                  { value: "a", label: nameA },
+                  { value: "b", label: nameB },
+                  { value: "both", label: "Both" },
+                ]}
+              />
             </Field>
           </div>
           <Field label="Category">

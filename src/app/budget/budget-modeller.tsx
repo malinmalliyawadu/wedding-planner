@@ -6,6 +6,7 @@ import { Ban, Plus, RotateCcw, Save, Undo2 } from "lucide-react";
 import { Dialog } from "@/components/dialog";
 import { DeleteButton } from "@/components/delete-button";
 import { PriorityBars } from "@/components/priority-bars";
+import { Select } from "@/components/select";
 import { Slider } from "@/components/slider";
 import { Button, Field, inputClass } from "@/components/ui";
 import {
@@ -132,23 +133,20 @@ export function BudgetModeller({
     <>
       {/* Which scenario is on the workbench. */}
       <div className="mb-6 flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-xs text-ink-soft">
-          <span className="eyebrow text-ink-faint">Modelling</span>
-          <select
-            value={loadedId ?? ""}
-            onChange={(e) =>
-              loadScenario(e.target.value === "" ? null : Number(e.target.value))
-            }
-            className={`${inputClass} w-auto py-1.5 text-xs`}
-          >
-            <option value="">Your guest list, base costs</option>
-            {scenarios.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="flex min-w-0 items-center gap-2 text-xs text-ink-soft">
+          <span className="eyebrow shrink-0 text-ink-faint">Modelling</span>
+          <Select
+            label="Which scenario is being modelled"
+            size="sm"
+            width="auto"
+            value={loadedId === null ? "" : String(loadedId)}
+            onChange={(value) => loadScenario(value === "" ? null : Number(value))}
+            options={[
+              { value: "", label: "Your guest list, base costs" },
+              ...scenarios.map((s) => ({ value: String(s.id), label: s.name })),
+            ]}
+          />
+        </div>
 
         {dirty && (
           <span className="inline-flex items-center gap-2 text-xs text-brass">
@@ -250,7 +248,7 @@ export function BudgetModeller({
         </div>
 
         {/* The single slider that recalculates everything. */}
-        <div className="mt-6 grid gap-4 border-t border-hairline pt-5 sm:grid-cols-2">
+        <div className="mt-6 grid grid-cols-1 gap-4 border-t border-hairline pt-5 sm:grid-cols-2">
           <CountSlider
             label="Adults"
             value={counts.adults}
@@ -278,7 +276,7 @@ export function BudgetModeller({
 
       {/* The ledger itself. */}
       <div className="mt-8 overflow-x-auto rounded-lg border border-hairline bg-card shadow-card">
-        <table className="w-full text-sm">
+        <table className="w-full min-w-3xl text-sm">
           <thead>
             <tr className="border-b border-hairline text-left">
               <th className="eyebrow px-4 py-3 font-semibold text-ink-faint">
@@ -381,7 +379,7 @@ export function BudgetModeller({
                       {formatCentsWhole(line.totalCents)}
                     </td>
                     <td className="px-2 py-2.5">
-                      <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                      <div className="flex items-center justify-end gap-0.5 row-actions">
                         <button
                           onClick={() =>
                             setChoice(line.item.id, { excluded: !line.excluded })

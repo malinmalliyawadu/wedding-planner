@@ -26,7 +26,7 @@ export async function Sidebar() {
     settings.weddingDate !== null ? daysUntilNZ(settings.weddingDate) : null;
 
   return (
-    <aside className="sticky top-0 flex h-dvh w-64 shrink-0 flex-col bg-spine text-spine-ink">
+    <>
       <div className="px-6 pt-8 pb-6">
         <Duogram a={settings.partnerAName} b={settings.partnerBName} />
         <p className="mt-4 font-display text-xl leading-snug">
@@ -73,6 +73,26 @@ export async function Sidebar() {
           </Link>
         </div>
       </div>
-    </aside>
+    </>
+  );
+}
+
+/** The couple's mark and names, for the phone header. */
+export async function SpineBrand() {
+  await connection();
+  const settings = await getSettings();
+  return (
+    <p className="flex min-w-0 items-center gap-2">
+      <Duogram
+        a={settings.partnerAName}
+        b={settings.partnerBName}
+        size="sm"
+      />
+      <span className="truncate font-display text-base">
+        {settings.partnerAName}{" "}
+        <span className="text-brass-bright">&amp;</span>{" "}
+        {settings.partnerBName}
+      </span>
+    </p>
   );
 }

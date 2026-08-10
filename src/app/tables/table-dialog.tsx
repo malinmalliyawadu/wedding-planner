@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Pencil, Plus } from "lucide-react";
 import { ActionForm } from "@/components/action-form";
 import { Dialog } from "@/components/dialog";
-import { Button, Field, inputClass } from "@/components/ui";
+import { Button, Field, IconButton, inputClass } from "@/components/ui";
 import { createTable, updateTable } from "./actions";
 
 export function TableDialog({
@@ -18,14 +18,9 @@ export function TableDialog({
   return (
     <>
       {editing ? (
-        <button
-          onClick={() => setOpen(true)}
-          aria-label={`Edit ${table.name}`}
-          title="Edit"
-          className="rounded-md p-1.5 text-ink-faint transition-colors duration-150 hover:bg-brass-tint/60 hover:text-ink"
-        >
+        <IconButton label={`Edit ${table.name}`} onClick={() => setOpen(true)}>
           <Pencil size={15} aria-hidden />
-        </button>
+        </IconButton>
       ) : (
         <Button onClick={() => setOpen(true)}>
           <Plus size={15} aria-hidden />

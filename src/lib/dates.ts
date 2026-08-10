@@ -19,6 +19,15 @@ export function formatDateLong(iso: string): string {
   }).format(isoToDate(iso));
 }
 
+/** Format an ISO date's month as "March 2027". */
+export function formatMonthYear(iso: string): string {
+  return new Intl.DateTimeFormat("en-NZ", {
+    timeZone: "UTC",
+    month: "long",
+    year: "numeric",
+  }).format(isoToDate(iso));
+}
+
 /** Format an ISO date as "Sat 20 Mar 2027". */
 export function formatDateShort(iso: string): string {
   return new Intl.DateTimeFormat("en-NZ", {
