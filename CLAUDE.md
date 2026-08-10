@@ -18,6 +18,26 @@ projection (M3). Everything else is supporting structure.
 - Vitest for unit tests (`src/**/*.test.ts`)
 - pnpm; deployed as a Docker container on Coolify
 
+## Deployment
+
+See `DEPLOYMENT.md`. Coolify builds the Dockerfile straight from GitHub -
+no CI pipeline, no registry, because nothing here needs build-time
+secrets. The only runtime variable is `DATABASE_URL`.
+
+**The app has no authentication at all.** Traefik basicauth in front of
+it is the only thing between the internet and the guest list, addresses
+and budget. Any change touching routing, domains or middleware needs that
+verified afterwards (`curl` the domain and expect a `401`).
+
+`/api/health` does a real `select 1`, so it reports whether the app can
+actually work rather than merely that the process is alive. Coolify
+probes it from inside Docker, bypassing basicauth.
+
+Note `src/db/index.ts` deliberately does **not** guard on
+`DATABASE_URL`: that module is evaluated during `next build`, which has
+no database. The guard lives in `migrate.ts`, which the container runs
+before the server.
+
 ## Commands
 
 - `docker compose up -d` - local dev Postgres (port 5433)
