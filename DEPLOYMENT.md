@@ -70,40 +70,86 @@ A record at the VPS first, or the certificate challenge will fail.
 
 ## 5. Basicauth — do not skip this
 
-Traefik needs a `basicauth` middleware on this router. Generate the hash
-locally (this prints a `user:hash` line; the password never leaves your
-machine):
+### 5a. Generate the hashes
+
+This prints a `user:hash` line. The password never leaves your machine.
 
 ```bash
 htpasswd -nbB ru 'choose-a-strong-password'
 ```
 
-If you would rather not install `htpasswd`:
+No `htpasswd` installed? Use the Docker image instead:
 
 ```bash
 docker run --rm httpd:alpine htpasswd -nbB ru 'choose-a-strong-password'
 ```
 
-Add the resulting line to a Traefik basicauth middleware and attach it to
-this application's router. In Coolify this goes under the application's
-**Labels**, and `$` characters in the hash must be doubled to `$$`:
+Run it again for Malin. You will combine both into one label,
+comma-separated.
+
+### 5b. Find the router name — Coolify generates it, you do not
+
+This is the step that catches people out. Coolify names the router
+itself, something like `https-0-wc04wo4ow4scokgsw8wow4s8`. A label
+pointing at a router name you invented attaches to nothing, the site
+stays wide open, and **nothing warns you**.
+
+Open the application → **Configuration → Labels**. You will already see
+generated labels including a line like:
 
 ```
-traefik.http.middlewares.wedding-auth.basicauth.users=ru:$$2y$$05$$...
-traefik.http.routers.wedding.middlewares=wedding-auth
+traefik.http.routers.https-0-wc04wo4ow4scokgsw8wow4s8.middlewares=gzip
 ```
 
-Add a second `users=` entry, comma-separated, for Malin.
+Copy that router id.
 
-**Verify it before you trust it.** From a machine that has never loaded
-the site:
+### 5c. Add the middleware and attach it
+
+Two labels. Note the second one **appends** to whatever middlewares are
+already listed — do not drop `gzip` if it is there:
+
+```
+traefik.http.middlewares.wedding-auth.basicauth.users=ru:$2y$05$...,malin:$2y$05$...
+traefik.http.routers.https-0-wc04wo4ow4scokgsw8wow4s8.middlewares=gzip,wedding-auth
+```
+
+Redeploy for the labels to take effect.
+
+If the hash appears mangled or the container fails to start, the `$`
+characters are being interpolated — double each one (`$$2y$$05$$...`)
+and redeploy again. Which form you need depends on how Coolify renders
+labels for your setup, so treat step 5d as the arbiter rather than
+guessing.
+
+### 5d. Verify — this is the step that actually protects you
+
+From a machine or browser that has never loaded the site (a phone on
+mobile data is ideal, since your laptop may hold a cached session):
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://wedding.yourdomain.nz
 ```
 
-`401` is correct. `200` means the app is wide open — take the domain down
-and fix the middleware before doing anything else.
+- `401` — correct, the middleware is live.
+- `200` — **the app is wide open.** Every guest address, the budget and
+  the savings are public. Remove the domain in Coolify, fix the labels,
+  and only put it back once this returns `401`.
+
+Check a deep route too, not just the homepage — a middleware attached to
+the wrong router can protect one path and miss the rest:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' https://wedding.yourdomain.nz/guests
+curl -s -o /dev/null -w '%{http_code}\n' https://wedding.yourdomain.nz/timeline/tasks.ics
+```
+
+Both must be `401`. Then confirm the credentials actually work:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -u ru https://wedding.yourdomain.nz
+```
+
+That should prompt for the password and return `200`.
 
 ## 6. First run
 
@@ -158,5 +204,6 @@ before it ships rather than after.
 | Container restarts in a loop | `DATABASE_URL` wrong or unreachable; the log names it explicitly |
 | `502` from Traefik | App still starting, or the port is not 3000 |
 | Health check failing | `/api/health` returns 503 with the Postgres error in the body |
-| Site loads without a password | Basicauth middleware is not attached — treat as urgent |
+| Site loads without a password | Middleware not attached to the real router — almost always a wrong router name in step 5b. Treat as urgent |
+| Container fails to start after adding labels | `$` in the hash is being interpolated; double them to `$$` |
 | PDFs 500 | Fonts missing from the image; check the `src/assets/fonts` COPY in the Dockerfile |
