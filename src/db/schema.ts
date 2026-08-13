@@ -35,6 +35,13 @@ export const taskOwnerEnum = pgEnum("task_owner", ["a", "b", "both"]);
 
 export const constraintKindEnum = pgEnum("constraint_kind", ["together", "apart"]);
 
+export const venueStatusEnum = pgEnum("venue_status", [
+  "considering",
+  "shortlisted",
+  "booked",
+  "ruled_out",
+]);
+
 /**
  * Single-row table (id is always 1, enforced by check) holding the few
  * global facts the app needs: who the couple are and when the wedding is.
@@ -183,6 +190,72 @@ export const scenarioChoices = pgTable(
     excluded: boolean("excluded").notNull().default(false),
   },
   (t) => [primaryKey({ columns: [t.scenarioId, t.budgetItemId] })],
+);
+
+/**
+ * A venue under consideration, before one of them becomes *the* venue.
+ *
+ * Costs use the same fixed + per-head split as budget items, so what a
+ * venue actually costs at your real guest count falls out of the same
+ * arithmetic as the rest of the budget rather than a second, subtly
+ * different one. `minimumSpendCents` is the mechanic budget items do not
+ * have: a floor on the catering spend that a small wedding pays whether
+ * it eats it or not.
+ *
+ * Everything here is a fact that can be checked - seats, money, whether
+ * the date is free. How a place *feels* is deliberately not a column:
+ * it belongs in `notes`, not in a number that would let a spreadsheet
+ * appear to settle the one decision that is least about arithmetic.
+ *
+ * Venues are their own record and write nothing into budget items or
+ * scenarios. The comparison is useful long before the budget is settled,
+ * and a venue you later delete must not tear a hole in a saved scenario.
+ */
+export const venues = pgTable(
+  "venues",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    status: venueStatusEnum("status").notNull().default("considering"),
+    /** The town, as you would say it out loud. */
+    locality: text("locality"),
+    address: text("address"),
+    url: text("url"),
+    /** Null means not found out yet, which is different from zero. */
+    seatedCapacity: integer("seated_capacity"),
+    standingCapacity: integer("standing_capacity"),
+    /** The hire fee, which a minimum spend does not count towards. */
+    hireFixedCostCents: integer("hire_fixed_cost_cents").notNull().default(0),
+    perHeadCostCents: integer("per_head_cost_cents").notNull().default(0),
+    /** Null means children are charged at the adult rate, as in budget items. */
+    perChildCostCents: integer("per_child_cost_cents"),
+    /** Floor on the per-head spend. Null means there is no minimum. */
+    minimumSpendCents: integer("minimum_spend_cents"),
+    /** Is our date free: null until somebody has actually asked. */
+    dateAvailable: boolean("date_available"),
+    /** Door-to-door from town, in minutes. */
+    travelMinutes: integer("travel_minutes"),
+    /** When the music has to stop. A deal-breaker that hides in a PDF. */
+    curfew: time("curfew"),
+    siteVisitDate: date("site_visit_date"),
+    /** What the hire fee covers, in their words. */
+    hireIncludes: text("hire_includes"),
+    notes: text("notes"),
+  },
+  (t) => [
+    check(
+      "venues_seated_capacity_positive",
+      sql`${t.seatedCapacity} is null or ${t.seatedCapacity} > 0`,
+    ),
+    check(
+      "venues_standing_capacity_positive",
+      sql`${t.standingCapacity} is null or ${t.standingCapacity} > 0`,
+    ),
+    check(
+      "venues_travel_minutes_non_negative",
+      sql`${t.travelMinutes} is null or ${t.travelMinutes} >= 0`,
+    ),
+  ],
 );
 
 export const payments = pgTable("payments", {

@@ -22,6 +22,7 @@ import {
   settings,
   tables,
   tasks,
+  venues,
 } from "../src/db/schema";
 import { inviteUrl, newInviteToken } from "../src/lib/invite-token";
 
@@ -197,13 +198,96 @@ const TABLE_NAMES: Array<[string, number]> = [
   ["Rātā", 8],
 ];
 
+const VENUES: Array<typeof venues.$inferInsert> = [
+  {
+    name: "Kōwhai Barn",
+    status: "shortlisted",
+    locality: "Matakana",
+    address: "412 Whitmore Road, Matakana",
+    url: "https://example.com/kowhai-barn",
+    seatedCapacity: 120,
+    standingCapacity: 160,
+    hireFixedCostCents: 450_000,
+    perHeadCostCents: 14_500,
+    perChildCostCents: 7_000,
+    dateAvailable: true,
+    travelMinutes: 65,
+    curfew: "23:30",
+    siteVisitDate: "2026-07-18",
+    hireIncludes: "Tables, chairs, the wet-weather room, pack-down",
+    notes:
+      "The light in the barn at five o'clock. Ru cried in the car park. Gravel underfoot everywhere, so warn people about heels.",
+  },
+  {
+    name: "The Harbour Rooms",
+    status: "considering",
+    locality: "Devonport",
+    url: "https://example.com/harbour-rooms",
+    seatedCapacity: 140,
+    standingCapacity: 220,
+    hireFixedCostCents: 200_000,
+    perHeadCostCents: 16_500,
+    perChildCostCents: 8_000,
+    // The trap: cheap to hire, and then $22,000 of food whether or not
+    // ninety people eat it.
+    minimumSpendCents: 2_200_000,
+    dateAvailable: true,
+    travelMinutes: 20,
+    curfew: "00:00",
+    siteVisitDate: "2026-08-02",
+    hireIncludes: "Room only - everything else is on their catering list",
+    notes:
+      "Beautiful, and twenty minutes from home. Their minimum spend is the whole question.",
+  },
+  {
+    name: "Waipuna Homestead",
+    status: "considering",
+    locality: "Clevedon",
+    seatedCapacity: 80,
+    standingCapacity: 110,
+    hireFixedCostCents: 320_000,
+    perHeadCostCents: 13_000,
+    perChildCostCents: 6_500,
+    dateAvailable: true,
+    travelMinutes: 45,
+    curfew: "22:00",
+    hireIncludes: "Tables and chairs, marquee extra",
+    notes:
+      "Lovely, and too small unless the list comes down. Keep it - it comes back into range at ninety.",
+  },
+  {
+    name: "Tāwharanui Lodge",
+    status: "ruled_out",
+    locality: "Tāwharanui",
+    seatedCapacity: 100,
+    hireFixedCostCents: 900_000,
+    perHeadCostCents: 19_000,
+    perChildCostCents: 9_500,
+    dateAvailable: false,
+    travelMinutes: 80,
+    notes: "Taken. Somebody else's wedding, the same Saturday.",
+  },
+  {
+    name: "St Aidan's Hall",
+    status: "considering",
+    locality: "Ponsonby",
+    seatedCapacity: null,
+    hireFixedCostCents: 120_000,
+    perHeadCostCents: 0,
+    dateAvailable: null,
+    travelMinutes: 10,
+    hireIncludes: "Hall only - bring your own everything",
+    notes: "Nobody has rung them yet. Ask about the capacity and the kitchen.",
+  },
+];
+
 async function main() {
   await db.execute(sql`
     truncate table
       run_sheet_item_recipients, run_sheet_items, run_sheet_recipients,
       seating_constraints, scenario_choices, scenarios, payments,
       contributions, item_options, budget_items, photos, guests, households,
-      tables, tasks, settings, public_site, faq_items
+      tables, tasks, settings, public_site, faq_items, venues
     restart identity cascade
   `);
 
@@ -220,6 +304,12 @@ async function main() {
     .insert(tables)
     .values(TABLE_NAMES.map(([name, capacity]) => ({ name, capacity })))
     .returning();
+
+  // A venue shortlist with one of each thing that goes wrong: a minimum
+  // spend a wedding this size does not clear, a room that seats fewer
+  // than have been invited, a date already gone, and one nobody has
+  // rung up yet.
+  await db.insert(venues).values(VENUES);
 
   for (const hh of HOUSEHOLDS) {
     const [household] = await db
@@ -661,6 +751,7 @@ async function main() {
     households: HOUSEHOLDS.length,
     guests: allGuests.length,
     tables: insertedTables.length,
+    venues: VENUES.length,
     budgetItems: items.length,
     runSheetItems: runSheet.length,
   };

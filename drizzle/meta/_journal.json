@@ -43,6 +43,13 @@
       "when": 1786418584290,
       "tag": "0005_aspiring_karnak",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1786589689245,
+      "tag": "0006_elite_vulture",
+      "breakpoints": true
     }
   ]
 }

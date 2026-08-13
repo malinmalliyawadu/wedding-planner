@@ -47,10 +47,14 @@ export default async function OverviewPage() {
   const maxStage = Math.max(1, ...stageCounts.map((s) => s.count));
 
   const stats = [
-    { label: "Attending", value: attending.length, href: "/guests?rsvp=attending" },
-    { label: "Awaiting reply", value: pending, href: "/guests?rsvp=pending" },
-    { label: "Declined", value: declined, href: "/guests?rsvp=declined" },
-    { label: "Dietary notes", value: dietary, href: "/guests" },
+    {
+      label: "Attending",
+      value: attending.length,
+      href: "/admin/guests?rsvp=attending",
+    },
+    { label: "Awaiting reply", value: pending, href: "/admin/guests?rsvp=pending" },
+    { label: "Declined", value: declined, href: "/admin/guests?rsvp=declined" },
+    { label: "Dietary notes", value: dietary, href: "/admin/guests" },
   ];
 
   return (

@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { href: "/budget", label: "Modeller" },
-  { href: "/budget/scenarios", label: "Compare" },
-  { href: "/budget/compromise", label: "Compromise" },
+  { href: "/admin/budget", label: "Modeller" },
+  { href: "/admin/budget/scenarios", label: "Compare" },
+  { href: "/admin/budget/compromise", label: "Compromise" },
 ] as const;
 
 export function BudgetTabs() {
