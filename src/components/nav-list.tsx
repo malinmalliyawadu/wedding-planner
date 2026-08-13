@@ -6,24 +6,32 @@ import {
   Armchair,
   CalendarDays,
   ClipboardList,
+  Images,
   LayoutDashboard,
   LayoutGrid,
   Mail,
+  MailOpen,
   PiggyBank,
   Scale,
   Users,
 } from "lucide-react";
 
+/**
+ * The planner lives under /admin so that `/` can be the guests' landing
+ * page. Nothing here is reachable without the password.
+ */
 const ITEMS = [
-  { href: "/", label: "Overview", icon: LayoutDashboard },
-  { href: "/guests", label: "Guests", icon: Users, countKey: "guests" },
-  { href: "/households", label: "Households", icon: Mail, countKey: "households" },
-  { href: "/tables", label: "Tables", icon: Armchair, countKey: "tables" },
-  { href: "/seating", label: "Seating", icon: LayoutGrid },
-  { href: "/budget", label: "Budget", icon: Scale },
-  { href: "/savings", label: "Savings", icon: PiggyBank },
-  { href: "/timeline", label: "Timeline", icon: CalendarDays },
-  { href: "/run-sheet", label: "Run sheet", icon: ClipboardList },
+  { href: "/admin", label: "Overview", icon: LayoutDashboard },
+  { href: "/admin/guests", label: "Guests", icon: Users, countKey: "guests" },
+  { href: "/admin/households", label: "Households", icon: Mail, countKey: "households" },
+  { href: "/admin/invitations", label: "Invitations", icon: MailOpen },
+  { href: "/admin/photos", label: "Photographs", icon: Images },
+  { href: "/admin/tables", label: "Tables", icon: Armchair, countKey: "tables" },
+  { href: "/admin/seating", label: "Seating", icon: LayoutGrid },
+  { href: "/admin/budget", label: "Budget", icon: Scale },
+  { href: "/admin/savings", label: "Savings", icon: PiggyBank },
+  { href: "/admin/timeline", label: "Timeline", icon: CalendarDays },
+  { href: "/admin/run-sheet", label: "Run sheet", icon: ClipboardList },
 ] as const;
 
 export function NavList({
@@ -37,9 +45,12 @@ export function NavList({
     <nav className="flex-1 px-3 py-5" aria-label="Main">
       <ul className="space-y-0.5">
         {ITEMS.map((item) => {
+          // The overview is only current on its own path; every other
+          // item also lights up for its children, so /admin/guests/import
+          // still shows Guests as the section you are in.
           const active =
-            item.href === "/"
-              ? pathname === "/"
+            item.href === "/admin"
+              ? pathname === "/admin"
               : pathname.startsWith(item.href);
           const Icon = item.icon;
           return (

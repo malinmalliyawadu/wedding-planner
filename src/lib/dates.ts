@@ -19,6 +19,21 @@ export function formatDateLong(iso: string): string {
   }).format(isoToDate(iso));
 }
 
+/**
+ * Format an ISO date as "Saturday 14 March 2027". The invitation says the
+ * day of the week out loud, because that is how guests decide whether
+ * they need the Friday off.
+ */
+export function formatDateFull(iso: string): string {
+  return new Intl.DateTimeFormat("en-NZ", {
+    timeZone: "UTC",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(isoToDate(iso));
+}
+
 /** Format an ISO date's month as "March 2027". */
 export function formatMonthYear(iso: string): string {
   return new Intl.DateTimeFormat("en-NZ", {

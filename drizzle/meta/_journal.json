@@ -36,6 +36,13 @@
       "when": 1786332312118,
       "tag": "0004_complete_gorilla_man",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1786418584290,
+      "tag": "0005_aspiring_karnak",
+      "breakpoints": true
     }
   ]
 }

@@ -15,6 +15,14 @@ export type RunSheetItem = {
   detail: string | null;
   location: string | null;
   lead: string | null;
+  /**
+   * Whether this moment also appears on the guests' schedule, and what
+   * it says there. Guests are simply another audience for the one
+   * canonical timeline - the time, title and place they read are these
+   * ones, not a copy that could drift.
+   */
+  guestVisible: boolean;
+  guestNote: string | null;
   recipientIds: number[];
 };
 

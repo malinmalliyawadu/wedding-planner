@@ -26,6 +26,8 @@ function item(
     detail: null,
     location: null,
     lead: null,
+    guestVisible: false,
+    guestNote: null,
     recipientIds,
   };
 }
