@@ -175,7 +175,7 @@ without them), plus a paid/unpaid toggle.
 
 ### The projection chart
 
-Inline SVG in `src/app/savings/projection-chart.tsx` - no chart library,
+Inline SVG in `src/app/admin/savings/projection-chart.tsx` - no chart library,
 which keeps it self-contained and on-palette. It is a **step** line: the
 balance is flat between events and jumps on each one, which is what
 actually happens. Positive and negative regions are split exactly at zero
@@ -437,13 +437,55 @@ hold up at 390px.
 - `PriorityBars` renders the two of you as stacked sage/rose five-step
   bars - the visual shorthand for agreement and disagreement.
 
+## Venue options (M8)
+
+`src/lib/venues.ts` is the third pure module, and the shortest. It answers
+"what would each of these places actually cost us, and does everyone fit",
+at a guest count you move with a slider on `/admin/venues`.
+
+**It is deliberately opinion-free.** No scoring, no weights, no "which
+venue is nicer" total - only facts that can be checked. A weighted score
+would put a spurious ordering on the one decision that is least about
+arithmetic. How somewhere feels lives in `notes`, and the page says so.
+
+- Costs are the same fixed + per-head split as budget items, and
+  `resolveChildRate` / `GuestCounts` / `assertGuestCounts` are imported
+  from `budget.ts` rather than restated - a venue and a budget item can
+  never disagree about what a child costs.
+- **A minimum spend is a floor on catering, not on the bill.** Venues
+  quote a hire fee *and* a food-and-beverage minimum, and the hire fee
+  does not count towards it: `hire + max(perHeadSpend, minimum)`.
+  `breakEvenAdults` is the guest count at which the minimum stops costing
+  you, and it is the number that decides whether a cheap-to-hire venue is
+  affordable at all. In the seeded data The Harbour Rooms is the whole
+  point: the lowest hire fee on the list and the dearest venue on it.
+- **Capacity is counted in chairs** - adults + children, infants on laps,
+  exactly as in `seating.ts`. `TIGHT_SEAT_MARGIN` is 5, because guest
+  numbers move by a handful right up to the week before.
+- `blockers` is why a venue is not bookable *on today's information*, as
+  data rather than a sentence (the page words it, as `buildReport` does).
+  `capacity_unknown` is the subtle one and is a blocker on purpose: "the
+  cheapest one that works" claims everyone fits, so a dry hall with every
+  cost field left blank must not win the comparison on its blanks. An
+  unknown *date* does not block - not having rung them yet says nothing.
+- Blocked venues sink to the bottom rather than disappearing: a venue too
+  small at 120 is back in the running at 90, and hiding it would hide
+  that. `costOrder` does the sinking.
+- Venues write nothing into budget items or scenarios. The comparison is
+  useful long before the budget is settled, and a venue you later delete
+  must not tear a hole in a saved scenario.
+- Every function is generic over `V extends Venue`, so the page passes
+  whole rows and gets whole rows back without a cast.
+
 ## Milestones
 
 M1 foundation, M2 budget & scenarios, M3 savings projection, M4 seating
 solver, M5 timeline and M6 run sheet were the original brief and are all
 done. M7, the public invitation, was requested afterwards and changed the
 premise the earlier work assumed - there is now a surface a stranger can
-load. Anything further is a new request, so ask before starting one.
+load. M8, venue options, came later again and is planner-only: nothing
+about it touches `(public)`. Anything further is a new request, so ask
+before starting one.
 
 The couple are Ru (side A, sage) and Malin (side B, rose); names live in
 the `settings` row and drive every side label in the UI. Edit them, the

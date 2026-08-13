@@ -124,7 +124,7 @@ export function computeLine(
   choice: ItemChoice = NO_CHOICE,
   counts: GuestCounts,
 ): BudgetLine {
-  assertCounts(counts);
+  assertGuestCounts(counts);
   const { option, fixedCents, perAdultCents, perChildCents } = effectiveCosts(
     item,
     choice,
@@ -364,7 +364,8 @@ export function compareBudgets(budgets: Budget[]): Comparison {
   };
 }
 
-function assertCounts(counts: GuestCounts): void {
+/** Shared with venues.ts so both modules reject the same bad counts. */
+export function assertGuestCounts(counts: GuestCounts): void {
   if (!Number.isInteger(counts.adults) || !Number.isInteger(counts.children)) {
     throw new Error("Guest counts must be whole numbers");
   }
