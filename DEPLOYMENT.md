@@ -238,9 +238,9 @@ Five things here are load-bearing:
 `wedding-public-mark` stamps every request this router lets through, and
 the app refuses any stamped request that did not land on a public route.
 That is what covers the case this kind of rule is most likely to get
-wrong - a path like `/i/../guests`, which matches `PathPrefix(/i)` going
-in and resolves to `/guests` coming out. The app says no even if the
-proxy says yes.
+wrong - a path like `/i/../admin/guests`, which matches `PathPrefix(/i)`
+going in and resolves to `/admin/guests` coming out. The app says no even
+if the proxy says yes.
 
 Copy the `service=` value from Coolify's own generated labels - it is the
 same service, just a second route to it.
