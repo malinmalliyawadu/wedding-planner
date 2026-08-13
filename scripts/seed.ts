@@ -7,10 +7,12 @@ import { db } from "../src/db";
 import {
   budgetItems,
   contributions,
+  faqItems,
   guests,
   households,
   itemOptions,
   payments,
+  publicSite,
   runSheetItemRecipients,
   runSheetItems,
   runSheetRecipients,
@@ -21,6 +23,7 @@ import {
   tables,
   tasks,
 } from "../src/db/schema";
+import { inviteUrl, newInviteToken } from "../src/lib/invite-token";
 
 type SeedGuest = {
   first: string;
@@ -199,8 +202,8 @@ async function main() {
     truncate table
       run_sheet_item_recipients, run_sheet_items, run_sheet_recipients,
       seating_constraints, scenario_choices, scenarios, payments,
-      contributions, item_options, budget_items, guests, households,
-      tables, tasks, settings
+      contributions, item_options, budget_items, photos, guests, households,
+      tables, tasks, settings, public_site, faq_items
     restart identity cascade
   `);
 
@@ -226,6 +229,9 @@ async function main() {
         address: hh.address ?? null,
         inviteStage: hh.stage,
         notes: hh.notes ?? null,
+        // Everyone past "not invited" has had a link minted, which is
+        // what the invitations page would have done for real.
+        inviteToken: hh.stage === "not_invited" ? null : newInviteToken(),
       })
       .returning();
 
@@ -530,6 +536,28 @@ async function main() {
     { start: "23:30", title: "Carriages", location: "Front gate", to: to("MC", "Wedding party"), detail: "Two vans booked. MC to make the announcement at 23:15." },
   ];
 
+  /*
+   * The slice of the day guests are shown. Load-ins, supplier calls and
+   * the getting-ready hours are left off - not because they are secret,
+   * but because a guest's schedule should answer "when do I need to be
+   * where" and nothing else.
+   */
+  const GUEST_NOTES: Record<string, string | null> = {
+    "Guests arrive": "Welcome drinks on the lawn. Please be seated by 1:55.",
+    Ceremony: "Under the big pōhutukawa by the gate. Rain or shine.",
+    "Canapés and drinks": null,
+    "Guests seated for dinner": "Find your name on the plan at the marquee door.",
+    "Dinner served": "Shared plates down the middle - come hungry.",
+    Speeches: null,
+    "Cake cut": null,
+    "First dance": null,
+    Dancing: "Two sets, with a breather around eight.",
+    "Supper out": "Something to soak up the evening.",
+    "Last song": null,
+    Carriages: "Two vans back into town. Ask the MC if you need a seat.",
+  };
+  const GUEST_VISIBLE = new Set(Object.keys(GUEST_NOTES));
+
   for (const entry of runSheet) {
     const [inserted] = await db
       .insert(runSheetItems)
@@ -540,6 +568,8 @@ async function main() {
         detail: entry.detail ?? null,
         location: entry.location ?? null,
         lead: entry.lead ?? null,
+        guestVisible: GUEST_VISIBLE.has(entry.title),
+        guestNote: GUEST_NOTES[entry.title] ?? null,
       })
       .returning();
     if (entry.to.length > 0) {
@@ -550,6 +580,81 @@ async function main() {
         })),
       );
     }
+  }
+
+  await db.insert(publicSite).values({
+    id: 1,
+    // Published in the seed so development has something to look at.
+    // In production this starts false and stays false until the couple
+    // decide otherwise.
+    published: true,
+    welcomeMessage:
+      "We have been putting this off for eleven years, so thank you for coming all this way to watch us finally get on with it.",
+    venueName: "Te Awa Paddock",
+    venueAddress: "482 Hamurana Road, Rotorua",
+    venueMapUrl: "https://maps.google.com/?q=Hamurana+Road+Rotorua",
+    arrivalTime: "13:30",
+    ceremonyTime: "14:00",
+    dressCode: "Garden formal - and flat shoes, the lawn is real grass",
+    giftNote:
+      "Your being there is the gift. If you would still like to do something, we are putting a little aside for a honeymoon in the Marlborough Sounds - ask either of us and we will point you at it.",
+    travelNotes:
+      "Twenty minutes north of Rotorua on Hamurana Road. Parking is in the paddock inside the gate - follow the flags, and leave the keys in the car if you plan to leave it overnight.\n\nTaxis and rideshares do come out this far but not quickly. If you would rather not drive, tell us on your reply and we will put you on the van list.",
+    accommodationNotes:
+      "We have held a block of rooms at the Regent in town under 'Ru & Malin' until the end of January.\n\nThere are also two cabins on the property itself for anyone who would rather not travel at midnight - first come, and we will sort it out with you directly.",
+    rsvpDeadline: "2027-01-31",
+    photosEnabled: true,
+    tableRevealEnabled: false,
+  });
+
+  await db.insert(faqItems).values([
+    {
+      question: "Can I bring someone?",
+      answer:
+        "Your invitation lists everyone we have a seat for by name. The paddock only holds so many, so we have had to be strict - please do not take it personally.",
+      sortOrder: 0,
+    },
+    {
+      question: "Are children welcome?",
+      answer:
+        "Yes, and there will be others. Anyone under two eats free and sits on a lap. Let us know on your reply what they will eat.",
+      sortOrder: 1,
+    },
+    {
+      question: "What happens if it rains?",
+      answer:
+        "Nothing changes. The ceremony moves under the marquee and everything else was always going to be in there anyway.",
+      sortOrder: 2,
+    },
+    {
+      question: "What time should I actually arrive?",
+      answer:
+        "Any time from 1:30. The ceremony starts at 2:00 sharp and we would hate for you to miss it.",
+      sortOrder: 3,
+    },
+    {
+      question: "Is there parking?",
+      answer:
+        "In the paddock inside the gate. It is grass, so nothing low-slung after heavy rain - park on the road if you are worried.",
+      sortOrder: 4,
+    },
+    {
+      question: "Can I take photographs?",
+      answer:
+        "During the ceremony, please leave it to Ana - phones in the aisle end up in every shot. Afterwards, take as many as you like and put them in the shared album.",
+      sortOrder: 5,
+    },
+  ]);
+
+  const [sampleHousehold] = await db
+    .select({ name: households.name, token: households.inviteToken })
+    .from(households)
+    .where(sql`${households.inviteToken} is not null`)
+    .limit(1);
+  if (sampleHousehold?.token) {
+    console.log(
+      `Invitation for ${sampleHousehold.name}: ${inviteUrl("http://localhost:3000", sampleHousehold.token)}`,
+    );
   }
 
   const counts = {

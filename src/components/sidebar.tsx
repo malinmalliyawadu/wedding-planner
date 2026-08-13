@@ -64,7 +64,7 @@ export async function Sidebar() {
             <p className="eyebrow text-spine-ink-soft">The Wedding Ledger</p>
           )}
           <Link
-            href="/settings"
+            href="/admin/settings"
             aria-label="Settings"
             title="Settings"
             className="rounded-md p-1.5 text-spine-ink-soft transition-colors duration-150 hover:bg-spine-raised hover:text-spine-ink"

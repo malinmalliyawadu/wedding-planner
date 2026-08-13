@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { Figtree, IBM_Plex_Mono, Marcellus } from "next/font/google";
 import "./globals.css";
-import { AppShell } from "@/components/app-shell";
-import { Sidebar, SpineBrand } from "@/components/sidebar";
 
 const marcellus = Marcellus({
   weight: "400",
@@ -26,17 +24,22 @@ export const metadata: Metadata = {
   description: "Private wedding planner",
 };
 
+/*
+ * Deliberately thin: fonts, tokens and the document, nothing else.
+ *
+ * The planner's sidebar lives in the (app) group's layout instead, because
+ * the invitation under /i/[token] is served to guests with no basicauth in
+ * front of it and must never render a link into the private app. Keeping
+ * the shell out of the root layout makes that structural rather than a
+ * rule someone has to remember.
+ */
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
       className={`${marcellus.variable} ${figtree.variable} ${plexMono.variable}`}
     >
-      <body className="min-h-dvh">
-        <AppShell spine={<Sidebar />} brand={<SpineBrand />}>
-          {children}
-        </AppShell>
-      </body>
+      <body className="min-h-dvh">{children}</body>
     </html>
   );
 }

@@ -10,6 +10,7 @@ import {
   smallint,
   text,
   time,
+  timestamp,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -62,12 +63,26 @@ export const settings = pgTable(
   ],
 );
 
+/**
+ * A household is also the unit of invitation. `inviteToken` is the whole
+ * of the public site's access control: the link is the credential, so it
+ * is long, unguessable and unique. Null means no link has been minted
+ * yet, which is a real state - it is what "not invited" looks like from
+ * the guest's side - so it is deliberately not defaulted.
+ */
 export const households = pgTable("households", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   address: text("address"),
   inviteStage: inviteStageEnum("invite_stage").notNull().default("not_invited"),
   notes: text("notes"),
+  inviteToken: text("invite_token").unique(),
+  /** Set the first time the household submits; edits after that keep it. */
+  rsvpRespondedAt: timestamp("rsvp_responded_at", { withTimezone: true }),
+  /** Free text left for the couple on the RSVP card. */
+  rsvpMessage: text("rsvp_message"),
+  /** One request per household, handed to the band as a list. */
+  songRequest: text("song_request"),
 });
 
 export const tables = pgTable(
@@ -240,6 +255,24 @@ export const runSheetItems = pgTable("run_sheet_items", {
   location: text("location"),
   /** Who is running this moment, in plain words. */
   lead: text("lead"),
+  /**
+   * Shown on the public invitation's schedule. Guests are just another
+   * audience for the one canonical timeline - there is no second, guest
+   * copy of the day that could drift out of step with this one. Off by
+   * default: load-ins and supplier calls are nobody else's business.
+   */
+  guestVisible: boolean("guest_visible").notNull().default(false),
+  /**
+   * What guests are told about this moment. Separate from `detail`
+   * because that is written for suppliers - "signing needs two
+   * witnesses", "power is on the north wall" - and publishing it would
+   * be publishing the couple's operational notes.
+   *
+   * The time, the title and the place stay canonical and shared: those
+   * are the facts that must never disagree between the two audiences.
+   * Only the wording around them differs.
+   */
+  guestNote: text("guest_note"),
 });
 
 export const runSheetRecipients = pgTable("run_sheet_recipients", {
@@ -264,8 +297,99 @@ export const runSheetItemRecipients = pgTable(
   (t) => [primaryKey({ columns: [t.itemId, t.recipientId] })],
 );
 
+/**
+ * Everything the invitation says, in one singleton row (id always 1) to
+ * match the settings table.
+ *
+ * `published` is the master switch and defaults to off: until it is
+ * turned on, every invite link 404s. A wedding site that is live before
+ * anyone means it to be is the failure mode worth engineering against,
+ * so the safe state is the default rather than something to remember.
+ */
+export const publicSite = pgTable(
+  "public_site",
+  {
+    id: integer("id").primaryKey().default(1),
+    published: boolean("published").notNull().default(false),
+    /** Standfirst on the opened card, in the couple's own words. */
+    welcomeMessage: text("welcome_message"),
+    venueName: text("venue_name"),
+    venueAddress: text("venue_address"),
+    /** Straight to the map app rather than making guests retype an address. */
+    venueMapUrl: text("venue_map_url"),
+    arrivalTime: time("arrival_time"),
+    ceremonyTime: time("ceremony_time"),
+    dressCode: text("dress_code"),
+    giftNote: text("gift_note"),
+    travelNotes: text("travel_notes"),
+    accommodationNotes: text("accommodation_notes"),
+    rsvpDeadline: date("rsvp_deadline"),
+    photosEnabled: boolean("photos_enabled").notNull().default(true),
+    /** Held back until the seating plan is final, then flipped on. */
+    tableRevealEnabled: boolean("table_reveal_enabled").notNull().default(false),
+  },
+  (t) => [check("public_site_singleton", sql`${t.id} = 1`)],
+);
+
+/** Answers to the questions that otherwise arrive as texts at 11pm. */
+export const faqItems = pgTable("faq_items", {
+  id: serial("id").primaryKey(),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  published: boolean("published").notNull().default(true),
+});
+
+/**
+ * Guest photographs. The file itself lives in object storage; this row
+ * is the index, so the database stays the thing you query and the bucket
+ * stays the thing you stream from.
+ *
+ * householdId is nullable and set null on delete: removing a household
+ * from the guest list must not delete photographs of the day.
+ */
+export const photos = pgTable("photos", {
+  id: serial("id").primaryKey(),
+  householdId: integer("household_id").references(() => households.id, {
+    onDelete: "set null",
+  }),
+  /** Whoever typed their name on the upload screen; not a guest record. */
+  uploaderName: text("uploader_name"),
+  /** Key within the bucket. Opaque, random, never guessable from the id. */
+  storageKey: text("storage_key").notNull().unique(),
+  /**
+   * A small copy, made on the guest's phone at the same time as the
+   * full one.
+   *
+   * The album could have leaned on next/image instead, but that would
+   * mean exposing `/_next/image` to unauthenticated guests - and the
+   * optimiser fetches any same-origin path it is given, which turns it
+   * into a way around basicauth for every private route that returns an
+   * image. Shipping our own thumbnail keeps the public surface to `/i`.
+   */
+  thumbStorageKey: text("thumb_storage_key").unique(),
+  contentType: text("content_type").notNull(),
+  byteSize: integer("byte_size").notNull(),
+  width: integer("width"),
+  height: integer("height"),
+  caption: text("caption"),
+  /** Hidden by the couple. The row and the object both stay. */
+  hidden: boolean("hidden").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const householdsRelations = relations(households, ({ many }) => ({
   guests: many(guests),
+  photos: many(photos),
+}));
+
+export const photosRelations = relations(photos, ({ one }) => ({
+  household: one(households, {
+    fields: [photos.householdId],
+    references: [households.id],
+  }),
 }));
 
 export const runSheetItemsRelations = relations(runSheetItems, ({ many }) => ({

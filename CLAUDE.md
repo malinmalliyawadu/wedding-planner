@@ -2,10 +2,24 @@
 
 # The Wedding Ledger
 
-Private wedding planning app for exactly two users (partner A and partner B).
-No auth code anywhere: the app runs behind Traefik basicauth on self-hosted
-infra (Vultr + Coolify). Every request is assumed authorised. No user
-accounts, no sessions, no public surface.
+Wedding planning app for exactly two users (partner A and partner B), plus
+a public invitation for their guests.
+
+**Two audiences, one deployment, and the split is structural:**
+
+- `src/app/admin/` - the planner, at `/admin/*`. Behind Traefik
+  basicauth, may read anything, no authentication code of its own.
+  `src/app/wall/` is also private but sits outside the group so a
+  projector gets no sidebar.
+- `src/app/(public)/` - everything a stranger can load: the landing page
+  at `/` and the invitations at `/i/*`. **Served with no basicauth in
+  front of it.** Reaches the database only through `src/lib/public/`,
+  and `no-private-imports.test.ts` reads that exact folder to enforce it.
+
+Keeping the public surface in one folder is what makes that test
+exhaustive rather than a list somebody has to remember to extend. A new
+public page belongs in `(public)`, and in `isPublicPath` in `proxy.ts` -
+which `proxy.test.ts` pins from both directions.
 
 The reason this app exists is budget scenario modelling (M2) and the savings
 projection (M3). Everything else is supporting structure.
@@ -26,8 +40,29 @@ secrets. The only runtime variable is `DATABASE_URL`.
 
 **The app has no authentication at all.** Traefik basicauth in front of
 it is the only thing between the internet and the guest list, addresses
-and budget. Any change touching routing, domains or middleware needs that
-verified afterwards (`curl` the domain and expect a `401`).
+and budget - *except* `/` and `/i/*`, which are deliberately exempt so
+guests can reach the landing page and their invitation. Any change
+touching routing, domains or middleware needs both halves verified
+afterwards: `/admin/guests` must return `401`, and `/` and
+`/i/<a real token>` must return `200`. A carve-out that matches too much
+publishes everything - note the Traefik rule needs ``Path(`/`)``, never
+``PathPrefix(`/`)``, which would match the entire domain.
+
+`src/proxy.ts` is the second lock: the public Traefik router stamps a
+header, and the app 404s any stamped request that did not land on a
+public route. That covers the case a path rule is most likely to get
+wrong - `/i/../admin/guests` matches `PathPrefix(/i)` going in and
+resolves to `/admin/guests` coming out.
+
+`/_next/image` must never be made public. The optimiser fetches any
+same-origin path it is handed, so opening it would serve every private
+route that returns an image; the album ships its own thumbnails, made on
+the guest's phone, precisely so it can stay shut.
+
+Guest photographs live in S3-compatible object storage, not Postgres, so
+**the database is no longer the whole backup surface** - the bucket is
+the other half. Without the `S3_*` variables every other feature still
+works and the album says it is not configured.
 
 `/api/health` does a real `select 1`, so it reports whether the app can
 actually work rather than merely that the process is alive. Coolify
@@ -56,9 +91,13 @@ before the server.
 - Currency NZD; dates Pacific/Auckland. Calendar dates are stored as plain
   `date` columns and formatted in UTC (see `src/lib/dates.ts`); Auckland
   only matters when computing "today".
-- Non-goals (do not build or scaffold): RSVP collection, guest logins, any
-  public page, wedding website, vendor directory, place cards, user
-  accounts, email sending, mobile apps.
+- **Nothing under `src/app/(public)/` may import `@/db`, `@/db/schema`,
+  `@/lib/queries` or `drizzle-orm`.** All of it goes through
+  `src/lib/public/`, where the readable columns are written down in one
+  place. `no-private-imports.test.ts` fails the build otherwise.
+- Non-goals (do not build or scaffold): guest logins or accounts, a
+  public page outside `(public)`, a vendor directory, place cards, email
+  sending, mobile apps.
 
 ## Decisions made
 
@@ -98,10 +137,10 @@ DB, no React, integer cents only. Anything that needs a number asks it.
   gap of 2 or more. `cumulativeSavings` gives the running "cut to here".
 - `compareBudgets` - per-line deltas against the first scenario given.
 
-The modeller (`/budget`) holds guest counts and tier choices in client
+The modeller (`/admin/budget`) holds guest counts and tier choices in client
 state and recomputes on every change, so nothing round-trips to the
-server until you save a scenario. `/budget/scenarios` compares two or
-three; `/budget/compromise` ranks the cuts. Scenario selection is in the
+server until you save a scenario. `/admin/budget/scenarios` compares two or
+three; `/admin/budget/compromise` ranks the cuts. Scenario selection is in the
 URL (`?s=`) on both, so a view can be shared between the two of you.
 
 Budget item and tier CRUD was not in the M2 brief but is included: the
@@ -211,7 +250,7 @@ rather than being clamped to today: "you are behind on this" is true and
 useful, "do this now" would not be.
 
 `src/lib/ics.ts` writes the subscribable feed served at
-`/timeline/tasks.ics`. The two things that quietly break real calendar
+`/admin/timeline/tasks.ics`. The two things that quietly break real calendar
 clients are both handled and both tested: **line folding at 75 octets**
 (bytes, not characters - a single macron shifts the boundary, and a fold
 must never split a character) and TEXT escaping (backslash first, then
@@ -255,9 +294,88 @@ The Dockerfile copies `src/assets/fonts` explicitly - the fonts are read
 from `process.cwd()` at request time and standalone output tracing does
 not know about them. If you change where fonts live, change both.
 
-Sheets are generated per request at `/run-sheet/[recipient]/sheet.pdf`,
+Sheets are generated per request at `/admin/run-sheet/[recipient]/sheet.pdf`,
 with `everyone` for the master copy, so a download always matches what
 is on screen.
+
+## The public invitation (M7)
+
+The one part of this app a stranger could load. Everything about it is
+shaped by that.
+
+- **The landing page at `/` is the front door**, and says the least it
+  can: names, date, the *town* (not the address), and "use the link we
+  sent you". A guest who has mislaid their link meets that instead of a
+  404 and a fright. It carries a quiet "Planning" link to `/admin`,
+  which is only a URL - the password still stands in front of it.
+- **The planner moved to `/admin/*`** to free up `/`. That is a routing
+  convenience, not the security boundary; see the Deployment section.
+- **The link is the credential.** `households.invite_token` is 100 bits
+  from `crypto.getRandomValues` over a 32-character alphabet with every
+  confusable pair removed (`src/lib/invite-token.ts`) - tokens get read
+  aloud down the phone. No accounts, no sessions, no email. Null means no
+  link has been minted, which is what "not invited" looks like from the
+  guest's side.
+- **`public_site.published` is a kill switch and defaults to off.** An
+  unpublished site 404s every link, including ones already sent. A
+  wedding site that goes live before anyone meant it to is the failure
+  worth engineering against, so the safe state is the default.
+- **`src/lib/public/` is the only way in.** `queries.ts` names every
+  column a guest may read; `mutations.ts` holds the only writes a
+  stranger can cause, and each one re-resolves the household **from the
+  token** rather than trusting an id in the form.
+- **The schedule is the run sheet.** `run_sheet_items.guest_visible`
+  picks the moments; `guest_note` is what guests are told about them.
+  The time, title and place are shared, so the two audiences can never
+  disagree about when the ceremony is - but `detail` is written for
+  suppliers ("power is on the north wall") and is never published.
+- **Photographs** go to S3-compatible storage via a presigned POST, so
+  the browser uploads straight to the bucket and a hundred guests on
+  marquee wifi are not funnelled through the VPS. The policy enforces
+  type and an 8MB cap at the bucket. `src/lib/image-prep.ts` re-encodes
+  on the device first, which fixes HEIC, size, EXIF rotation and the GPS
+  tag in one pass. The bucket stays private and the app streams every
+  image, so hiding one takes effect immediately instead of racing a
+  signed URL. Moderation is hide, never delete.
+- **Two serving routes on purpose**: `/i/photo/[id]` refuses anything
+  hidden (public), `/admin/photos/[id]/image` does not (behind basicauth), or
+  the couple could not see what they had hidden in order to unhide it.
+- `/wall` sits outside `admin/` so a projector gets the picture
+  and no sidebar. It is still behind basicauth.
+
+### The invitation's design
+
+Same paper, ink and brass as the planner in an entirely different
+register: the planner is a ledger, this is the card that came in the
+envelope. Generous, one idea per screen, mobile-first.
+
+- **The signature is breaking a wax seal.** An envelope addressed to the
+  household, the couple's duogram struck into the wax, and one
+  orchestrated sequence on tap - the wax cracks along an irregular fault
+  and falls, the flap swings, the card rises. Then complete stillness:
+  the drama is spent in one place deliberately, and nothing else on the
+  page moves.
+- It is rendered **under** the server-rendered invitation, so `<noscript>`
+  removing it leaves a working page. A cookie records that it has been
+  opened and the *server* then leaves it out entirely, so a returning
+  guest never sees it flash past.
+- `wax-seal.tsx` is drawn deterministically - no RNG, because it renders
+  on both server and client. What makes it read as wax is the lighting
+  being inverted between surfaces: the blot is domed (lit upper left),
+  the die impression is recessed (lit lower right), the monogram stands
+  proud again. Get those the same way round and it collapses into a
+  sticker.
+- Three CSS traps, all commented at the point of use: SVG `<g>` needs
+  `transform-box: fill-box` or percentage translates never apply;
+  `backface-visibility: hidden` makes the flap vanish mid-swing; and
+  `preserve-3d` means depth, not `z-index`, decides what occludes the
+  flap - hence its `translateZ(1px)`.
+- **One new typeface, for one glyph.** EB Garamond italic sets the
+  ampersand between the two names, the way an engraver has always taken
+  the ampersand from a different fount. Marcellus is lapidary and has no
+  italic to give. Loaded by the invitation layout only.
+- The `grain` utility sets no `position`, so it can be added to something
+  already fixed or absolute. Callers position themselves.
 
 ## Design language ("engraved stationery meets ledger")
 
@@ -321,12 +439,13 @@ hold up at 390px.
 
 ## Milestones
 
-All six milestones are done: M1 foundation, M2 budget & scenarios,
-M3 savings projection, M4 seating solver, M5 timeline, M6 run sheet.
-The brief is complete; anything further is a new request, so ask before
-starting one.
+M1 foundation, M2 budget & scenarios, M3 savings projection, M4 seating
+solver, M5 timeline and M6 run sheet were the original brief and are all
+done. M7, the public invitation, was requested afterwards and changed the
+premise the earlier work assumed - there is now a surface a stranger can
+load. Anything further is a new request, so ask before starting one.
 
 The couple are Ru (side A, sage) and Malin (side B, rose); names live in
 the `settings` row and drive every side label in the UI. Edit them, the
-wedding date and the savings plan at `/settings` (gear in the sidebar
+wedding date and the savings plan at `/admin/settings` (gear in the sidebar
 footer).

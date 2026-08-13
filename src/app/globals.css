@@ -44,6 +44,16 @@
   --color-rose-tint: #f2e2e3;
   --color-rose-bright: #d5a7ad;
 
+  /*
+   * Sealing wax, for the public invitation only. Deliberately a deepened
+   * side-B rose rather than a generic oxblood: the seal is the couple's
+   * mark, so it is drawn from the couple's colours. It also has to stay
+   * clear of madder, which already means "something is wrong".
+   */
+  --color-wax: #6f3742;
+  --color-wax-lit: #9a545f;
+  --color-wax-shadow: #431f27;
+
   /* Semantics */
   --color-fern: #35673f;
   --color-fern-tint: #e1ecdd;
@@ -69,6 +79,13 @@
   --font-display: var(--font-marcellus);
   --font-sans: var(--font-figtree);
   --font-mono: var(--font-plex-mono);
+  /*
+   * One glyph, one fount. Engravers have always set the ampersand from a
+   * different face to the names either side of it, and Marcellus - a
+   * lapidary Roman - has no italic to give. Loaded by the invitation
+   * layout alone and used for exactly the "&" between the two names.
+   */
+  --font-amp: var(--font-eb-garamond);
 
   --tracking-caps: 0.14em;
   --tracking-caps-wide: 0.22em;
@@ -109,6 +126,86 @@
       transform: translateY(0);
     }
   }
+
+  /*
+   * Breaking the seal. One orchestrated sequence, staged by delay: the
+   * wax splits and falls, the flap swings back, the card rises out. It
+   * runs once, on a deliberate tap, and nothing on the page moves again
+   * afterwards - the drama is spent in one place on purpose.
+   *
+   * Every keyframe here animates transform and opacity only, so the
+   * whole sequence stays off the layout path.
+   */
+  /*
+   * The halves hold their opacity through the first half of the fall.
+   * Fading them from the first frame hides the very thing the sequence
+   * is for - you want to see the crack open before the wax goes.
+   */
+  @keyframes wax-left {
+    0% {
+      transform: translate(0, 0) rotate(0);
+      opacity: 1;
+    }
+    55% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(-38%, 76%) rotate(-27deg);
+      opacity: 0;
+    }
+  }
+  @keyframes wax-right {
+    0% {
+      transform: translate(0, 0) rotate(0);
+      opacity: 1;
+    }
+    55% {
+      opacity: 1;
+    }
+    100% {
+      transform: translate(38%, 88%) rotate(32deg);
+      opacity: 0;
+    }
+  }
+  /*
+   * The hinge sits a hair in front of the envelope's own plane. Without
+   * that, preserve-3d puts the swinging flap behind the front panel the
+   * moment it passes vertical and the whole movement is hidden - z-index
+   * does not arbitrate once the children are in 3D, depth does.
+   */
+  @keyframes flap-open {
+    from {
+      transform: translateZ(1px) rotateX(0deg);
+    }
+    to {
+      transform: translateZ(1px) rotateX(-164deg);
+    }
+  }
+  @keyframes card-rise {
+    from {
+      transform: translateY(14%) scale(0.96);
+    }
+    to {
+      transform: translateY(-118%) scale(1);
+    }
+  }
+  @keyframes envelope-away {
+    to {
+      opacity: 0;
+      visibility: hidden;
+    }
+  }
+  /* The names arrive already engraved, then the letterspacing settles. */
+  @keyframes settle {
+    from {
+      opacity: 0;
+      letter-spacing: 0.34em;
+    }
+    to {
+      opacity: 1;
+      letter-spacing: 0.12em;
+    }
+  }
 }
 
 @layer base {
@@ -135,6 +232,16 @@
   button,
   [role="button"] {
     cursor: pointer;
+  }
+
+  /*
+   * Checkboxes and radios keep their native behaviour - which is worth
+   * far more than a custom control - but not the platform's blue, which
+   * is the one saturated thing on an otherwise ivory-and-evergreen page.
+   */
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--color-ink);
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -203,11 +310,221 @@
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * The public invitation.
+ *
+ * These exist only under /i/[token]. The planner is a ledger - dense,
+ * administrative, 15px - and the invitation is the card that came in the
+ * envelope: same paper, ink and brass, an entirely different register.
+ * ------------------------------------------------------------------ */
+
+/*
+ * Laid paper. A single tile of fractal noise at very low opacity, which
+ * is what stops a large flat ivory field from reading as a screen. Cheap
+ * enough to be a background-image rather than an element, and it sits
+ * behind everything with no hit area of its own.
+ */
+/*
+ * Deliberately does not set `position`, so it can be added to something
+ * that is already fixed or absolute without fighting it. Callers
+ * position themselves; this only paints.
+ */
+@utility grain {
+  isolation: isolate;
+}
+.grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.16'/%3E%3C/svg%3E");
+}
+
+/*
+ * Letterpress. Type pressed into damp paper catches light on the lower
+ * edge of the bite and shadows on the upper - not a drop shadow, which
+ * would read as type floating above the sheet instead of struck into it.
+ */
+@utility deboss {
+  text-shadow:
+    0 1px 0 rgb(255 255 255 / 0.62),
+    0 -1px 1px rgb(33 43 37 / 0.14);
+}
+
+/* The engraved names: wide, quiet, and set on their own line. */
+@utility engraved {
+  font-family: var(--font-display);
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+/*
+ * The ampersand, and only the ampersand. Optically it wants to be larger
+ * and lower than the caps either side of it.
+ */
+@utility ampersand {
+  font-family: var(--font-amp);
+  font-style: italic;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--color-brass);
+}
+
 /* Tabular money/count figures. */
 @utility figures {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
+}
+
+/* ------------------------------------------------------------------ *
+ * Breaking the seal.
+ *
+ * The stage is a fixed overlay above the invitation, which is already
+ * server-rendered underneath it. That ordering is the whole degradation
+ * strategy: with no JavaScript the <noscript> rule below removes the
+ * overlay and the guest simply reads the invitation. Nothing is behind a
+ * gesture that only works when a script does.
+ * ------------------------------------------------------------------ */
+
+@utility envelope-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  /* minmax(0,…) so the envelope cannot push the track wider than the
+     viewport, and align-content so the two rows sit together in the
+     middle rather than each claiming half the screen. */
+  grid-template-columns: minmax(0, 1fr);
+  align-content: center;
+  justify-items: center;
+  padding: 1.5rem;
+  background-color: var(--color-paper);
+  /* The flap has to swing in depth, so the stage owns the perspective. */
+  perspective: 1400px;
+}
+
+@utility envelope {
+  position: relative;
+  /* C6 proportions, the shape a real invitation arrives in. */
+  width: min(32rem, 100%);
+  aspect-ratio: 1.42 / 1;
+  transform-style: preserve-3d;
+}
+
+/*
+ * Anatomy, back to front: the envelope's inside, the card tucked in it,
+ * the front face carrying the address, then the flap folded over the
+ * top. The card is completely hidden until the flap opens, which is what
+ * makes it read as coming *out* of something rather than fading in.
+ */
+.envelope-back {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 1px solid var(--color-hairline-strong);
+  background-color: #efe9dc;
+  box-shadow: var(--shadow-overlay);
+}
+
+.envelope-card {
+  position: absolute;
+  inset: 5% 7% 5% 7%;
+  z-index: 1;
+  border: 1px solid var(--color-hairline);
+  background-color: var(--color-card);
+  box-shadow: var(--shadow-card);
+}
+
+.envelope-front {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border: 1px solid var(--color-hairline-strong);
+  background-color: var(--color-card);
+}
+
+/*
+ * The flap, drawn as a triangle with a border trick rather than a clip
+ * path, so its lit face keeps a real edge against the envelope beneath.
+ */
+.envelope-flap {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 3;
+  height: 52%;
+  transform-origin: top center;
+  /*
+   * No backface-visibility: hidden here. The flap swings past 90deg, and
+   * hiding the back face makes it vanish mid-swing instead of opening.
+   * What you see after the halfway point is the inside of the flap,
+   * which is the same paper - exactly as it would be.
+   */
+  background: linear-gradient(to bottom, var(--color-card) 0%, #eee7d8 100%);
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  /* The clip eats a border, so the fold is drawn as a shadow instead -
+     which is what the eye actually reads as a folded edge anyway. */
+  filter: drop-shadow(0 2px 2px rgb(33 43 37 / 0.14));
+}
+
+.seal {
+  position: absolute;
+  z-index: 4;
+  left: 50%;
+  /* Centred on the flap's point, where the wax would actually be. */
+  top: 52%;
+  width: 26%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  border-radius: 9999px;
+  background: transparent;
+  /* Comfortably past 44px at every width the envelope is allowed. */
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.seal:hover:not(:disabled),
+.seal:focus-visible {
+  transform: scale(1.04);
+}
+.seal:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/*
+ * Staged by delay off one state change. Durations are deliberately not
+ * uniform: wax falls under gravity (ease-in), the flap and the card are
+ * lifted by hand (ease-out).
+ */
+/*
+ * An SVG <g> has no CSS box, so a percentage translate and a rotation
+ * have nothing to resolve against until fill-box is asked for by name.
+ * Without these two lines the halves simply never move.
+ */
+.wax-left,
+.wax-right {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+[data-seal="broken"] .wax-left {
+  animation: wax-left 620ms cubic-bezier(0.55, 0, 0.85, 0.35) forwards;
+}
+[data-seal="broken"] .wax-right {
+  animation: wax-right 620ms cubic-bezier(0.55, 0, 0.85, 0.35) forwards;
+}
+[data-seal="broken"] .envelope-flap {
+  animation: flap-open 700ms cubic-bezier(0.32, 0.72, 0.3, 1) 240ms forwards;
+}
+[data-seal="broken"] .envelope-card {
+  animation: card-rise 780ms cubic-bezier(0.22, 1, 0.36, 1) 680ms forwards;
+}
+[data-seal="broken"] {
+  animation: envelope-away 420ms ease-out 1180ms forwards;
+}
+[data-seal="broken"] .seal {
+  pointer-events: none;
 }
 
 /*
