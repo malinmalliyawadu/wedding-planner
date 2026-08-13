@@ -20,6 +20,7 @@ export async function setPhotoHidden(
 ): Promise<ActionResult> {
   await db.update(photos).set({ hidden }).where(eq(photos.id, id));
   revalidatePath("/admin/photos");
-  revalidatePath("/admin/wall");
+  // The wall sits outside admin/ so a projector gets no sidebar.
+  revalidatePath("/wall");
   return { status: "success" };
 }

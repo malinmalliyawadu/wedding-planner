@@ -174,7 +174,7 @@ export default async function RunSheetPage() {
                   {theirs.length}
                 </span>
                 <a
-                  href={`/run-sheet/${recipient.id}/sheet.pdf`}
+                  href={`/admin/run-sheet/${recipient.id}/sheet.pdf`}
                   className="inline-flex items-center gap-1.5 rounded-md border border-hairline-strong bg-card px-3 py-1.5 text-xs font-medium transition-colors hover:border-ink-faint hover:bg-white"
                 >
                   <Download size={13} aria-hidden />

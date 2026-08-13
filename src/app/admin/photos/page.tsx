@@ -24,7 +24,7 @@ export default async function PhotosPage() {
         title="Photographs"
         actions={
           <Link
-            href="/admin/wall"
+            href="/wall"
             className="inline-flex min-h-9 items-center gap-2 rounded-md border border-hairline-strong bg-card px-4 text-sm text-ink transition-colors hover:border-ink-faint"
           >
             <MonitorPlay className="size-4" aria-hidden />

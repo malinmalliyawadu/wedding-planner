@@ -6,8 +6,8 @@ import { NextResponse, type NextRequest } from "next/server";
  * Traefik puts basicauth on the whole domain except `/i`, which the
  * guests need. That exemption is a path rule on a reverse proxy, and
  * path rules are exactly the thing that can be got wrong: a request for
- * `/i/../guests` matches `PathPrefix(/i)` on the way in, and Next
- * resolves it to `/guests` on the way out. Traefik may well normalise
+ * `/i/../admin/guests` matches `PathPrefix(/i)` on the way in, and Next
+ * resolves it to `/admin/guests` on the way out. Traefik may well normalise
  * that first - but "may well" is not the standard to hold a guest list
  * to, and this is cheap.
  *
