@@ -269,6 +269,14 @@ is on screen.
 - Type: Marcellus (display), Figtree (UI), IBM Plex Mono for all money and
   counts (`.figures` utility). Small-caps eyebrows use `.eyebrow`, double
   hairline header rules use `.rule-double`.
+- The app icon is two interlocked sage/rose rings on the spine dark:
+  `src/app/icon.svg` is the master, with `favicon.ico` (16/32/48) and
+  `apple-icon.png` (180, square because iOS masks its own corners) **generated
+  from it**. Change the master and regenerate both, or they drift. It is the
+  duogram's meaning, not its letterforms - initials set in Marcellus are
+  illegible at 16px, so the side A/B colour pairing carries it instead. The
+  master sticks to plain paths and avoids `rect`/`rx` and `clipPath`: the
+  rasterisers used to derive the other two get those wrong.
 - UI primitives in `src/components/ui.tsx`; forms post to server actions via
   `ActionForm` (returns `ActionResult`), dialogs use native `<dialog>`.
 - Sliders use the shared `<Slider>` (`src/components/slider.tsx`) and the
