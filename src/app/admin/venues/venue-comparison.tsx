@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import { ChevronRight, ExternalLink } from "lucide-react";
 import { DeleteButton } from "@/components/delete-button";
 import { Slider } from "@/components/slider";
 import { Chip } from "@/components/ui";
 import { formatDateShort } from "@/lib/dates";
-import { formatCentsWhole } from "@/lib/money";
+import { formatCents, formatCentsWhole } from "@/lib/money";
 import { formatTime } from "@/lib/run-sheet";
 import {
   costOrder,
@@ -150,6 +150,7 @@ export function VenueComparison({
               <VenueRow
                 key={evaluation.venue.id}
                 evaluation={evaluation}
+                counts={counts}
                 isCheapest={evaluation.venue.id === comparison.cheapestId}
               />
             ))}
@@ -161,7 +162,8 @@ export function VenueComparison({
         Compared at <span className="figures">{counts.adults}</span> adults and{" "}
         <span className="figures">{counts.children}</span> children. Infants are
         free and sit on laps, so they count towards neither the bill nor the
-        chairs.
+        chairs. Open a venue&rsquo;s name for the whole record: the arithmetic
+        behind its total, the address, and the notes in full.
       </p>
     </>
   );
@@ -169,12 +171,20 @@ export function VenueComparison({
 
 function VenueRow({
   evaluation,
+  counts,
   isCheapest,
 }: {
   evaluation: VenueEvaluation<VenueValues>;
+  counts: GuestCounts;
   isCheapest: boolean;
 }) {
+  // The table carries the six facts that decide between venues; everything
+  // else about a place - the address, the standing capacity, what the hire
+  // fee covers, the arithmetic behind the total - lives one tap down, so
+  // the comparison stays scannable without any of the record being lost.
+  const [open, setOpen] = useState(false);
   const { venue, cost, fit, blockers, viable } = evaluation;
+  const panelId = `venue-detail-${venue.id}`;
 
   const detail = [
     venue.locality,
@@ -186,121 +196,413 @@ function VenueRow({
   ].filter((s): s is string => s !== null);
 
   return (
-    <tr
-      // `group` is what reveals .row-actions on a pointer that can hover;
-      // without it the edit and delete buttons stay at opacity 0 forever.
-      className={`group border-b border-hairline/60 transition-colors duration-150 last:border-0 hover:bg-brass-tint/25 ${
-        viable ? "" : "opacity-45"
+    <>
+      <tr
+        // `group` is what reveals .row-actions on a pointer that can hover;
+        // without it the edit and delete buttons stay at opacity 0 forever.
+        className={`group border-b border-hairline/60 transition-colors duration-150 last:border-0 hover:bg-brass-tint/25 ${
+          open ? "bg-brass-tint/20" : ""
+        } ${viable ? "" : "opacity-45"}`}
+      >
+        <td className="px-4 py-3 align-top">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            {/* Name and its website link travel together, so a narrow column
+                wraps the status chip underneath rather than orphaning an
+                icon on a line of its own. */}
+            <span className="inline-flex items-center gap-1.5">
+              <button
+                type="button"
+                aria-expanded={open}
+                aria-controls={panelId}
+                onClick={() => setOpen((wasOpen) => !wasOpen)}
+                className="group/disclose -ml-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 text-left font-medium transition-colors duration-150 hover:text-brass pointer-coarse:min-h-11"
+              >
+                <ChevronRight
+                  size={13}
+                  aria-hidden
+                  className={`shrink-0 text-ink-faint transition-transform duration-150 group-hover/disclose:text-brass ${
+                    open ? "rotate-90" : ""
+                  }`}
+                />
+                {venue.name}
+              </button>
+              {venue.url !== null && (
+                <a
+                  href={venue.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 text-ink-faint transition-colors duration-150 hover:text-brass"
+                  aria-label={`${venue.name} website`}
+                >
+                  <ExternalLink size={13} aria-hidden />
+                </a>
+              )}
+            </span>
+            <Chip tone={STATUS_TONES[venue.status]}>
+              {STATUS_LABELS[venue.status]}
+            </Chip>
+          </div>
+          {detail.length > 0 && (
+            <span className="mt-0.5 block text-xs text-ink-faint">
+              {detail.join(" · ")}
+            </span>
+          )}
+          {blockers.map((blocker) => (
+            <span
+              key={blocker.kind}
+              className={`mt-1 block text-xs ${
+                // A gap in the record is not a mark against the place, and
+                // should not be dressed in the same red as one.
+                blocker.kind === "capacity_unknown"
+                  ? "text-ink-faint"
+                  : "font-medium text-madder"
+              }`}
+            >
+              {blockerText(blocker)}
+            </span>
+          ))}
+          {venue.notes !== null && (
+            // Clamped to a line while closed: the notes are the part of this
+            // decision no column can hold, so they keep a presence in the
+            // table, and the panel below has them whole. No `block` here:
+            // line-clamp needs display: -webkit-box, and `block` beats it.
+            <span className="mt-1 line-clamp-1 max-w-md text-xs leading-relaxed text-ink-soft">
+              {venue.notes}
+            </span>
+          )}
+        </td>
+
+        <td className="px-3 py-3 align-top">
+          <SeatsCell fit={fit} />
+        </td>
+
+        <td className="px-3 py-3 align-top text-xs">
+          {venue.dateAvailable === true ? (
+            <span className="text-fern">Free</span>
+          ) : venue.dateAvailable === false ? (
+            <span className="font-medium text-madder">Taken</span>
+          ) : (
+            <span className="text-ink-faint">Not asked</span>
+          )}
+        </td>
+
+        <td className="px-4 py-3 text-right align-top">
+          <span className="figures font-medium">
+            {formatCentsWhole(cost.totalCents)}
+          </span>
+          <span className="mt-0.5 block text-xs whitespace-nowrap text-ink-faint">
+            {formatCentsWhole(cost.hireCents)} hire +{" "}
+            {formatCentsWhole(cost.cateringCents + cost.minimumTopUpCents)} catering
+          </span>
+          {cost.minimumTopUpCents > 0 && (
+            <span className="mt-1 block text-xs text-brass">
+              {formatCentsWhole(cost.minimumTopUpCents)} of that is minimum spend
+              {evaluation.breakEvenAdults !== null
+                ? ` · clears at ${evaluation.breakEvenAdults} adults`
+                : " · no guest count clears it"}
+            </span>
+          )}
+        </td>
+
+        <td className="figures px-3 py-3 text-right align-top text-ink-soft">
+          {formatCentsWhole(cost.perGuestCents)}
+        </td>
+
+        <td className="px-4 py-3 text-right align-top">
+          {isCheapest ? (
+            <Chip tone="fern">Cheapest</Chip>
+          ) : evaluation.deltaFromCheapestCents === 0 ? (
+            <span className="text-xs text-ink-faint">—</span>
+          ) : (
+            <span
+              className={`figures text-xs ${
+                evaluation.deltaFromCheapestCents > 0 ? "text-ink-soft" : "text-fern"
+              }`}
+            >
+              {evaluation.deltaFromCheapestCents > 0 ? "+" : "−"}
+              {formatCentsWhole(Math.abs(evaluation.deltaFromCheapestCents))}
+            </span>
+          )}
+        </td>
+
+        <td className="px-4 py-3 align-top">
+          <div className="row-actions flex justify-end gap-0.5">
+            <VenueDialog venue={venue} />
+            <DeleteButton
+              action={deleteVenue.bind(null, venue.id)}
+              label={`Delete ${venue.name}`}
+            />
+          </div>
+        </td>
+      </tr>
+
+      {open && (
+        // Not dimmed when the venue is blocked, unlike the row above it: you
+        // opened this to read it, and the reason it is blocked is in here.
+        <tr
+          id={panelId}
+          className="border-b border-hairline/60 bg-brass-tint/10 last:border-0"
+        >
+          <td colSpan={7} className="px-4 pt-1 pb-6">
+            <VenueDetail evaluation={evaluation} counts={counts} />
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
+/**
+ * The whole record for one venue, at the guest count on the sliders.
+ *
+ * The cost section is deliberately the arithmetic rather than a repeat of
+ * the total: a per-head quote and a minimum spend are the two things a
+ * venue can be misread on, and seeing `96 × $165.00` add up to the number
+ * in the table is what makes the number trustworthy. It is set in exact
+ * cents here, not whole dollars like the table, because a breakdown whose
+ * parts do not visibly sum to its total is worse than no breakdown.
+ */
+function VenueDetail({
+  evaluation,
+  counts,
+}: {
+  evaluation: VenueEvaluation<VenueValues>;
+  counts: GuestCounts;
+}) {
+  const { venue, cost, fit } = evaluation;
+  const childrenAtAdultRate = venue.perChildCostCents === null;
+
+  return (
+    // The table is wider than a phone, so on a narrow screen the panel is
+    // capped to roughly the viewport and stacks: everything worth reading
+    // sits at the left edge instead of off past the horizontal scroll.
+    <div className="max-w-xs sm:max-w-none">
+      <div className="grid grid-cols-1 gap-x-10 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+        <DetailSection title="What it costs">
+          <DetailRow label="Hire fee" mono>
+            {formatCents(cost.hireCents)}
+          </DetailRow>
+          <DetailRow
+            label={
+              <>
+                Adults{" "}
+                <span className="figures text-ink-faint">
+                  {counts.adults} × {formatCents(cost.perAdultCents)}
+                </span>
+              </>
+            }
+            mono
+          >
+            {formatCents(cost.adultsCents)}
+          </DetailRow>
+          <DetailRow
+            label={
+              <>
+                Children{" "}
+                <span className="figures text-ink-faint">
+                  {counts.children} × {formatCents(cost.perChildCents)}
+                </span>
+                {childrenAtAdultRate && (
+                  <span className="text-ink-faint"> (adult rate)</span>
+                )}
+              </>
+            }
+            mono
+          >
+            {formatCents(cost.childrenCents)}
+          </DetailRow>
+          {venue.minimumSpendCents !== null && (
+            <DetailRow
+              label={
+                <>
+                  Minimum spend{" "}
+                  <span className="figures text-ink-faint">
+                    {formatCents(venue.minimumSpendCents)}
+                  </span>
+                </>
+              }
+              mono={cost.minimumTopUpCents > 0}
+              tone={cost.minimumTopUpCents > 0 ? "text-brass" : "text-ink-faint"}
+            >
+              {cost.minimumTopUpCents > 0
+                ? `+ ${formatCents(cost.minimumTopUpCents)}`
+                : "Cleared"}
+            </DetailRow>
+          )}
+          <DetailRow label="Total" mono strong>
+            {formatCents(cost.totalCents)}
+          </DetailRow>
+          <DetailRow
+            label={
+              <>
+                Per guest{" "}
+                <span className="text-ink-faint">
+                  over <span className="figures">{fit.seatsNeeded}</span>
+                </span>
+              </>
+            }
+            mono
+          >
+            {formatCents(cost.perGuestCents)}
+          </DetailRow>
+          {venue.minimumSpendCents !== null && (
+            <p className="mt-2 text-xs leading-relaxed text-ink-soft">
+              {evaluation.breakEvenAdults === null
+                ? "There is no per-head rate, so no guest count ever reaches this minimum: it is simply a fee."
+                : cost.minimumTopUpCents > 0
+                  ? `The minimum stops costing you anything at ${evaluation.breakEvenAdults} adults, with ${counts.children} children.`
+                  : `Already clear of the minimum: it would start to bite below ${evaluation.breakEvenAdults} adults.`}
+            </p>
+          )}
+        </DetailSection>
+
+        <DetailSection title="The room">
+          <DetailRow label="Seated" mono={venue.seatedCapacity !== null}>
+            {venue.seatedCapacity ?? notRecorded()}
+          </DetailRow>
+          <DetailRow label="Standing" mono={venue.standingCapacity !== null}>
+            {venue.standingCapacity ?? notRecorded()}
+          </DetailRow>
+          <DetailRow label="Chairs you need" mono>
+            {fit.seatsNeeded}
+          </DetailRow>
+          {fit.spareSeats !== null && (
+            <DetailRow
+              label={fit.spareSeats < 0 ? "Short by" : "Spare"}
+              mono
+              tone={
+                fit.verdict === "over"
+                  ? "text-madder"
+                  : fit.verdict === "tight"
+                    ? "text-brass"
+                    : "text-ink"
+              }
+            >
+              {Math.abs(fit.spareSeats)}
+            </DetailRow>
+          )}
+          <DetailRow label="Curfew">
+            {venue.curfew === null ? notRecorded() : formatTime(venue.curfew)}
+          </DetailRow>
+          <DetailRow label="Our date">
+            {venue.dateAvailable === true ? (
+              <span className="text-fern">Free</span>
+            ) : venue.dateAvailable === false ? (
+              <span className="font-medium text-madder">Taken</span>
+            ) : (
+              notRecorded("Not asked yet")
+            )}
+          </DetailRow>
+        </DetailSection>
+
+        <DetailSection title="Getting there">
+          <DetailRow label="Town">{venue.locality ?? notRecorded()}</DetailRow>
+          <DetailRow label="Address">
+            {venue.address ?? notRecorded()}
+          </DetailRow>
+          <DetailRow label="Travel" mono={venue.travelMinutes !== null}>
+            {venue.travelMinutes === null
+              ? notRecorded()
+              : `${venue.travelMinutes} min`}
+          </DetailRow>
+          <DetailRow label="Website">
+            {venue.url === null ? (
+              notRecorded()
+            ) : (
+              <a
+                href={venue.url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-brass underline decoration-hairline-strong underline-offset-2 transition-colors duration-150 hover:decoration-brass"
+              >
+                Open
+                <ExternalLink size={11} aria-hidden />
+              </a>
+            )}
+          </DetailRow>
+          <DetailRow label="Site visit">
+            {venue.siteVisitDate === null
+              ? notRecorded("Not been yet")
+              : formatDateShort(venue.siteVisitDate)}
+          </DetailRow>
+        </DetailSection>
+      </div>
+
+      <div className="mt-6 grid grid-cols-1 gap-x-10 gap-y-6 border-t border-hairline pt-5 sm:grid-cols-2">
+        <div>
+          <h4 className="eyebrow text-brass">What the hire fee includes</h4>
+          <p className="mt-2 text-xs leading-relaxed text-ink-soft">
+            {venue.hireIncludes ?? (
+              <span className="text-ink-faint">
+                Not recorded - worth asking, because it decides what else you
+                have to hire.
+              </span>
+            )}
+          </p>
+        </div>
+        <div>
+          <h4 className="eyebrow text-brass">Notes</h4>
+          <p className="mt-2 text-xs leading-relaxed whitespace-pre-line text-ink-soft">
+            {venue.notes ?? (
+              <span className="text-ink-faint">
+                Nothing written down yet - and this is the part no column here
+                can settle.
+              </span>
+            )}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DetailSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section>
+      <h4 className="eyebrow text-brass">{title}</h4>
+      <dl className="mt-1.5">{children}</dl>
+    </section>
+  );
+}
+
+function DetailRow({
+  label,
+  children,
+  mono = false,
+  strong = false,
+  tone = "text-ink",
+}: {
+  label: ReactNode;
+  children: ReactNode;
+  mono?: boolean;
+  strong?: boolean;
+  tone?: string;
+}) {
+  return (
+    <div
+      className={`flex items-baseline justify-between gap-4 py-1 text-xs ${
+        strong
+          ? "mt-0.5 border-t border-hairline-strong pt-1.5 font-medium"
+          : "border-b border-hairline/60 last:border-0"
       }`}
     >
-      <td className="px-4 py-3 align-top">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-medium">{venue.name}</span>
-          <Chip tone={STATUS_TONES[venue.status]}>
-            {STATUS_LABELS[venue.status]}
-          </Chip>
-          {venue.url !== null && (
-            <a
-              href={venue.url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-ink-faint transition-colors duration-150 hover:text-brass"
-              aria-label={`${venue.name} website`}
-            >
-              <ExternalLink size={13} aria-hidden />
-            </a>
-          )}
-        </div>
-        {detail.length > 0 && (
-          <span className="mt-0.5 block text-xs text-ink-faint">
-            {detail.join(" · ")}
-          </span>
-        )}
-        {blockers.map((blocker) => (
-          <span
-            key={blocker.kind}
-            className={`mt-1 block text-xs ${
-              // A gap in the record is not a mark against the place, and
-              // should not be dressed in the same red as one.
-              blocker.kind === "capacity_unknown"
-                ? "text-ink-faint"
-                : "font-medium text-madder"
-            }`}
-          >
-            {blockerText(blocker)}
-          </span>
-        ))}
-        {venue.notes !== null && (
-          <span className="mt-1 block max-w-md text-xs leading-relaxed text-ink-soft">
-            {venue.notes}
-          </span>
-        )}
-      </td>
-
-      <td className="px-3 py-3 align-top">
-        <SeatsCell fit={fit} />
-      </td>
-
-      <td className="px-3 py-3 align-top text-xs">
-        {venue.dateAvailable === true ? (
-          <span className="text-fern">Free</span>
-        ) : venue.dateAvailable === false ? (
-          <span className="font-medium text-madder">Taken</span>
-        ) : (
-          <span className="text-ink-faint">Not asked</span>
-        )}
-      </td>
-
-      <td className="px-4 py-3 text-right align-top">
-        <span className="figures font-medium">
-          {formatCentsWhole(cost.totalCents)}
-        </span>
-        <span className="mt-0.5 block text-xs whitespace-nowrap text-ink-faint">
-          {formatCentsWhole(cost.hireCents)} hire +{" "}
-          {formatCentsWhole(cost.cateringCents + cost.minimumTopUpCents)} catering
-        </span>
-        {cost.minimumTopUpCents > 0 && (
-          <span className="mt-1 block text-xs text-brass">
-            {formatCentsWhole(cost.minimumTopUpCents)} of that is minimum spend
-            {evaluation.breakEvenAdults !== null
-              ? ` · clears at ${evaluation.breakEvenAdults} adults`
-              : " · no guest count clears it"}
-          </span>
-        )}
-      </td>
-
-      <td className="figures px-3 py-3 text-right align-top text-ink-soft">
-        {formatCentsWhole(cost.perGuestCents)}
-      </td>
-
-      <td className="px-4 py-3 text-right align-top">
-        {isCheapest ? (
-          <Chip tone="fern">Cheapest</Chip>
-        ) : evaluation.deltaFromCheapestCents === 0 ? (
-          <span className="text-xs text-ink-faint">—</span>
-        ) : (
-          <span
-            className={`figures text-xs ${
-              evaluation.deltaFromCheapestCents > 0 ? "text-ink-soft" : "text-fern"
-            }`}
-          >
-            {evaluation.deltaFromCheapestCents > 0 ? "+" : "−"}
-            {formatCentsWhole(Math.abs(evaluation.deltaFromCheapestCents))}
-          </span>
-        )}
-      </td>
-
-      <td className="px-4 py-3 align-top">
-        <div className="row-actions flex justify-end gap-0.5">
-          <VenueDialog venue={venue} />
-          <DeleteButton
-            action={deleteVenue.bind(null, venue.id)}
-            label={`Delete ${venue.name}`}
-          />
-        </div>
-      </td>
-    </tr>
+      <dt className="text-ink-faint">{label}</dt>
+      <dd className={`text-right ${mono ? "figures" : ""} ${tone}`}>
+        {children}
+      </dd>
+    </div>
   );
+}
+
+/** A field nobody has filled in yet, which is a gap in the record and not a fault. */
+function notRecorded(text = "Not recorded"): ReactNode {
+  return <span className="text-ink-faint">{text}</span>;
 }
 
 function SeatsCell({ fit }: { fit: CapacityFit }) {
