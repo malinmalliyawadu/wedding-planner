@@ -547,6 +547,81 @@ so this reads the spreadsheet rather than demanding its own:
   is pressed. Venues already on the list are skipped by name, so
   re-importing is safe.
 
+## Ranking the shortlist (M9)
+
+`src/lib/venue-ranking.ts` is the fourth pure module, behind
+`/admin/venues/rank`. It exists because the shortlist grew past seventy
+venues, which is more than anyone can hold in their head.
+
+**It does not weaken the rule above - it is the other side of it.**
+`venues.ts` still refuses to score, and nothing in `venue-ranking.ts`
+reads a price, a capacity or a travel time. The opinion here is
+**entered, never inferred**: the app asks which of two venues you would
+rather get married at and adds up the answers. Taste is recorded, not
+computed.
+
+- **Pairs, not ratings.** Rate seventy-odd venues out of five and you get
+  a column of threes. Asked which of two you prefer you answer instantly.
+  The scale is what people are bad at.
+- **Bradley-Terry fitted by MM, not running Elo.** Sequential Elo depends
+  on the order answers arrived in - the same opinions typed in a
+  different order would give a different table, which is indefensible for
+  something you are going to argue in front of. `fitStrengths` is a
+  maximum-likelihood fit over the comparisons *as a set*: reproducible,
+  and untroubled by preferring A to B, B to C and C to A, which happens
+  with venues constantly and is not an error.
+- **Every venue starts with one drawn game against a middling opponent
+  of fixed strength 1.** That prior is what keeps the fit finite - a
+  venue that won its only comparison would otherwise have infinite
+  strength - and because the phantom is fixed rather than fitted, the
+  result is deliberately **not** renormalised. `strength` is absolute: 1
+  is middling, 2 means you would pick it over a middling venue two times
+  in three, and a venue's number does not move because an unrelated
+  venue was added to the list.
+- **`islands` is the `capacity_unknown` of this module.** If nothing
+  connects two groups of venues, no answer of yours ranks one against the
+  other - but the fit returns a confident-looking column either way. The
+  page says so, and marks the rows. Venues with no comparison at all are
+  reported separately, as the more basic problem.
+- **`nextPair` is where the quality is**, because you will answer a few
+  hundred of 2,485 pairs and *which* few hundred decides whether the
+  ranking means anything. Three rules in order: include a least-compared
+  venue; join two islands, larger first; then ask the pair the fit puts
+  closest, since a comparison you can already call teaches nothing. It is
+  seeded (`mulberry32`, as in `seating.ts`) so the question asked is
+  reproducible, and it coin-flips which venue sits on the left - a fixed
+  side would quietly collect whatever bias that carries.
+- **Disagreement is counted, not modelled.** `contestedPairs` reports
+  only pairs the two of you picked opposite winners of. Fitting a ranking
+  each and diffing them would dress a handful of sparse opinions up as a
+  disagreement about the whole list. One of you having a view where the
+  other could not split them is not a contradiction and is not counted.
+- `MIN_COMPARISONS_PER_VENUE` is 6 - where a strength stops swinging on
+  any one answer. It is a rule of thumb, presented as one; venues short
+  of it are marked provisional rather than hidden.
+
+`venue-detail.tsx` is the whole record for one venue and is **shared**:
+the comparison opens it in a row's disclosure, the ranking board in a
+`size="lg"` dialog behind the ⓘ on each head-to-head card. It lays out
+with **container queries** (`@2xl`/`@4xl`), not breakpoints, because the
+two hosts are different widths at the same viewport - against the
+viewport the dialog would take three columns on a desktop and squeeze
+`58 × $165.00` into 230px. A choice card is a `div` holding a stretched
+`absolute inset-0` button, so the whole surface picks the venue while the
+ⓘ (at a higher `z-index`) still gets its own corner; nesting it inside a
+`button` would be invalid and the inner one would stop working. The
+keyboard shortcuts bail while any `dialog[open]` exists - otherwise an
+arrow key would answer the pair and swap out the venue you were reading.
+
+`venue_comparisons` stores the pair one way round (lower id first) with a
+unique constraint per judge, so re-answering replaces rather than stacks:
+a comparison is what you think of that pair, not an event. The board
+holds answers in client state and the actions **deliberately do not
+revalidate** - at a few hundred taps, refetching every venue per tap is
+the difference between ranking the list and giving up. Ruled-out and
+blocked venues are ranked like any other: filtering them was considered
+and declined, same argument as `costOrder` sinking rather than hiding.
+
 ## Milestones
 
 M1 foundation, M2 budget & scenarios, M3 savings projection, M4 seating
@@ -554,8 +629,9 @@ solver, M5 timeline and M6 run sheet were the original brief and are all
 done. M7, the public invitation, was requested afterwards and changed the
 premise the earlier work assumed - there is now a surface a stranger can
 load. M8, venue options, came later again and is planner-only: nothing
-about it touches `(public)`. Anything further is a new request, so ask
-before starting one.
+about it touches `(public)`. M9, ranking the shortlist, was asked for
+once the list passed seventy venues and is planner-only too. Anything
+further is a new request, so ask before starting one.
 
 The couple are Ru (side A, sage) and Malin (side B, rose); names live in
 the `settings` row and drive every side label in the UI. Edit them, the

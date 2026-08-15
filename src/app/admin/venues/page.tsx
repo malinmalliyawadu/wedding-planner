@@ -8,6 +8,7 @@ import { getSettings } from "@/lib/queries";
 import { countsFromGuestList } from "../budget/queries";
 import { VenueComparison } from "./venue-comparison";
 import { VenueDialog } from "./venue-dialog";
+import { VenueTabs } from "./venue-tabs";
 
 export const dynamic = "force-dynamic";
 
@@ -40,8 +41,15 @@ export default async function VenuesPage() {
           What each place costs at your guest count, whether everyone fits and
           whether the date is free. The comparison stops at facts on purpose -
           how somewhere feels is in the notes, and no column here should look
-          like it has settled that.
+          like it has settled that. When the list is too long to hold in your
+          head, <Link
+            href="/admin/venues/rank"
+            className="text-brass underline decoration-hairline-strong underline-offset-2 transition-colors duration-150 hover:decoration-brass"
+          >
+            rank them two at a time
+          </Link>.
         </p>
+        <VenueTabs />
       </PageHeader>
 
       {list.length === 0 ? (

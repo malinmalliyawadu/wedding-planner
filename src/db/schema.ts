@@ -11,6 +11,7 @@ import {
   text,
   time,
   timestamp,
+  unique,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -41,6 +42,13 @@ export const venueStatusEnum = pgEnum("venue_status", [
   "booked",
   "ruled_out",
 ]);
+
+/**
+ * Which of the two of you answered a head-to-head. Side A and B as
+ * everywhere else, but with no "both" member: a preference is one
+ * person's, and the pair you agree on is two rows rather than one.
+ */
+export const venueJudgeEnum = pgEnum("venue_judge", ["a", "b"]);
 
 /**
  * Single-row table (id is always 1, enforced by check) holding the few
@@ -280,6 +288,52 @@ export const venues = pgTable(
     check(
       "venues_travel_minutes_non_negative",
       sql`${t.travelMinutes} is null or ${t.travelMinutes} >= 0`,
+    ),
+  ],
+);
+
+/**
+ * One person's answer to "which of these two would you rather get
+ * married at". The whole of the venue ranking is built from this table
+ * and nothing else - see `src/lib/venue-ranking.ts`.
+ *
+ * Three constraints carry the shape:
+ *
+ * - **The pair is stored one way round**, lower id first. Without that,
+ *   the same two venues could be judged twice under two spellings and
+ *   the ranking would count one opinion as two.
+ * - **One verdict per pair per person**, so re-answering replaces rather
+ *   than stacks. A comparison is what you think of that pair, not an
+ *   event that happened - clicking the same way twice must not weigh
+ *   double.
+ * - **The winner has to be one of the two**, or null for "cannot split
+ *   them", which is a real answer and not a missing one.
+ */
+export const venueComparisons = pgTable(
+  "venue_comparisons",
+  {
+    id: serial("id").primaryKey(),
+    venueAId: integer("venue_a_id")
+      .notNull()
+      .references(() => venues.id, { onDelete: "cascade" }),
+    venueBId: integer("venue_b_id")
+      .notNull()
+      .references(() => venues.id, { onDelete: "cascade" }),
+    /** Null means the two could not be split, which is a verdict. */
+    winnerId: integer("winner_id").references(() => venues.id, {
+      onDelete: "cascade",
+    }),
+    judge: venueJudgeEnum("judge").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique("venue_comparisons_pair_judge").on(t.venueAId, t.venueBId, t.judge),
+    check("venue_comparisons_ordered_pair", sql`${t.venueAId} < ${t.venueBId}`),
+    check(
+      "venue_comparisons_winner_in_pair",
+      sql`${t.winnerId} is null or ${t.winnerId} in (${t.venueAId}, ${t.venueBId})`,
     ),
   ],
 );
