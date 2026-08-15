@@ -8,23 +8,11 @@ import { venues } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
 import { parseDollarsToCents } from "@/lib/money";
 
-/** A dollar amount that must be there, and cannot be negative. */
-const dollars = z
-  .string()
-  .trim()
-  .transform((s, ctx) => {
-    const cents = parseDollarsToCents(s === "" ? "0" : s);
-    if (cents === null || cents < 0) {
-      ctx.addIssue({
-        code: "custom",
-        message: `"${s}" is not a dollar amount`,
-      });
-      return z.NEVER;
-    }
-    return cents;
-  });
-
-/** The same, but blank means "there isn't one" rather than zero. */
+/**
+ * A dollar amount, where blank means "there isn't one" rather than zero.
+ * Every money field on a venue works this way: a blank is something
+ * nobody has been told yet, and zero is a quote of nothing.
+ */
 const optionalDollars = z
   .string()
   .trim()
@@ -83,7 +71,9 @@ const venueSchema = z.object({
   url: optionalText,
   seatedCapacity: optionalCount("Seated capacity", 2000),
   standingCapacity: optionalCount("Standing capacity", 5000),
-  hireFixedCostCents: dollars,
+  // Blank means nobody has been quoted a hire fee, which blocks the venue
+  // rather than pricing the room at nothing. Zero is a real quote.
+  hireFixedCostCents: optionalDollars,
   // Blank means they quote no per-head rate, and the comparison prices an
   // outside caterer instead. Zero would mean the dinner is free.
   perHeadCostCents: optionalDollars,

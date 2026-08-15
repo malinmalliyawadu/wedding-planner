@@ -53,6 +53,30 @@ describe("venueCost", () => {
     expect(cost.childrenCents).toBe(165_000);
   });
 
+  it("leaves an unquoted hire fee out of the total and says the total is a floor", () => {
+    // Not zero, and not a guess either: the food is what is known, so the
+    // food is what the total holds, and hireUnknown is how every reader
+    // of it finds out that the room is still to come.
+    const cost = venueCost(
+      venue({ hireFixedCostCents: null }),
+      COUNTS,
+      CATERING,
+    );
+
+    expect(cost.hireUnknown).toBe(true);
+    expect(cost.hireCents).toBe(0);
+    expect(cost.totalCents).toBe(1_400_000);
+  });
+
+  it("treats a hire fee of zero as the quote it is", () => {
+    // Plenty of venues roll the room into a per-head package. That is a
+    // fact about the price, not an empty field.
+    const cost = venueCost(venue({ hireFixedCostCents: 0 }), COUNTS, CATERING);
+
+    expect(cost.hireUnknown).toBe(false);
+    expect(cost.totalCents).toBe(1_400_000);
+  });
+
   it("counts infants nowhere - they are simply not in the counts", () => {
     // The caller never passes infants; the sum is over adults + children.
     const cost = venueCost(venue(), { adults: 80, children: 0 }, CATERING);
@@ -332,6 +356,35 @@ describe("evaluateVenue", () => {
     expect(e.viable).toBe(false);
   });
 
+  it("blocks a venue nobody has asked the hire fee of", () => {
+    const e = evaluateVenue(
+      venue({ hireFixedCostCents: null }),
+      COUNTS,
+      CATERING,
+    );
+    expect(e.blockers).toEqual([{ kind: "hire_unknown" }]);
+    expect(e.viable).toBe(false);
+  });
+
+  it("does not block a venue that quotes no hire fee at all", () => {
+    // Zero is an answer. Blank is the absence of one.
+    const e = evaluateVenue(venue({ hireFixedCostCents: 0 }), COUNTS, CATERING);
+    expect(e.blockers).toEqual([]);
+    expect(e.viable).toBe(true);
+  });
+
+  it("does not block on a missing per-head rate, which the caterer fills", () => {
+    // The distinction the two unknown-cost blockers turn on: this gap has
+    // a defensible number to put in it and the hire fee has none.
+    const e = evaluateVenue(
+      venue({ perHeadCostCents: null, perChildCostCents: null }),
+      COUNTS,
+      CATERING,
+    );
+    expect(e.blockers).toEqual([]);
+    expect(e.cost.cateringAssumed).toBe(true);
+  });
+
   it("treats a ruled-out venue as not viable even when nothing is wrong with it", () => {
     const e = evaluateVenue(venue({ status: "ruled_out" }), COUNTS, CATERING);
     expect(e.blockers).toEqual([]);
@@ -399,6 +452,22 @@ describe("evaluateVenues", () => {
     expect(byId(c, 4).cost.cateringAssumed).toBe(true);
     expect(byId(c, 4).cost.totalCents).toBeGreaterThan(120_000);
     expect(byId(c, 4).blockers).toEqual([{ kind: "capacity_unknown" }]);
+    expect(c.cheapestId).toBe(1);
+  });
+
+  it("will not let a venue nobody has priced win on the hire fee it has not quoted", () => {
+    // The failure this exists to stop: an unasked hire fee reads as free,
+    // and the venue tops the list at the food price while the room is
+    // still unpriced. It stays on the list, and stays blocked.
+    const unasked = venue({
+      id: 5,
+      name: "Not rung yet",
+      hireFixedCostCents: null,
+    });
+    const c = evaluateVenues([unasked, cheap, dear], COUNTS, CATERING);
+
+    expect(byId(c, 5).cost.totalCents).toBeLessThan(byId(c, 1).cost.totalCents);
+    expect(byId(c, 5).blockers).toEqual([{ kind: "hire_unknown" }]);
     expect(c.cheapestId).toBe(1);
   });
 

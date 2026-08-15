@@ -12,7 +12,7 @@
  * noticing it costs eleven thousand dollars more, or seats eight fewer
  * people than have been invited.
  *
- * Two things here are not obvious and are the reason this is a module
+ * Four things here are not obvious and are the reason this is a module
  * rather than a few expressions in a page:
  *
  * 1. **A minimum spend is a floor on catering, not on the bill.** Venues
@@ -34,6 +34,13 @@
  *    difference is who invoices you for the dinner. `CateringAssumption`
  *    is what fills the gap - a stated number, marked as assumed on every
  *    total it touches, never a silent zero.
+ *
+ * 4. **A hire fee nobody has asked for is not zero either, but it is
+ *    also not estimable.** It is the one blank with no honest stand-in:
+ *    hire fees on a single shortlist run from nothing to forty thousand,
+ *    so there is no rate to reach for the way point 3 reaches for the
+ *    caterer's. A venue missing one is therefore blocked rather than
+ *    priced, and its total is openly a floor.
  */
 
 import { resolveChildRate, assertGuestCounts, type GuestCounts } from "./budget";
@@ -56,7 +63,13 @@ export type Venue = {
   status: VenueStatus;
   seatedCapacity: number | null;
   standingCapacity: number | null;
-  hireFixedCostCents: number;
+  /**
+   * Null when nobody has been quoted a hire fee. Unlike a missing
+   * per-head rate there is nothing honest to fill it with, so the venue
+   * is blocked rather than estimated - see `hire_unknown`. Zero is a
+   * real quote and means the room costs nothing on top of the food.
+   */
+  hireFixedCostCents: number | null;
   /** Null when the venue quotes no per-head rate: see CateringAssumption. */
   perHeadCostCents: number | null;
   perChildCostCents: number | null;
@@ -87,6 +100,12 @@ export type CateringAssumption = {
 export type VenueCost = {
   /** The hire fee. A minimum spend does not count towards it. */
   hireCents: number;
+  /**
+   * The hire fee is not zero, it is unasked - so this total is the floor
+   * of the bill rather than the bill, and `hire_unknown` blocks the
+   * venue until somebody rings them.
+   */
+  hireUnknown: boolean;
   perAdultCents: number;
   perChildCents: number;
   /**
@@ -157,11 +176,17 @@ export function venueCost(
       ? 0
       : Math.max(0, venue.minimumSpendCents - cateringCents);
 
-  const totalCents = venue.hireFixedCostCents + cateringCents + minimumTopUpCents;
+  // An unasked hire fee counts as nothing here rather than as a guess:
+  // the total is then plainly a floor, which `hireUnknown` says out loud
+  // and `hire_unknown` blocks on. Inventing a figure would be worse -
+  // hire fees on one shortlist run from nothing to forty thousand.
+  const hireCents = venue.hireFixedCostCents ?? 0;
+  const totalCents = hireCents + cateringCents + minimumTopUpCents;
   const heads = counts.adults + counts.children;
 
   return {
-    hireCents: venue.hireFixedCostCents,
+    hireCents,
+    hireUnknown: venue.hireFixedCostCents === null,
     perAdultCents,
     perChildCents,
     cateringAssumed: assumed,
@@ -242,17 +267,24 @@ export function capacityFit(venue: Venue, counts: GuestCounts): CapacityFit {
  * as data rather than a sentence, so the page decides the wording, the
  * way buildReport does for seating.
  *
- * `capacity_unknown` is the odd one out and is deliberately here: it is
- * a gap in the record rather than a mark against the place. But "the
- * cheapest one that works" is a claim that everyone fits, and a venue
- * nobody has asked the capacity of cannot support it - a dry hall with
- * no per-head rate would otherwise win every comparison on the strength
- * of the fields left blank.
+ * `capacity_unknown` and `hire_unknown` are the odd ones out and are
+ * deliberately here: they are gaps in the record rather than marks
+ * against the place. But "the cheapest one that works" is a claim that
+ * everyone fits at that price, and a venue nobody has asked the capacity
+ * or the hire fee of cannot support it - it would otherwise win every
+ * comparison on the strength of the fields left blank.
+ *
+ * A missing per-head rate is the one blank that does not block, because
+ * it no longer leaves a hole: somebody has to feed the guests either
+ * way, so the caterer's rate fills it and every total it touches says
+ * so. There is no such stand-in for a hire fee. It is whatever they say
+ * it is, and on one shortlist that runs from nothing to forty thousand.
  */
 export type VenueBlocker =
   | { kind: "over_capacity"; shortSeats: number }
   | { kind: "date_unavailable" }
-  | { kind: "capacity_unknown" };
+  | { kind: "capacity_unknown" }
+  | { kind: "hire_unknown" };
 
 export type VenueEvaluation<V extends Venue = Venue> = {
   venue: V;
@@ -297,6 +329,9 @@ export function evaluateVenue<V extends Venue>(
   }
   if (fit.verdict === "unknown") {
     blockers.push({ kind: "capacity_unknown" });
+  }
+  if (cost.hireUnknown) {
+    blockers.push({ kind: "hire_unknown" });
   }
   // An unknown date does not block: not having rung them yet is the
   // normal state of a venue you are still thinking about, and it says

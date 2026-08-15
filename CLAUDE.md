@@ -112,10 +112,14 @@ before the server.
   partner names, wedding date, planned monthly contribution and the
   assumed outside-caterer rate. Partner names drive the side A/B labels
   and the duogram mark.
-- **CSV import format** (header required):
+- **Guest CSV import format** (header required):
   `household,first_name,last_name,side,age_bracket,dietary_notes`.
   Households matched by name case-insensitively, created when missing.
   Existing first+last names are skipped, so re-import is idempotent.
+- **Venue CSV import** (`src/lib/venue-csv.ts`) works the other way round:
+  headers are matched by alias, because a shortlist arrives as somebody's
+  research spreadsheet and reshaping it by hand is where the errors get
+  in. See the M8 section.
 - **rsvp_status**: pending / attending / declined.
 - **Migrations in prod**: the Docker entrypoint runs a bundled `migrate.js`
   (esbuild output of `src/db/migrate.ts`) before starting the server.
@@ -476,6 +480,16 @@ arithmetic. How somewhere feels lives in `notes`, and the page says so.
   stacking on top of it: a venue quoting a food minimum caters, so a
   blank rate there means unasked, and billing both would charge the
   same dinner twice.
+- **A hire fee nobody has asked for is null, and blocks.** This is the
+  mirror of the rate above and the reason the two are worth reading
+  together: a missing catering rate has a defensible number to fill it
+  with, and a hire fee has none - on one shortlist they run from nothing
+  to forty thousand. So `venues.hire_fixed_cost_cents` is nullable, an
+  unquoted venue carries `cost.hireUnknown` and a `hire_unknown` blocker,
+  and its total is shown as a floor ("from $10,290", "hire not quoted").
+  Existing zeroes were *not* migrated to null, unlike the catering
+  rates: a venue that charges no separate hire fee is a quote you
+  receive all the time, because the room is in the per-head package.
 - **A minimum spend is a floor on catering, not on the bill.** Venues
   quote a hire fee *and* a food-and-beverage minimum, and the hire fee
   does not count towards it: `hire + max(perHeadSpend, minimum)`.
@@ -494,7 +508,8 @@ arithmetic. How somewhere feels lives in `notes`, and the page says so.
   not having rung them yet says nothing. A missing catering rate does not
   block either, because it no longer leaves a hole in the total: it is
   estimated and labelled, which is what makes the comparison glanceable
-  rather than a list with a trap in it.
+  rather than a list with a trap in it. `hire_unknown` is the same
+  argument as `capacity_unknown` applied to money.
 - Blocked venues sink to the bottom rather than disappearing: a venue too
   small at 120 is back in the running at 90, and hiding it would hide
   that. `costOrder` does the sinking.
@@ -503,6 +518,34 @@ arithmetic. How somewhere feels lives in `notes`, and the page says so.
   must not tear a hole in a saved scenario.
 - Every function is generic over `V extends Venue`, so the page passes
   whole rows and gets whole rows back without a cast.
+
+### Importing a shortlist
+
+`src/lib/venue-csv.ts` (pure, tested) behind `/admin/venues/import`. A
+venue shortlist is researched in a spreadsheet, not typed into an app,
+so this reads the spreadsheet rather than demanding its own:
+
+- **Headers match by alias** - `Venue`, `Max seated`, `Venue hire (NZD)`,
+  `Website`, and `travel_*` by prefix, because that column names the town
+  you leave from. `VENUE_CSV_HEADERS` is the canonical spelling; only a
+  name column is required.
+- **Every column the arithmetic cannot use is kept verbatim in the
+  notes**, under its own heading, in file order. That is where region,
+  catering policy, accommodation and price confidence end up - the prose
+  is the part of this decision no column settles. Travel and curfew are
+  kept *as well as* parsed, unless the cell said only the number:
+  "115 min" loses the flight and "23:00" loses which curfew it was.
+  Only totals the app recomputes are dropped.
+- **Nothing is inferred into a money column.** `ask` imports as null, not
+  zero. A catering figure the file itself labels as the researcher's own
+  estimate is dropped rather than stored as a quote.
+- **Per-head rates are divided back out of a catering total** when the
+  header states the guest count (`Catering est. (121 guests)`) and the
+  basis column says the venue published it. That is arithmetic on their
+  figure; anything else is left to the assumed caterer.
+- Row-level `warnings` say all of this in the preview, before the button
+  is pressed. Venues already on the list are skipped by name, so
+  re-importing is safe.
 
 ## Milestones
 
