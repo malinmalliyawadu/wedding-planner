@@ -29,9 +29,12 @@ function venue(overrides: Partial<Venue> = {}): Venue {
 
 const COUNTS = { adults: 80, children: 10 };
 
+/** What an outside caterer charges, for the venues that do not. */
+const CATERING = { perHeadCents: 14_500, perChildCents: 7_000 };
+
 describe("venueCost", () => {
   it("adds the hire fee to per-head catering at each bracket's rate", () => {
-    const cost = venueCost(venue(), COUNTS);
+    const cost = venueCost(venue(), COUNTS, CATERING);
 
     expect(cost.adultsCents).toBe(16_500 * 80);
     expect(cost.childrenCents).toBe(8_000 * 10);
@@ -40,7 +43,11 @@ describe("venueCost", () => {
   });
 
   it("charges children at the adult rate when no child rate is set", () => {
-    const cost = venueCost(venue({ perChildCostCents: null }), COUNTS);
+    const cost = venueCost(
+      venue({ perChildCostCents: null }),
+      COUNTS,
+      CATERING,
+    );
 
     expect(cost.perChildCents).toBe(16_500);
     expect(cost.childrenCents).toBe(165_000);
@@ -48,31 +55,92 @@ describe("venueCost", () => {
 
   it("counts infants nowhere - they are simply not in the counts", () => {
     // The caller never passes infants; the sum is over adults + children.
-    const cost = venueCost(venue(), { adults: 80, children: 0 });
+    const cost = venueCost(venue(), { adults: 80, children: 0 }, CATERING);
     expect(cost.totalCents).toBe(450_000 + 16_500 * 80);
   });
 
   it("divides the whole bill, hire included, over chargeable heads", () => {
-    const cost = venueCost(venue(), COUNTS);
+    const cost = venueCost(venue(), COUNTS, CATERING);
     expect(cost.perGuestCents).toBe(Math.round(1_850_000 / 90));
   });
 
   it("does not divide by zero when nobody is coming", () => {
-    const cost = venueCost(venue(), { adults: 0, children: 0 });
+    const cost = venueCost(venue(), { adults: 0, children: 0 }, CATERING);
     expect(cost.totalCents).toBe(450_000);
     expect(cost.perGuestCents).toBe(0);
   });
 
   it("rejects fractional or negative guest counts", () => {
-    expect(() => venueCost(venue(), { adults: 80.5, children: 0 })).toThrow();
-    expect(() => venueCost(venue(), { adults: -1, children: 0 })).toThrow();
+    expect(() =>
+      venueCost(venue(), { adults: 80.5, children: 0 }, CATERING),
+    ).toThrow();
+    expect(() =>
+      venueCost(venue(), { adults: -1, children: 0 }, CATERING),
+    ).toThrow();
+  });
+
+  describe("catering the venue does not sell", () => {
+    const dryHire = venue({ perHeadCostCents: null, perChildCostCents: null });
+
+    it("prices an outside caterer rather than feeding everyone for free", () => {
+      const cost = venueCost(dryHire, COUNTS, CATERING);
+
+      expect(cost.perAdultCents).toBe(14_500);
+      expect(cost.perChildCents).toBe(7_000);
+      expect(cost.cateringCents).toBe(14_500 * 80 + 7_000 * 10);
+      expect(cost.cateringAssumed).toBe(true);
+    });
+
+    it("says so, so no total built on an assumption passes as a quote", () => {
+      expect(venueCost(venue(), COUNTS, CATERING).cateringAssumed).toBe(false);
+    });
+
+    it("substitutes both rates, never keeping the venue's child discount", () => {
+      // A child rate against no adult rate is a leftover, not a quote:
+      // it would price children with this venue and adults with the
+      // caterer, which is nobody's bill.
+      const cost = venueCost(
+        venue({ perHeadCostCents: null, perChildCostCents: 100 }),
+        COUNTS,
+        CATERING,
+      );
+      expect(cost.perChildCents).toBe(7_000);
+    });
+
+    it("charges assumed children at the assumed adult rate when there is none", () => {
+      const cost = venueCost(dryHire, COUNTS, {
+        perHeadCents: 14_500,
+        perChildCents: null,
+      });
+      expect(cost.perChildCents).toBe(14_500);
+    });
+
+    it("puts a bare hall on the same bill as a venue that caters", () => {
+      // The whole point: $1,200 of hire is not cheaper than $18,000
+      // all-in, it is the same dinner on somebody else's invoice.
+      const hall = venue({
+        id: 2,
+        name: "Bare hall",
+        hireFixedCostCents: 120_000,
+        perHeadCostCents: null,
+        perChildCostCents: null,
+      });
+      const cost = venueCost(hall, COUNTS, CATERING);
+
+      expect(cost.totalCents).toBe(120_000 + 14_500 * 80 + 7_000 * 10);
+      expect(cost.totalCents).toBeGreaterThan(1_000_000);
+    });
   });
 
   describe("minimum spend", () => {
     it("tops the catering up to the minimum, leaving the hire fee outside it", () => {
       // 90 guests spend $14,000; the minimum is $18,000, so $4,000 buys
       // nothing - and the $4,500 hire fee does not count towards it.
-      const cost = venueCost(venue({ minimumSpendCents: 1_800_000 }), COUNTS);
+      const cost = venueCost(
+        venue({ minimumSpendCents: 1_800_000 }),
+        COUNTS,
+        CATERING,
+      );
 
       expect(cost.cateringCents).toBe(1_400_000);
       expect(cost.minimumTopUpCents).toBe(400_000);
@@ -80,15 +148,39 @@ describe("venueCost", () => {
     });
 
     it("adds nothing once the guests clear the minimum", () => {
-      const cost = venueCost(venue({ minimumSpendCents: 1_000_000 }), COUNTS);
+      const cost = venueCost(
+        venue({ minimumSpendCents: 1_000_000 }),
+        COUNTS,
+        CATERING,
+      );
 
       expect(cost.minimumTopUpCents).toBe(0);
       expect(cost.totalCents).toBe(450_000 + 1_400_000);
     });
 
+    it("counts an assumed spend towards the minimum, not on top of it", () => {
+      // A venue with a food minimum caters, so a blank rate there means
+      // nobody has asked yet. Billing the caterer *and* the whole
+      // minimum would charge the same dinner twice.
+      const v = venue({ perHeadCostCents: null, minimumSpendCents: 1_800_000 });
+      const cost = venueCost(v, COUNTS, CATERING);
+
+      expect(cost.cateringCents).toBe(1_230_000);
+      expect(cost.minimumTopUpCents).toBe(570_000);
+      expect(cost.totalCents).toBe(450_000 + 1_800_000);
+    });
+
     it("never refunds the difference when the guests overshoot", () => {
-      const under = venueCost(venue({ minimumSpendCents: 1_800_000 }), COUNTS);
-      const over = venueCost(venue({ minimumSpendCents: 100 }), COUNTS);
+      const under = venueCost(
+        venue({ minimumSpendCents: 1_800_000 }),
+        COUNTS,
+        CATERING,
+      );
+      const over = venueCost(
+        venue({ minimumSpendCents: 100 }),
+        COUNTS,
+        CATERING,
+      );
 
       expect(under.totalCents).toBeGreaterThan(over.totalCents);
       expect(over.minimumTopUpCents).toBe(0);
@@ -98,20 +190,22 @@ describe("venueCost", () => {
 
 describe("breakEvenAdults", () => {
   it("is null when the venue has no minimum to reach", () => {
-    expect(breakEvenAdults(venue(), 10)).toBeNull();
+    expect(breakEvenAdults(venue(), 10, CATERING)).toBeNull();
   });
 
   it("gives the first adult count whose spend reaches the minimum", () => {
     // Minimum $18,000, children cover $800, leaving $17,200 at $165 a head.
     const v = venue({ minimumSpendCents: 1_800_000 });
-    const answer = breakEvenAdults(v, 10);
+    const answer = breakEvenAdults(v, 10, CATERING);
 
     expect(answer).toBe(105);
     expect(
-      venueCost(v, { adults: answer!, children: 10 }).minimumTopUpCents,
+      venueCost(v, { adults: answer!, children: 10 }, CATERING)
+        .minimumTopUpCents,
     ).toBe(0);
     expect(
-      venueCost(v, { adults: answer! - 1, children: 10 }).minimumTopUpCents,
+      venueCost(v, { adults: answer! - 1, children: 10 }, CATERING)
+        .minimumTopUpCents,
     ).toBeGreaterThan(0);
   });
 
@@ -122,16 +216,30 @@ describe("breakEvenAdults", () => {
       perHeadCostCents: 3_000,
       perChildCostCents: 0,
     });
-    expect(breakEvenAdults(v, 0)).toBe(34);
-    expect(venueCost(v, { adults: 34, children: 0 }).minimumTopUpCents).toBe(0);
+    expect(breakEvenAdults(v, 0, CATERING)).toBe(34);
     expect(
-      venueCost(v, { adults: 33, children: 0 }).minimumTopUpCents,
+      venueCost(v, { adults: 34, children: 0 }, CATERING).minimumTopUpCents,
+    ).toBe(0);
+    expect(
+      venueCost(v, { adults: 33, children: 0 }, CATERING).minimumTopUpCents,
     ).toBeGreaterThan(0);
   });
 
   it("is zero when the children alone already clear it", () => {
     const v = venue({ minimumSpendCents: 50_000, perChildCostCents: 8_000 });
-    expect(breakEvenAdults(v, 10)).toBe(0);
+    expect(breakEvenAdults(v, 10, CATERING)).toBe(0);
+  });
+
+  it("counts up at the assumed rate when the venue quotes none", () => {
+    const v = venue({ perHeadCostCents: null, minimumSpendCents: 1_000_000 });
+    const answer = breakEvenAdults(v, 10, CATERING);
+
+    // $10,000 less $700 of children, at the caterer's $145 a head.
+    expect(answer).toBe(65);
+    expect(
+      venueCost(v, { adults: answer!, children: 10 }, CATERING)
+        .minimumTopUpCents,
+    ).toBe(0);
   });
 
   it("is null when no number of guests can ever reach it", () => {
@@ -141,7 +249,7 @@ describe("breakEvenAdults", () => {
       perHeadCostCents: 0,
       perChildCostCents: 0,
     });
-    expect(breakEvenAdults(v, 10)).toBeNull();
+    expect(breakEvenAdults(v, 10, CATERING)).toBeNull();
   });
 });
 
@@ -193,25 +301,25 @@ describe("capacityFit", () => {
 
 describe("evaluateVenue", () => {
   it("has no blockers for a venue that fits on a free date", () => {
-    const e = evaluateVenue(venue({ dateAvailable: true }), COUNTS);
+    const e = evaluateVenue(venue({ dateAvailable: true }), COUNTS, CATERING);
     expect(e.blockers).toEqual([]);
     expect(e.viable).toBe(true);
   });
 
   it("blocks a venue too small for the guest list", () => {
-    const e = evaluateVenue(venue({ seatedCapacity: 82 }), COUNTS);
+    const e = evaluateVenue(venue({ seatedCapacity: 82 }), COUNTS, CATERING);
     expect(e.blockers).toEqual([{ kind: "over_capacity", shortSeats: 8 }]);
     expect(e.viable).toBe(false);
   });
 
   it("blocks a venue whose date is taken", () => {
-    const e = evaluateVenue(venue({ dateAvailable: false }), COUNTS);
+    const e = evaluateVenue(venue({ dateAvailable: false }), COUNTS, CATERING);
     expect(e.blockers).toEqual([{ kind: "date_unavailable" }]);
     expect(e.viable).toBe(false);
   });
 
   it("does not block on an unknown date - not having rung them says nothing", () => {
-    const e = evaluateVenue(venue({ dateAvailable: null }), COUNTS);
+    const e = evaluateVenue(venue({ dateAvailable: null }), COUNTS, CATERING);
     expect(e.blockers).toEqual([]);
     expect(e.viable).toBe(true);
   });
@@ -219,13 +327,13 @@ describe("evaluateVenue", () => {
   it("blocks a venue nobody has asked the capacity of", () => {
     // Otherwise a hall with every cost field left blank wins on price
     // while nobody knows whether the guests would fit in it.
-    const e = evaluateVenue(venue({ seatedCapacity: null }), COUNTS);
+    const e = evaluateVenue(venue({ seatedCapacity: null }), COUNTS, CATERING);
     expect(e.blockers).toEqual([{ kind: "capacity_unknown" }]);
     expect(e.viable).toBe(false);
   });
 
   it("treats a ruled-out venue as not viable even when nothing is wrong with it", () => {
-    const e = evaluateVenue(venue({ status: "ruled_out" }), COUNTS);
+    const e = evaluateVenue(venue({ status: "ruled_out" }), COUNTS, CATERING);
     expect(e.blockers).toEqual([]);
     expect(e.viable).toBe(false);
   });
@@ -234,6 +342,7 @@ describe("evaluateVenue", () => {
     const e = evaluateVenue(
       venue({ seatedCapacity: 82, dateAvailable: false }),
       COUNTS,
+      CATERING,
     );
     expect(e.blockers).toHaveLength(2);
   });
@@ -244,7 +353,7 @@ describe("evaluateVenues", () => {
   const dear = venue({ id: 2, name: "Dear", hireFixedCostCents: 900_000 });
 
   it("measures every venue against the cheapest viable one", () => {
-    const c = evaluateVenues([dear, cheap], COUNTS);
+    const c = evaluateVenues([dear, cheap], COUNTS, CATERING);
 
     expect(c.cheapestId).toBe(1);
     expect(c.dearestId).toBe(2);
@@ -254,7 +363,7 @@ describe("evaluateVenues", () => {
   });
 
   it("keeps the venues in the order they were given", () => {
-    const c = evaluateVenues([dear, cheap], COUNTS);
+    const c = evaluateVenues([dear, cheap], COUNTS, CATERING);
     expect(c.evaluations.map((e) => e.venue.id)).toEqual([2, 1]);
   });
 
@@ -265,7 +374,7 @@ describe("evaluateVenues", () => {
       hireFixedCostCents: 0,
       seatedCapacity: 20,
     });
-    const c = evaluateVenues([tooSmall, cheap, dear], COUNTS);
+    const c = evaluateVenues([tooSmall, cheap, dear], COUNTS, CATERING);
 
     expect(c.cheapestId).toBe(1);
     // Still measured, and still visibly the cheapest place on the list.
@@ -273,24 +382,50 @@ describe("evaluateVenues", () => {
   });
 
   it("will not let an unpriced, unmeasured venue win on its blank fields", () => {
-    // The dry hall: no capacity recorded and nothing per head, so on
-    // arithmetic alone it beats everything on the list.
+    // The dry hall: no capacity recorded and no rate of its own, which
+    // on the venue's own bill alone would beat everything on the list.
+    // The caterer's rate is what stops that, and the missing capacity
+    // still blocks it - one is an estimate, the other is a gap.
     const hall = venue({
       id: 4,
       name: "Bare hall",
       hireFixedCostCents: 120_000,
-      perHeadCostCents: 0,
+      perHeadCostCents: null,
       perChildCostCents: null,
       seatedCapacity: null,
     });
-    const c = evaluateVenues([hall, cheap, dear], COUNTS);
+    const c = evaluateVenues([hall, cheap, dear], COUNTS, CATERING);
 
-    expect(byId(c, 4).cost.totalCents).toBeLessThan(byId(c, 1).cost.totalCents);
+    expect(byId(c, 4).cost.cateringAssumed).toBe(true);
+    expect(byId(c, 4).cost.totalCents).toBeGreaterThan(120_000);
+    expect(byId(c, 4).blockers).toEqual([{ kind: "capacity_unknown" }]);
     expect(c.cheapestId).toBe(1);
   });
 
+  it("lets a dry hire win once its catering is priced honestly", () => {
+    // Same hall with a capacity: nothing about it is unknown any more,
+    // so it is allowed to be the cheapest - on a total that includes
+    // the dinner rather than one that quietly leaves it out.
+    const hall = venue({
+      id: 4,
+      name: "Bare hall",
+      hireFixedCostCents: 120_000,
+      perHeadCostCents: null,
+      perChildCostCents: null,
+      seatedCapacity: 120,
+    });
+    const c = evaluateVenues([hall, cheap, dear], COUNTS, CATERING);
+
+    expect(c.cheapestId).toBe(4);
+    expect(byId(c, 4).cost.totalCents).toBe(120_000 + 14_500 * 80 + 7_000 * 10);
+  });
+
   it("copes with nothing viable at all", () => {
-    const c = evaluateVenues([venue({ status: "ruled_out" })], COUNTS);
+    const c = evaluateVenues(
+      [venue({ status: "ruled_out" })],
+      COUNTS,
+      CATERING,
+    );
 
     expect(c.cheapestId).toBeNull();
     expect(c.dearestId).toBeNull();
@@ -299,7 +434,7 @@ describe("evaluateVenues", () => {
   });
 
   it("copes with no venues at all", () => {
-    const c = evaluateVenues([], COUNTS);
+    const c = evaluateVenues([], COUNTS, CATERING);
     expect(c.evaluations).toEqual([]);
     expect(c.spreadCents).toBe(0);
   });
@@ -307,8 +442,10 @@ describe("evaluateVenues", () => {
   it("compares at the counts it is given, so a venue can come back into range", () => {
     const snug = venue({ id: 4, seatedCapacity: 85 });
 
-    expect(evaluateVenue(snug, COUNTS).viable).toBe(false);
-    expect(evaluateVenue(snug, { adults: 70, children: 5 }).viable).toBe(true);
+    expect(evaluateVenue(snug, COUNTS, CATERING).viable).toBe(false);
+    expect(
+      evaluateVenue(snug, { adults: 70, children: 5 }, CATERING).viable,
+    ).toBe(true);
   });
 });
 
@@ -321,6 +458,7 @@ describe("costOrder", () => {
         venue({ id: 3, name: "Cheap", hireFixedCostCents: 100_000 }),
       ],
       COUNTS,
+      CATERING,
     );
 
     expect(costOrder(c.evaluations).map((e) => e.venue.id)).toEqual([3, 1, 2]);
@@ -330,6 +468,7 @@ describe("costOrder", () => {
     const c = evaluateVenues(
       [venue({ id: 1, name: "Zinnia" }), venue({ id: 2, name: "Akaroa" })],
       COUNTS,
+      CATERING,
     );
     expect(costOrder(c.evaluations).map((e) => e.venue.name)).toEqual([
       "Akaroa",

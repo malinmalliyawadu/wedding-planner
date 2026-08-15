@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
 import { ChevronRight, ExternalLink } from "lucide-react";
 import { DeleteButton } from "@/components/delete-button";
 import { Slider } from "@/components/slider";
@@ -12,6 +13,7 @@ import {
   costOrder,
   evaluateVenues,
   type CapacityFit,
+  type CateringAssumption,
   type GuestCounts,
   type VenueBlocker,
   type VenueEvaluation,
@@ -23,9 +25,11 @@ import { VenueDialog, type VenueValues } from "./venue-dialog";
 export function VenueComparison({
   venues,
   guestListCounts,
+  catering,
 }: {
   venues: VenueValues[];
   guestListCounts: GuestCounts;
+  catering: CateringAssumption;
 }) {
   // Venue hunting happens long before the RSVPs land, so the guest list is
   // only the starting point: the whole comparison recomputes as these move,
@@ -33,8 +37,8 @@ export function VenueComparison({
   const [counts, setCounts] = useState(guestListCounts);
 
   const comparison = useMemo(
-    () => evaluateVenues(venues, counts),
-    [venues, counts],
+    () => evaluateVenues(venues, counts, catering),
+    [venues, counts, catering],
   );
   const ordered = useMemo(
     () => costOrder(comparison.evaluations),
@@ -43,6 +47,7 @@ export function VenueComparison({
 
   const cheapest = ordered.find((e) => e.venue.id === comparison.cheapestId);
   const viableCount = ordered.filter((e) => e.viable).length;
+  const assumedCount = ordered.filter((e) => e.cost.cateringAssumed).length;
 
   return (
     <>
@@ -55,6 +60,14 @@ export function VenueComparison({
             <p className="figures mt-1 text-5xl leading-none tabular-nums">
               {cheapest ? formatCentsWhole(cheapest.cost.totalCents) : "—"}
             </p>
+            {cheapest?.cost.cateringAssumed && (
+              // The headline is the number that gets quoted at each other
+              // over dinner, so it says out loud when part of it is ours
+              // rather than theirs.
+              <p className="mt-1.5 text-xs text-brass">
+                Includes an estimated caterer
+              </p>
+            )}
           </div>
           <dl className="flex gap-8 text-right">
             <div>
@@ -99,6 +112,42 @@ export function VenueComparison({
             "These come to the same money at this guest count, so decide it on the notes."
           )}
         </p>
+
+        {assumedCount > 0 && (
+          // Half a shortlist quotes a per-head rate and half is dry hire.
+          // Comparing those on the venue's own bill makes a bare hall look
+          // a tenth of the price of a homestead, when the real difference
+          // is who invoices you for the dinner - so the caterer is priced
+          // in, and said out loud rather than buried in the arithmetic.
+          <p className="mt-3 max-w-2xl text-xs text-ink-soft">
+            {assumedCount === 1
+              ? "One of these quotes no per-head rate, so its total prices"
+              : `${assumedCount} of these quote no per-head rate, so their totals price`}{" "}
+            an outside caterer at{" "}
+            <span className="figures text-ink">
+              {formatCents(catering.perHeadCents)}
+            </span>{" "}
+            a head
+            {catering.perChildCents !== null && (
+              <>
+                {" "}
+                and{" "}
+                <span className="figures text-ink">
+                  {formatCents(catering.perChildCents)}
+                </span>{" "}
+                a child
+              </>
+            )}
+            . That is an assumption, not a quote -{" "}
+            <Link
+              href="/admin/settings"
+              className="text-brass underline decoration-hairline-strong underline-offset-2 transition-colors duration-150 hover:decoration-brass"
+            >
+              change it in settings
+            </Link>{" "}
+            once you have rung a caterer.
+          </p>
+        )}
 
         <div className="mt-6 grid grid-cols-1 gap-4 border-t border-hairline pt-5 sm:grid-cols-2">
           <CountSlider
@@ -292,7 +341,15 @@ function VenueRow({
           </span>
           <span className="mt-0.5 block text-xs whitespace-nowrap text-ink-faint">
             {formatCentsWhole(cost.hireCents)} hire +{" "}
-            {formatCentsWhole(cost.cateringCents + cost.minimumTopUpCents)} catering
+            {formatCentsWhole(cost.cateringCents + cost.minimumTopUpCents)}{" "}
+            {cost.cateringAssumed ? (
+              // Estimated, and marked in brass wherever it appears: the
+              // number is comparable, which is the point, but it is ours
+              // and not something the venue has ever said.
+              <span className="text-brass">catering (est.)</span>
+            ) : (
+              "catering"
+            )}
           </span>
           {cost.minimumTopUpCents > 0 && (
             <span className="mt-1 block text-xs text-brass">
@@ -370,7 +427,9 @@ function VenueDetail({
   counts: GuestCounts;
 }) {
   const { venue, cost, fit } = evaluation;
-  const childrenAtAdultRate = venue.perChildCostCents === null;
+  // True however the rates were arrived at: what it says is that a child
+  // costs what an adult costs here, which is the fact worth flagging.
+  const childrenAtAdultRate = cost.perChildCents === cost.perAdultCents;
 
   return (
     // The table is wider than a phone, so on a narrow screen the panel is
@@ -389,6 +448,9 @@ function VenueDetail({
                 <span className="figures text-ink-faint">
                   {counts.adults} × {formatCents(cost.perAdultCents)}
                 </span>
+                {cost.cateringAssumed && (
+                  <span className="text-brass"> (assumed)</span>
+                )}
               </>
             }
             mono
@@ -404,6 +466,9 @@ function VenueDetail({
                 </span>
                 {childrenAtAdultRate && (
                   <span className="text-ink-faint"> (adult rate)</span>
+                )}
+                {cost.cateringAssumed && (
+                  <span className="text-brass"> (assumed)</span>
                 )}
               </>
             }
@@ -445,6 +510,20 @@ function VenueDetail({
           >
             {formatCents(cost.perGuestCents)}
           </DetailRow>
+          {cost.cateringAssumed && (
+            <p className="mt-2 text-xs leading-relaxed text-ink-soft">
+              {venue.name} quotes no per-head rate, so the food here is
+              costed at the outside caterer&rsquo;s rate from{" "}
+              <Link
+                href="/admin/settings"
+                className="text-brass underline decoration-hairline-strong underline-offset-2 transition-colors duration-150 hover:decoration-brass"
+              >
+                settings
+              </Link>
+              . Somebody has to feed everyone either way - leaving it out
+              would only make this look cheaper than it is.
+            </p>
+          )}
           {venue.minimumSpendCents !== null && (
             <p className="mt-2 text-xs leading-relaxed text-ink-soft">
               {evaluation.breakEvenAdults === null

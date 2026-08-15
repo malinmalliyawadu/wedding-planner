@@ -21,7 +21,7 @@ export type VenueValues = {
   seatedCapacity: number | null;
   standingCapacity: number | null;
   hireFixedCostCents: number;
-  perHeadCostCents: number;
+  perHeadCostCents: number | null;
   perChildCostCents: number | null;
   minimumSpendCents: number | null;
   dateAvailable: boolean | null;
@@ -200,11 +200,14 @@ export function VenueDialog({ venue }: { venue?: VenueValues }) {
                   className={inputClass}
                 />
               </Field>
-              <Field label="Per adult">
+              <Field
+                label="Per adult"
+                hint="Blank if they do not cater - we price a caterer in"
+              >
                 <input
                   name="perHead"
                   inputMode="decimal"
-                  defaultValue={centsToInput(venue?.perHeadCostCents ?? 0)}
+                  defaultValue={centsToInput(venue?.perHeadCostCents ?? null)}
                   placeholder="165"
                   className={inputClass}
                 />

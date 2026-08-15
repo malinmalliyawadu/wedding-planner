@@ -273,7 +273,9 @@ const VENUES: Array<typeof venues.$inferInsert> = [
     locality: "Ponsonby",
     seatedCapacity: null,
     hireFixedCostCents: 120_000,
-    perHeadCostCents: 0,
+    // Dry hire: no food of their own, so the comparison prices the
+    // caterer from settings rather than serving ninety people for $1,200.
+    perHeadCostCents: null,
     dateAvailable: null,
     travelMinutes: 10,
     hireIncludes: "Hall only - bring your own everything",
@@ -298,6 +300,10 @@ async function main() {
     weddingDate: "2027-03-20",
     monthlyContributionCents: 250_000,
     contributionDayOfMonth: 1,
+    // Matches the Catering budget item below, which is the same dinner
+    // seen from the other end.
+    cateringPerHeadCents: 16_500,
+    cateringPerChildCents: 8_000,
   });
 
   const insertedTables = await db
@@ -307,8 +313,8 @@ async function main() {
 
   // A venue shortlist with one of each thing that goes wrong: a minimum
   // spend a wedding this size does not clear, a room that seats fewer
-  // than have been invited, a date already gone, and one nobody has
-  // rung up yet.
+  // than have been invited, a date already gone, and a dry hall nobody
+  // has rung up yet whose dinner has to be priced for it.
   await db.insert(venues).values(VENUES);
 
   for (const hh of HOUSEHOLDS) {

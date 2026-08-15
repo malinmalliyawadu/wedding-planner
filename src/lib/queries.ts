@@ -18,6 +18,9 @@ export const getSettings = cache(async (): Promise<Settings> => {
       partnerBName: "B",
       weddingDate: null,
       monthlyContributionCents: 0,
+      contributionDayOfMonth: 1,
+      cateringPerHeadCents: 14_500,
+      cateringPerChildCents: 7_000,
     }
   );
 });

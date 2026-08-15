@@ -109,8 +109,9 @@ before the server.
   by default. A `scenario_choices` row overrides: either picks a tier
   (`item_option_id`) or excludes the item (`excluded = true`).
 - **Settings singleton**: one-row `settings` table (id always 1) holds
-  partner names, wedding date, planned monthly contribution. Partner names
-  drive the side A/B labels and the duogram mark.
+  partner names, wedding date, planned monthly contribution and the
+  assumed outside-caterer rate. Partner names drive the side A/B labels
+  and the duogram mark.
 - **CSV import format** (header required):
   `household,first_name,last_name,side,age_bracket,dietary_notes`.
   Households matched by name case-insensitively, created when missing.
@@ -460,6 +461,21 @@ arithmetic. How somewhere feels lives in `notes`, and the page says so.
   `resolveChildRate` / `GuestCounts` / `assertGuestCounts` are imported
   from `budget.ts` rather than restated - a venue and a budget item can
   never disagree about what a child costs.
+- **A venue with no per-head rate is priced with an outside caterer**,
+  never as free food. `venues.per_head_cost_cents` is null when a place
+  quotes no rate - dry hire, or nobody has rung them - and the
+  comparison fills the gap from `settings.catering_per_head_cents`,
+  editable at `/admin/settings`. Otherwise a bare hall's $1,200 of hire
+  reads as a tenth of a homestead when the real difference is who
+  invoices you for the dinner. Every total built that way carries
+  `cost.cateringAssumed`, and the page marks it in brass wherever it
+  shows: the number is comparable, but it is ours and not theirs. Zero
+  would mean they genuinely feed everyone for nothing, which is not a
+  quote anyone receives - so the migration turned the old zeroes null.
+  An assumed spend *counts towards* a minimum spend rather than
+  stacking on top of it: a venue quoting a food minimum caters, so a
+  blank rate there means unasked, and billing both would charge the
+  same dinner twice.
 - **A minimum spend is a floor on catering, not on the bill.** Venues
   quote a hire fee *and* a food-and-beverage minimum, and the hire fee
   does not count towards it: `hire + max(perHeadSpend, minimum)`.
@@ -473,9 +489,12 @@ arithmetic. How somewhere feels lives in `notes`, and the page says so.
 - `blockers` is why a venue is not bookable *on today's information*, as
   data rather than a sentence (the page words it, as `buildReport` does).
   `capacity_unknown` is the subtle one and is a blocker on purpose: "the
-  cheapest one that works" claims everyone fits, so a dry hall with every
-  cost field left blank must not win the comparison on its blanks. An
-  unknown *date* does not block - not having rung them yet says nothing.
+  cheapest one that works" claims everyone fits, so a hall nobody has
+  measured must not win on that blank. An unknown *date* does not block -
+  not having rung them yet says nothing. A missing catering rate does not
+  block either, because it no longer leaves a hole in the total: it is
+  estimated and labelled, which is what makes the comparison glanceable
+  rather than a list with a trap in it.
 - Blocked venues sink to the bottom rather than disappearing: a venue too
   small at 120 is back in the running at 90, and hiding it would hide
   that. `costOrder` does the sinking.

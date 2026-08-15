@@ -12,7 +12,8 @@ export default async function SettingsPage() {
       <PageHeader eyebrow="The particulars" title="Settings">
         <p className="mt-3 max-w-2xl text-sm text-ink-soft">
           Your names label every side chip and priority bar in the app. The
-          wedding date drives the countdown and the savings projection.
+          wedding date drives the countdown and the savings projection, and
+          the caterer&rsquo;s rate prices the venues that do not feed anyone.
         </p>
       </PageHeader>
 

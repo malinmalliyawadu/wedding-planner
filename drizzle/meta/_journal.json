@@ -50,6 +50,13 @@
       "when": 1786589689245,
       "tag": "0006_elite_vulture",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1786781560849,
+      "tag": "0007_parallel_randall",
+      "breakpoints": true
     }
   ]
 }

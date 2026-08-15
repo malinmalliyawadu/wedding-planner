@@ -35,6 +35,31 @@ const settingsSchema = z.object({
     .int()
     .min(1, "Pick a day from 1 to 31")
     .max(31, "Pick a day from 1 to 31"),
+  cateringPerHeadCents: z
+    .string()
+    .trim()
+    .transform((s, ctx) => {
+      const cents = parseDollarsToCents(s === "" ? "0" : s);
+      if (cents === null || cents < 0) {
+        ctx.addIssue({ code: "custom", message: `"${s}" is not a dollar amount` });
+        return z.NEVER;
+      }
+      return cents;
+    }),
+  // Blank charges children at the adult rate, as everywhere else money
+  // is split by bracket.
+  cateringPerChildCents: z
+    .string()
+    .trim()
+    .transform((s, ctx) => {
+      if (s === "") return null;
+      const cents = parseDollarsToCents(s);
+      if (cents === null || cents < 0) {
+        ctx.addIssue({ code: "custom", message: `"${s}" is not a dollar amount` });
+        return z.NEVER;
+      }
+      return cents;
+    }),
 });
 
 export async function updateSettings(
@@ -47,6 +72,8 @@ export async function updateSettings(
     weddingDate: formData.get("weddingDate") ?? "",
     monthlyContributionCents: formData.get("monthlyContribution") ?? "0",
     contributionDayOfMonth: formData.get("contributionDayOfMonth"),
+    cateringPerHeadCents: formData.get("cateringPerHead") ?? "0",
+    cateringPerChildCents: formData.get("cateringPerChild") ?? "",
   });
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0].message };
