@@ -60,6 +60,17 @@ export const settings = pgTable(
     contributionDayOfMonth: integer("contribution_day_of_month")
       .notNull()
       .default(1),
+    /**
+     * What an outside caterer charges a head. Used to price venues that
+     * do not cater, so a dry hire and an all-in venue can be compared on
+     * the same bill. It is an assumption, labelled as one wherever it is
+     * spent; the default is a plausible NZ figure to start from.
+     */
+    cateringPerHeadCents: integer("catering_per_head_cents")
+      .notNull()
+      .default(14_500),
+    /** Null charges children at the adult rate, as everywhere else. */
+    cateringPerChildCents: integer("catering_per_child_cents").default(7_000),
   },
   (t) => [
     check("settings_singleton", sql`${t.id} = 1`),
@@ -226,7 +237,14 @@ export const venues = pgTable(
     standingCapacity: integer("standing_capacity"),
     /** The hire fee, which a minimum spend does not count towards. */
     hireFixedCostCents: integer("hire_fixed_cost_cents").notNull().default(0),
-    perHeadCostCents: integer("per_head_cost_cents").notNull().default(0),
+    /**
+     * Null means no per-head figure from this venue - either they do not
+     * cater or nobody has asked yet. The comparison then prices an
+     * outside caterer at the assumed rate in `settings`, so a dry hall
+     * cannot win on a blank field. Zero would mean they genuinely feed
+     * everyone for nothing, which is not a quote anyone receives.
+     */
+    perHeadCostCents: integer("per_head_cost_cents"),
     /** Null means children are charged at the adult rate, as in budget items. */
     perChildCostCents: integer("per_child_cost_cents"),
     /** Floor on the per-head spend. Null means there is no minimum. */

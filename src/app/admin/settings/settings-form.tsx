@@ -81,6 +81,36 @@ export function SettingsForm({ settings }: { settings: Settings }) {
         </div>
       </fieldset>
 
+      <fieldset className="space-y-4 border-t border-hairline pt-5">
+        <legend className="eyebrow mb-3 text-brass">Bringing a caterer</legend>
+        <p className="text-xs leading-relaxed text-ink-soft">
+          What an outside caterer charges. Venues that quote no per-head rate
+          of their own are priced with this, so a dry hall and an all-in
+          homestead can be compared on the same bill instead of one of them
+          appearing to serve dinner for nothing.
+        </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Per adult" hint="A plausible figure until you have a quote">
+            <input
+              name="cateringPerHead"
+              inputMode="decimal"
+              defaultValue={centsToInput(settings.cateringPerHeadCents)}
+              placeholder="145"
+              className={inputClass}
+            />
+          </Field>
+          <Field label="Per child" hint="Blank charges them as adults">
+            <input
+              name="cateringPerChild"
+              inputMode="decimal"
+              defaultValue={centsToInput(settings.cateringPerChildCents)}
+              placeholder="70"
+              className={inputClass}
+            />
+          </Field>
+        </div>
+      </fieldset>
+
       {state.status === "error" && (
         <p role="alert" className="text-sm text-madder">
           {state.message}

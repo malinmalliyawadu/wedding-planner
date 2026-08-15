@@ -84,7 +84,9 @@ const venueSchema = z.object({
   seatedCapacity: optionalCount("Seated capacity", 2000),
   standingCapacity: optionalCount("Standing capacity", 5000),
   hireFixedCostCents: dollars,
-  perHeadCostCents: dollars,
+  // Blank means they quote no per-head rate, and the comparison prices an
+  // outside caterer instead. Zero would mean the dinner is free.
+  perHeadCostCents: optionalDollars,
   perChildCostCents: optionalDollars,
   minimumSpendCents: optionalDollars,
   dateAvailable: availability,

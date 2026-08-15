@@ -26,6 +26,14 @@
  * 2. **Capacity is counted in chairs.** Seats needed is adults +
  *    children; infants sit on laps, exactly as in seating.ts, and are
  *    free, exactly as in budget.ts. One convention, three modules.
+ *
+ * 3. **A venue with no per-head rate is priced with an outside caterer**
+ *    rather than as free food. Half the shortlist quotes a rate and half
+ *    is dry hire, and comparing the two on the venue's own bill makes a
+ *    bare hall look like it costs a tenth of a homestead when the real
+ *    difference is who invoices you for the dinner. `CateringAssumption`
+ *    is what fills the gap - a stated number, marked as assumed on every
+ *    total it touches, never a silent zero.
  */
 
 import { resolveChildRate, assertGuestCounts, type GuestCounts } from "./budget";
@@ -49,11 +57,31 @@ export type Venue = {
   seatedCapacity: number | null;
   standingCapacity: number | null;
   hireFixedCostCents: number;
-  perHeadCostCents: number;
+  /** Null when the venue quotes no per-head rate: see CateringAssumption. */
+  perHeadCostCents: number | null;
   perChildCostCents: number | null;
   minimumSpendCents: number | null;
   dateAvailable: boolean | null;
   travelMinutes: number | null;
+};
+
+/**
+ * What food costs a head when the venue is not the one selling it.
+ *
+ * Somebody has to feed the guests at a dry hall, so the alternative to
+ * an assumption is not neutrality - it is pricing that dinner at zero,
+ * which is the one number guaranteed to be wrong. Stating it instead
+ * makes every total the same shape of bill, and every total built on it
+ * carries `cateringAssumed` so the page can say so.
+ *
+ * It also stands in for a venue that caters but whose rate nobody has
+ * asked for yet: an estimate against a name you have to ring is more
+ * use than a blank, and reads the same way on the page.
+ */
+export type CateringAssumption = {
+  perHeadCents: number;
+  /** Null charges children at the adult rate, as everywhere else. */
+  perChildCents: number | null;
 };
 
 export type VenueCost = {
@@ -61,6 +89,11 @@ export type VenueCost = {
   hireCents: number;
   perAdultCents: number;
   perChildCents: number;
+  /**
+   * The per-head rates came from the assumption rather than the venue,
+   * so this total is an estimate and every place it is shown says so.
+   */
+  cateringAssumed: boolean;
   adultsCents: number;
   childrenCents: number;
   /** Adults + children at their rates, before any minimum is applied. */
@@ -76,19 +109,49 @@ export type VenueCost = {
   perGuestCents: number;
 };
 
-export function venueCost(venue: Venue, counts: GuestCounts): VenueCost {
+/**
+ * The rates this venue is priced at, and whether they are its own.
+ *
+ * The assumption substitutes wholesale: a venue that quotes no adult
+ * rate has no child rate worth keeping either, so both come from the
+ * caterer rather than leaving a venue's child discount attached to
+ * somebody else's food.
+ */
+function cateringRates(
+  venue: Venue,
+  catering: CateringAssumption,
+): { perAdultCents: number; perChildCents: number; assumed: boolean } {
+  const quoted = venue.perHeadCostCents;
+  const assumed = quoted === null;
+  const perAdultCents = quoted ?? catering.perHeadCents;
+  const perChildCents = resolveChildRate(
+    perAdultCents,
+    assumed ? catering.perChildCents : venue.perChildCostCents,
+  );
+  return { perAdultCents, perChildCents, assumed };
+}
+
+export function venueCost(
+  venue: Venue,
+  counts: GuestCounts,
+  catering: CateringAssumption,
+): VenueCost {
   assertGuestCounts(counts);
 
-  const perAdultCents = venue.perHeadCostCents;
-  const perChildCents = resolveChildRate(
-    venue.perHeadCostCents,
-    venue.perChildCostCents,
+  const { perAdultCents, perChildCents, assumed } = cateringRates(
+    venue,
+    catering,
   );
 
   const adultsCents = perAdultCents * counts.adults;
   const childrenCents = perChildCents * counts.children;
   const cateringCents = adultsCents + childrenCents;
 
+  // An assumed spend counts towards the minimum like a quoted one. A
+  // venue with a food-and-beverage minimum is by definition a venue that
+  // caters, so a blank rate there means "not asked yet" rather than
+  // "bring your own" - and charging both the caterer and the whole
+  // minimum would bill the same dinner twice.
   const minimumTopUpCents =
     venue.minimumSpendCents === null
       ? 0
@@ -101,6 +164,7 @@ export function venueCost(venue: Venue, counts: GuestCounts): VenueCost {
     hireCents: venue.hireFixedCostCents,
     perAdultCents,
     perChildCents,
+    cateringAssumed: assumed,
     adultsCents,
     childrenCents,
     cateringCents,
@@ -118,18 +182,19 @@ export function venueCost(venue: Venue, counts: GuestCounts): VenueCost {
  * zero and therefore no number of guests will ever reach it - which is a
  * real quote to receive, and means the minimum is simply a fee.
  */
-export function breakEvenAdults(venue: Venue, children: number): number | null {
+export function breakEvenAdults(
+  venue: Venue,
+  children: number,
+  catering: CateringAssumption,
+): number | null {
   if (venue.minimumSpendCents === null) return null;
 
-  const perChildCents = resolveChildRate(
-    venue.perHeadCostCents,
-    venue.perChildCostCents,
-  );
+  const { perAdultCents, perChildCents } = cateringRates(venue, catering);
   const remaining = venue.minimumSpendCents - perChildCents * children;
   if (remaining <= 0) return 0;
-  if (venue.perHeadCostCents <= 0) return null;
+  if (perAdultCents <= 0) return null;
 
-  return ceilDiv(remaining, venue.perHeadCostCents);
+  return ceilDiv(remaining, perAdultCents);
 }
 
 /* --------------------------------------------------------------- capacity */
@@ -221,8 +286,9 @@ export type VenueComparison<V extends Venue = Venue> = {
 export function evaluateVenue<V extends Venue>(
   venue: V,
   counts: GuestCounts,
+  catering: CateringAssumption,
 ): Omit<VenueEvaluation<V>, "deltaFromCheapestCents"> {
-  const cost = venueCost(venue, counts);
+  const cost = venueCost(venue, counts, catering);
   const fit = capacityFit(venue, counts);
 
   const blockers: VenueBlocker[] = [];
@@ -244,7 +310,7 @@ export function evaluateVenue<V extends Venue>(
     venue,
     cost,
     fit,
-    breakEvenAdults: breakEvenAdults(venue, counts.children),
+    breakEvenAdults: breakEvenAdults(venue, counts.children, catering),
     blockers,
     viable: venue.status !== "ruled_out" && blockers.length === 0,
   };
@@ -253,8 +319,9 @@ export function evaluateVenue<V extends Venue>(
 export function evaluateVenues<V extends Venue>(
   venues: V[],
   counts: GuestCounts,
+  catering: CateringAssumption,
 ): VenueComparison<V> {
-  const partial = venues.map((venue) => evaluateVenue(venue, counts));
+  const partial = venues.map((venue) => evaluateVenue(venue, counts, catering));
   const viable = partial.filter((e) => e.viable);
 
   const cheapest = minBy(viable, (e) => e.cost.totalCents);
