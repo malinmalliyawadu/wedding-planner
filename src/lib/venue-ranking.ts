@@ -342,8 +342,19 @@ export function contestedPairs(comparisons: Comparison[]): ContestedPair[] {
 
 export type RankedVenue<V extends Rankable = Rankable> = {
   venue: V;
-  /** 1-based. Venues of equal strength share a rank, as in any table. */
-  rank: number;
+  /**
+   * 1-based, over the venues that have actually been compared. Venues of
+   * equal strength share a rank, as in any table.
+   *
+   * Null when the venue has no comparison at all - it does not have a
+   * poor position, it has no position, and numbering it would be the
+   * blank winning on being blank. Numbering them anyway would also make
+   * the figures meaningless while the list is young: seventy venues
+   * nobody has judged all tie on the prior, so the handful you *have*
+   * judged would read 8th and 67th out of 76 rather than 2nd and 7th of
+   * the seven you have an opinion about.
+   */
+  rank: number | null;
   strength: number;
   /** Chance you would pick it over a middling venue, 0 to 1. */
   chanceOverMiddling: number;
@@ -414,7 +425,7 @@ export function rankVenues<V extends Rankable>(
       const strength = strengths.get(venue.id) ?? 1;
       return {
         venue,
-        rank: 0,
+        rank: null as number | null,
         strength,
         chanceOverMiddling: chanceOverMiddling(strength),
         comparisons: count,
@@ -435,18 +446,20 @@ export function rankVenues<V extends Rankable>(
     });
 
   // Standard competition ranking: equal strengths share a number and the
-  // next distinct strength skips past them.
+  // next distinct strength skips past them. Uncompared venues are passed
+  // over entirely rather than being given a place and then skipped -
+  // they take up no number, so the venues below them do not inherit a
+  // rank inflated by however many nobody has looked at yet.
+  const counted = ranked.filter((entry) => entry.comparisons > 0);
   let rank = 0;
   let previous: number | null = null;
-  ranked.forEach((entry, index) => {
+  counted.forEach((entry, index) => {
     if (previous === null || !sameStrength(entry.strength, previous)) {
       rank = index + 1;
       previous = entry.strength;
     }
     entry.rank = rank;
   });
-
-  const counted = ranked.filter((entry) => entry.comparisons > 0);
 
   return {
     ranked,

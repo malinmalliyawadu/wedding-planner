@@ -777,7 +777,7 @@ function RankRow({
       }`}
     >
       <td className="figures px-4 py-3 text-right align-top text-ink-faint">
-        {entry.uncompared ? "—" : entry.rank}
+        {entry.rank ?? "—"}
       </td>
 
       <td className="px-4 py-3 align-top">

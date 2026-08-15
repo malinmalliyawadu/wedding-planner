@@ -2,9 +2,10 @@ import Link from "next/link";
 import { asc } from "drizzle-orm";
 import { FileUp } from "lucide-react";
 import { db } from "@/db";
-import { venues } from "@/db/schema";
+import { venueComparisons, venues } from "@/db/schema";
 import { EmptyState, PageHeader } from "@/components/ui";
 import { getSettings } from "@/lib/queries";
+import type { Comparison } from "@/lib/venue-ranking";
 import { countsFromGuestList } from "../budget/queries";
 import { VenueComparison } from "./venue-comparison";
 import { VenueDialog } from "./venue-dialog";
@@ -13,11 +14,20 @@ import { VenueTabs } from "./venue-tabs";
 export const dynamic = "force-dynamic";
 
 export default async function VenuesPage() {
-  const [list, guestListCounts, settings] = await Promise.all([
+  const [list, rows, guestListCounts, settings] = await Promise.all([
     db.select().from(venues).orderBy(asc(venues.name)),
+    db.select().from(venueComparisons),
     countsFromGuestList(),
     getSettings(),
   ]);
+
+  // Only the four columns the ranking reads, as on the rank page.
+  const comparisons: Comparison[] = rows.map((row) => ({
+    venueAId: row.venueAId,
+    venueBId: row.venueBId,
+    winnerId: row.winnerId,
+    judge: row.judge,
+  }));
 
   return (
     <>
@@ -61,6 +71,7 @@ export default async function VenuesPage() {
       ) : (
         <VenueComparison
           venues={list}
+          comparisons={comparisons}
           guestListCounts={guestListCounts}
           catering={{
             perHeadCents: settings.cateringPerHeadCents,

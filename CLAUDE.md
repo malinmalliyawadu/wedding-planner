@@ -512,7 +512,18 @@ arithmetic. How somewhere feels lives in `notes`, and the page says so.
   argument as `capacity_unknown` applied to money.
 - Blocked venues sink to the bottom rather than disappearing: a venue too
   small at 120 is back in the running at 90, and hiding it would hide
-  that. `costOrder` does the sinking.
+  that. `venueOrder` does the sinking, and does it **whichever column you
+  sorted by and whichever way round** - sorting is a question about the
+  venues you have a choice between. `costOrder` is now just
+  `venueOrder(…, { key: "total", direction: "asc" })`.
+- **A blank sorts last in both directions.** Reversing turns the list
+  over; it must not float every venue nobody has measured to the top,
+  because an unknown capacity is not a very large one. Only `rank` and
+  `seats` can be blank - every money column is a number for every venue,
+  estimated or floored but never absent.
+- `venueOrder` takes a `rankOf` callback rather than importing the
+  ranking, so your preference can be a sortable column without this
+  module learning what a preference is.
 - Venues write nothing into budget items or scenarios. The comparison is
   useful long before the budget is settled, and a venue you later delete
   must not tear a hole in a saved scenario.
@@ -599,6 +610,22 @@ computed.
 - `MIN_COMPARISONS_PER_VENUE` is 6 - where a strength stops swinging on
   any one answer. It is a rule of thumb, presented as one; venues short
   of it are marked provisional rather than hidden.
+- **`rank` is null for a venue nobody has compared, and uncompared
+  venues take up no rank numbers.** They do not have a poor position,
+  they have none. Numbering them would also make the figures useless
+  while the list is young: seventy venues nobody has judged all tie on
+  the prior, so the handful you *have* judged would read 8th and 67th of
+  76 rather than 2nd and 7th of the seven you have an opinion about.
+
+The comparison table carries the ranking as its `#` column and sorts by
+it **by default** - "which do we want" is the question you arrive with,
+and the money is what you check it against. With nothing compared yet
+every venue is unranked and the order falls through to cheapest first,
+which is exactly the table that page has always shown. A faint number is
+provisional and a dash is uncompared. Note the `#` you see there is the
+same number the rank page shows, and ranks 1-7 can all sit below the fold
+if those venues are blocked - the sinking rule wins over the sort, by
+design.
 
 `venue-detail.tsx` is the whole record for one venue and is **shared**:
 the comparison opens it in a row's disclosure, the ranking board in a

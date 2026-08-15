@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ChevronRight, ExternalLink } from "lucide-react";
+import { ChevronRight, ChevronUp, ExternalLink } from "lucide-react";
 import { DeleteButton } from "@/components/delete-button";
 import { Slider } from "@/components/slider";
 import { Chip } from "@/components/ui";
@@ -10,14 +10,22 @@ import { formatDateShort } from "@/lib/dates";
 import { formatCents, formatCentsWhole } from "@/lib/money";
 import { formatTime } from "@/lib/run-sheet";
 import {
-  costOrder,
   evaluateVenues,
+  venueOrder,
   type CapacityFit,
   type CateringAssumption,
   type GuestCounts,
+  type SortDirection,
   type VenueBlocker,
   type VenueEvaluation,
+  type VenueSort,
+  type VenueSortKey,
 } from "@/lib/venues";
+import {
+  MIN_COMPARISONS_PER_VENUE,
+  rankVenues,
+  type Comparison,
+} from "@/lib/venue-ranking";
 import { deleteVenue } from "./actions";
 import { STATUS_LABELS, STATUS_TONES } from "./status";
 import { VenueDetail } from "./venue-detail";
@@ -25,10 +33,12 @@ import { VenueDialog, type VenueValues } from "./venue-dialog";
 
 export function VenueComparison({
   venues,
+  comparisons,
   guestListCounts,
   catering,
 }: {
   venues: VenueValues[];
+  comparisons: Comparison[];
   guestListCounts: GuestCounts;
   catering: CateringAssumption;
 }) {
@@ -36,15 +46,55 @@ export function VenueComparison({
   // only the starting point: the whole comparison recomputes as these move,
   // which is how you find out that the barn works at 90 and not at 110.
   const [counts, setCounts] = useState(guestListCounts);
+  // Rank first, because "which do we want" is the question you came with
+  // and the money is what you check it against. With nothing compared yet
+  // every venue is unranked, and the order falls through to cheapest
+  // first - exactly the table this page has always shown.
+  const [sort, setSort] = useState<VenueSort>({
+    key: "rank",
+    direction: "asc",
+  });
 
   const comparison = useMemo(
     () => evaluateVenues(venues, counts, catering),
     [venues, counts, catering],
   );
-  const ordered = useMemo(
-    () => costOrder(comparison.evaluations),
-    [comparison],
+
+  // The ranking does not depend on the guest count, so this survives the
+  // sliders moving. Ranks are 1-based with ties sharing a number; a venue
+  // nobody has compared has none, which sinks it in a rank sort.
+  const ranking = useMemo(
+    () => rankVenues(venues, comparisons),
+    [venues, comparisons],
   );
+  const ranks = useMemo(() => {
+    const byId = new Map<number, RankInfo>();
+    for (const entry of ranking.ranked) {
+      byId.set(entry.venue.id, {
+        rank: entry.rank,
+        comparisons: entry.comparisons,
+        provisional: entry.provisional,
+      });
+    }
+    return byId;
+  }, [ranking]);
+
+  const ordered = useMemo(
+    () =>
+      venueOrder(
+        comparison.evaluations,
+        sort,
+        (id) => ranks.get(id)?.rank ?? null,
+      ),
+    [comparison, sort, ranks],
+  );
+
+  const toggleSort = (key: VenueSortKey) =>
+    setSort((current) =>
+      current.key === key
+        ? { key, direction: current.direction === "asc" ? "desc" : "asc" }
+        : { key, direction: defaultDirection(key) },
+    );
 
   const cheapest = ordered.find((e) => e.venue.id === comparison.cheapestId);
   const viableCount = ordered.filter((e) => e.viable).length;
@@ -188,24 +238,52 @@ export function VenueComparison({
         <table className="w-full min-w-4xl text-sm">
           <thead>
             <tr className="border-b border-hairline text-left">
-              <th className="eyebrow px-4 py-3 font-semibold text-ink-faint">
+              <SortHeader
+                sortKey="rank"
+                sort={sort}
+                onSort={toggleSort}
+                align="right"
+                className="px-4"
+              >
+                #
+              </SortHeader>
+              <SortHeader
+                sortKey="name"
+                sort={sort}
+                onSort={toggleSort}
+                className="px-4"
+              >
                 Venue
-              </th>
-              <th className="eyebrow px-3 py-3 font-semibold text-ink-faint">
+              </SortHeader>
+              <SortHeader sortKey="seats" sort={sort} onSort={toggleSort}>
                 Seats
-              </th>
-              <th className="eyebrow px-3 py-3 font-semibold text-ink-faint">
-                Our date
-              </th>
-              <th className="eyebrow px-4 py-3 text-right font-semibold text-ink-faint">
+              </SortHeader>
+              <SortHeader
+                sortKey="total"
+                sort={sort}
+                onSort={toggleSort}
+                align="right"
+                className="px-4"
+              >
                 Total
-              </th>
-              <th className="eyebrow px-3 py-3 text-right font-semibold text-ink-faint">
+              </SortHeader>
+              <SortHeader
+                sortKey="perGuest"
+                sort={sort}
+                onSort={toggleSort}
+                align="right"
+              >
                 Per guest
-              </th>
-              <th className="eyebrow px-4 py-3 text-right font-semibold text-ink-faint">
+              </SortHeader>
+              <SortHeader
+                sortKey="delta"
+                sort={sort}
+                onSort={toggleSort}
+                align="right"
+                className="px-4"
+              >
                 vs cheapest
-              </th>
+              </SortHeader>
               <th className="px-4 py-3">
                 <span className="sr-only">Actions</span>
               </th>
@@ -217,6 +295,7 @@ export function VenueComparison({
                 key={evaluation.venue.id}
                 evaluation={evaluation}
                 counts={counts}
+                rank={ranks.get(evaluation.venue.id)}
                 isCheapest={evaluation.venue.id === comparison.cheapestId}
               />
             ))}
@@ -224,24 +303,172 @@ export function VenueComparison({
         </table>
       </div>
 
-      <p className="mt-3 text-xs text-ink-soft">
+      <p className="mt-3 max-w-3xl text-xs text-ink-soft">
         Compared at <span className="figures">{counts.adults}</span> adults and{" "}
         <span className="figures">{counts.children}</span> children. Infants are
         free and sit on laps, so they count towards neither the bill nor the
-        chairs. Open a venue&rsquo;s name for the whole record: the arithmetic
-        behind its total, the address, and the notes in full.
+        chairs. Any heading sorts, and venues you could book stay above ones
+        you could not whichever you pick. Open a venue&rsquo;s name for the
+        whole record: the arithmetic behind its total, whether the date is
+        free, the address, and the notes in full.
+      </p>
+
+      <p className="mt-2 max-w-3xl text-xs text-ink-soft">
+        {ranking.comparisonsMade === 0 ? (
+          <>
+            Nothing is ranked yet, so <span className="figures">#</span> is
+            empty and the table falls back to cheapest first.{" "}
+            <Link
+              href="/admin/venues/rank"
+              className="text-brass underline decoration-hairline-strong underline-offset-2 transition-colors duration-150 hover:decoration-brass"
+            >
+              Rank them two at a time
+            </Link>{" "}
+            and this column fills in.
+          </>
+        ) : (
+          <>
+            <span className="figures text-ink">#</span> is your own order, from{" "}
+            <span className="figures text-ink">{ranking.comparisonsMade}</span>{" "}
+            head-to-head{ranking.comparisonsMade === 1 ? "" : "s"} - a faint
+            number is still provisional, and a dash is a venue neither of you
+            has compared with anything, which is not the same as a poor one.{" "}
+            <Link
+              href="/admin/venues/rank"
+              className="text-brass underline decoration-hairline-strong underline-offset-2 transition-colors duration-150 hover:decoration-brass"
+            >
+              Keep ranking
+            </Link>
+            {ranking.islands.length > 1 && (
+              <>
+                {" "}
+                - and note your answers still make{" "}
+                <span className="figures text-ink">
+                  {ranking.islands.length}
+                </span>{" "}
+                groups that have never been compared with each other, so this
+                column is that many separate orders until they join up
+              </>
+            )}
+            .
+          </>
+        )}
       </p>
     </>
+  );
+}
+
+/** What the rank column shows for one venue, from `rankVenues`. */
+type RankInfo = {
+  /** Null when nobody has compared it: it has no rank, rather than a poor one. */
+  rank: number | null;
+  comparisons: number;
+  provisional: boolean;
+};
+
+/**
+ * Which way round a column reads first.
+ *
+ * Best-first every time, which is ascending for a rank or a price and
+ * descending for a room's capacity - clicking "Seats" to be shown the
+ * smallest room first is nobody's intention.
+ */
+function defaultDirection(key: VenueSortKey): SortDirection {
+  return key === "seats" ? "desc" : "asc";
+}
+
+function SortHeader({
+  sortKey,
+  sort,
+  onSort,
+  align = "left",
+  className = "",
+  children,
+}: {
+  sortKey: VenueSortKey;
+  sort: VenueSort;
+  onSort: (key: VenueSortKey) => void;
+  align?: "left" | "right";
+  className?: string;
+  children: ReactNode;
+}) {
+  const active = sort.key === sortKey;
+  const ascending = sort.direction === "asc";
+
+  return (
+    <th
+      // The platform's own word for it, so a screen reader announces the
+      // sort rather than the arrow being decoration only sighted users get.
+      aria-sort={
+        active ? (ascending ? "ascending" : "descending") : "none"
+      }
+      className={`eyebrow py-0 font-semibold text-ink-faint ${
+        align === "right" ? "text-right" : "text-left"
+      } ${className || "px-3"}`}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`group/sort -mx-1 inline-flex w-[calc(100%+0.5rem)] items-center gap-1 rounded px-1 py-3 whitespace-nowrap transition-colors duration-150 hover:text-ink ${
+          align === "right" ? "justify-end" : ""
+        } ${active ? "text-ink" : ""}`}
+      >
+        {children}
+        {/* Always rendered, at a quarter opacity until the column is the
+            one in use: a chevron that appears on hover is invisible on a
+            phone, and one that appears only when active leaves you
+            guessing which headers do anything. */}
+        <ChevronUp
+          size={11}
+          aria-hidden
+          className={`shrink-0 transition-all duration-150 group-hover/sort:opacity-70 ${
+            active ? "opacity-100" : "opacity-25"
+          } ${active && !ascending ? "rotate-180" : ""}`}
+        />
+      </button>
+    </th>
+  );
+}
+
+function RankCell({ rank }: { rank: RankInfo | undefined }) {
+  if (rank === undefined || rank.rank === null) {
+    return (
+      <td className="px-4 py-3 text-right align-top">
+        <span
+          className="text-xs text-ink-faint"
+          title="Not compared with anything yet, so it has no ranking - not a poor one"
+        >
+          —
+        </span>
+      </td>
+    );
+  }
+
+  return (
+    <td className="px-4 py-3 text-right align-top">
+      <span
+        className={`figures ${rank.provisional ? "text-ink-faint" : ""}`}
+        title={
+          rank.provisional
+            ? `Provisional: ${rank.comparisons} of ${MIN_COMPARISONS_PER_VENUE} answers so far`
+            : `Settled over ${rank.comparisons} answers`
+        }
+      >
+        {rank.rank}
+      </span>
+    </td>
   );
 }
 
 function VenueRow({
   evaluation,
   counts,
+  rank,
   isCheapest,
 }: {
   evaluation: VenueEvaluation<VenueValues>;
   counts: GuestCounts;
+  rank: RankInfo | undefined;
   isCheapest: boolean;
 }) {
   // The table carries the six facts that decide between venues; everything
@@ -270,6 +497,8 @@ function VenueRow({
           open ? "bg-brass-tint/20" : ""
         } ${viable ? "" : "opacity-45"}`}
       >
+        <RankCell rank={rank} />
+
         <td className="px-4 py-3 align-top">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             {/* Name and its website link travel together, so a narrow column
@@ -341,16 +570,6 @@ function VenueRow({
 
         <td className="px-3 py-3 align-top">
           <SeatsCell fit={fit} />
-        </td>
-
-        <td className="px-3 py-3 align-top text-xs">
-          {venue.dateAvailable === true ? (
-            <span className="text-fern">Free</span>
-          ) : venue.dateAvailable === false ? (
-            <span className="font-medium text-madder">Taken</span>
-          ) : (
-            <span className="text-ink-faint">Not asked</span>
-          )}
         </td>
 
         <td className="px-4 py-3 text-right align-top">
