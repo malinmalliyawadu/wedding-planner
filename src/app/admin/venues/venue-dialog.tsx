@@ -20,7 +20,7 @@ export type VenueValues = {
   url: string | null;
   seatedCapacity: number | null;
   standingCapacity: number | null;
-  hireFixedCostCents: number;
+  hireFixedCostCents: number | null;
   perHeadCostCents: number | null;
   perChildCostCents: number | null;
   minimumSpendCents: number | null;
@@ -191,12 +191,15 @@ export function VenueDialog({ venue }: { venue?: VenueValues }) {
           <fieldset className="border-t border-hairline pt-4">
             <legend className="eyebrow text-brass">What it costs</legend>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Hire fee" hint="The fixed part, however they bill it">
+              <Field
+                label="Hire fee"
+                hint="Blank until they quote one - we will not guess a room's price"
+              >
                 <input
                   name="hireFixed"
                   inputMode="decimal"
-                  defaultValue={centsToInput(venue?.hireFixedCostCents ?? 0)}
-                  placeholder="4500"
+                  defaultValue={centsToInput(venue?.hireFixedCostCents ?? null)}
+                  placeholder="Not quoted yet"
                   className={inputClass}
                 />
               </Field>

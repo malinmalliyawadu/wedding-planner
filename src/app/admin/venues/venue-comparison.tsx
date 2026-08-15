@@ -48,6 +48,7 @@ export function VenueComparison({
   const cheapest = ordered.find((e) => e.venue.id === comparison.cheapestId);
   const viableCount = ordered.filter((e) => e.viable).length;
   const assumedCount = ordered.filter((e) => e.cost.cateringAssumed).length;
+  const unquotedCount = ordered.filter((e) => e.cost.hireUnknown).length;
 
   return (
     <>
@@ -112,6 +113,21 @@ export function VenueComparison({
             "These come to the same money at this guest count, so decide it on the notes."
           )}
         </p>
+
+        {unquotedCount > 0 && (
+          // The other half of the same principle as the caterer below,
+          // arrived at from the other end: that gap can be filled with a
+          // defensible number and this one cannot, so this one is left
+          // open and the venue waits at the bottom until you ring them.
+          <p className="mt-3 max-w-2xl text-xs text-ink-soft">
+            <span className="figures text-ink">{unquotedCount}</span> of these
+            {unquotedCount === 1 ? " has" : " have"} no hire fee yet, so
+            {unquotedCount === 1 ? " its total is" : " their totals are"} the
+            food and nothing else. They wait at the bottom of the list rather
+            than winning it on a blank - a room whose price you have not asked
+            is the one number here that cannot be estimated.
+          </p>
+        )}
 
         {assumedCount > 0 && (
           // Half a shortlist quotes a per-head rate and half is dry hire.
@@ -302,7 +318,8 @@ function VenueRow({
               className={`mt-1 block text-xs ${
                 // A gap in the record is not a mark against the place, and
                 // should not be dressed in the same red as one.
-                blocker.kind === "capacity_unknown"
+                blocker.kind === "capacity_unknown" ||
+                blocker.kind === "hire_unknown"
                   ? "text-ink-faint"
                   : "font-medium text-madder"
               }`}
@@ -336,12 +353,20 @@ function VenueRow({
         </td>
 
         <td className="px-4 py-3 text-right align-top">
+          {cost.hireUnknown && (
+            // A total missing its hire fee is a floor, and has to read as
+            // one at a glance: "from" is the whole difference between an
+            // honest number and a wrong one.
+            <span className="mr-1 text-xs text-ink-faint">from</span>
+          )}
           <span className="figures font-medium">
             {formatCentsWhole(cost.totalCents)}
           </span>
           <span className="mt-0.5 block text-xs whitespace-nowrap text-ink-faint">
-            {formatCentsWhole(cost.hireCents)} hire +{" "}
-            {formatCentsWhole(cost.cateringCents + cost.minimumTopUpCents)}{" "}
+            {cost.hireUnknown
+              ? "hire not quoted"
+              : `${formatCentsWhole(cost.hireCents)} hire`}{" "}
+            + {formatCentsWhole(cost.cateringCents + cost.minimumTopUpCents)}{" "}
             {cost.cateringAssumed ? (
               // Estimated, and marked in brass wherever it appears: the
               // number is comparable, which is the point, but it is ours
@@ -438,8 +463,10 @@ function VenueDetail({
     <div className="max-w-xs sm:max-w-none">
       <div className="grid grid-cols-1 gap-x-10 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
         <DetailSection title="What it costs">
-          <DetailRow label="Hire fee" mono>
-            {formatCents(cost.hireCents)}
+          <DetailRow label="Hire fee" mono={!cost.hireUnknown}>
+            {cost.hireUnknown
+              ? notRecorded("Not quoted")
+              : formatCents(cost.hireCents)}
           </DetailRow>
           <DetailRow
             label={
@@ -494,7 +521,11 @@ function VenueDetail({
                 : "Cleared"}
             </DetailRow>
           )}
-          <DetailRow label="Total" mono strong>
+          <DetailRow
+            label={cost.hireUnknown ? "Total so far" : "Total"}
+            mono
+            strong
+          >
             {formatCents(cost.totalCents)}
           </DetailRow>
           <DetailRow
@@ -510,6 +541,15 @@ function VenueDetail({
           >
             {formatCents(cost.perGuestCents)}
           </DetailRow>
+          {cost.hireUnknown && (
+            <p className="mt-2 text-xs leading-relaxed text-ink-soft">
+              Nobody has been quoted a hire fee here, so this is the food
+              and nothing else - the room is still to come. Unlike the
+              catering there is no rate worth assuming: on this list hire
+              fees run from nothing to forty thousand dollars, so the one
+              thing that cannot be done honestly is to fill it in.
+            </p>
+          )}
           {cost.cateringAssumed && (
             <p className="mt-2 text-xs leading-relaxed text-ink-soft">
               {venue.name} quotes no per-head rate, so the food here is
@@ -719,6 +759,8 @@ function blockerText(blocker: VenueBlocker): string {
       return "Your date is already taken";
     case "capacity_unknown":
       return "Ask what it seats - until then it cannot be compared on fit";
+    case "hire_unknown":
+      return "Ask what it costs to hire - the total is the food only";
   }
 }
 

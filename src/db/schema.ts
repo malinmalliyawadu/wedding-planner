@@ -235,8 +235,16 @@ export const venues = pgTable(
     /** Null means not found out yet, which is different from zero. */
     seatedCapacity: integer("seated_capacity"),
     standingCapacity: integer("standing_capacity"),
-    /** The hire fee, which a minimum spend does not count towards. */
-    hireFixedCostCents: integer("hire_fixed_cost_cents").notNull().default(0),
+    /**
+     * The hire fee, which a minimum spend does not count towards.
+     *
+     * Null means nobody has been quoted one yet, and unlike the per-head
+     * rate there is nothing sensible to fill the gap with - so a venue
+     * with no figure is blocked rather than estimated. Zero is a real
+     * quote and stays one: plenty of places roll the room into a
+     * per-head package and charge no separate hire at all.
+     */
+    hireFixedCostCents: integer("hire_fixed_cost_cents"),
     /**
      * Null means no per-head figure from this venue - either they do not
      * cater or nobody has asked yet. The comparison then prices an

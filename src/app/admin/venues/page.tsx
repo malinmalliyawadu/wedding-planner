@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { asc } from "drizzle-orm";
+import { FileUp } from "lucide-react";
 import { db } from "@/db";
 import { venues } from "@/db/schema";
 import { EmptyState, PageHeader } from "@/components/ui";
@@ -21,7 +23,18 @@ export default async function VenuesPage() {
       <PageHeader
         eyebrow="Where it happens"
         title="Venues"
-        actions={<VenueDialog />}
+        actions={
+          <>
+            <Link
+              href="/admin/venues/import"
+              className="inline-flex items-center gap-2 rounded-md border border-hairline-strong bg-card px-4 py-2 text-sm font-medium transition-colors duration-150 hover:border-ink-faint hover:bg-white"
+            >
+              <FileUp size={15} aria-hidden />
+              Import CSV
+            </Link>
+            <VenueDialog />
+          </>
+        }
       >
         <p className="mt-4 max-w-2xl text-sm text-ink-soft">
           What each place costs at your guest count, whether everyone fits and
@@ -34,7 +47,7 @@ export default async function VenuesPage() {
       {list.length === 0 ? (
         <EmptyState
           title="No venues yet"
-          hint="Add the places you are looking at. Split the price the way they quote it: a hire fee, a per-head rate, and a minimum spend if they have one. Leave the per-head blank for a venue that does not cater, and an outside caterer is priced in for you."
+          hint="Add the places you are looking at, or import a shortlist you have already researched in a spreadsheet. Split the price the way they quote it: a hire fee, a per-head rate, and a minimum spend if they have one. Leave the per-head blank for a venue that does not cater, and an outside caterer is priced in for you. Leave the hire fee blank until they quote one - it will not be guessed at."
           action={<VenueDialog />}
         />
       ) : (
