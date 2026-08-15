@@ -379,6 +379,21 @@ export function evaluateVenues<V extends Venue>(
   };
 }
 
+/* --------------------------------------------------------------- ordering */
+
+/** The columns worth ordering the comparison by. */
+export type VenueSortKey =
+  | "rank"
+  | "name"
+  | "seats"
+  | "total"
+  | "perGuest"
+  | "delta";
+
+export type SortDirection = "asc" | "desc";
+
+export type VenueSort = { key: VenueSortKey; direction: SortDirection };
+
 /**
  * Venues you could book first and cheapest first, with the ones you
  * could not sunk to the bottom rather than dropped: a venue that is too
@@ -388,13 +403,98 @@ export function evaluateVenues<V extends Venue>(
 export function costOrder<V extends Venue>(
   evaluations: Array<VenueEvaluation<V>>,
 ): Array<VenueEvaluation<V>> {
+  return venueOrder(evaluations, { key: "total", direction: "asc" });
+}
+
+/**
+ * The comparison in whatever order you asked for, with two rules that
+ * hold whichever column you picked and whichever way round:
+ *
+ * 1. **Venues you could book still come first.** Sorting is a question
+ *    about the venues you have a choice between, and a place whose date
+ *    is gone is not one of them - it stays on the list, because it is
+ *    back in the running if a fact changes, but it does not take the top
+ *    of the table off a venue you could actually ring. This is
+ *    `costOrder`'s rule from the start, kept rather than made a special
+ *    case of the cost column.
+ * 2. **A blank sorts last in both directions.** Reversing the order
+ *    should turn the list over, not float every venue nobody has
+ *    measured to the top - an unknown is not a small number, and the
+ *    whole module is built on not letting a gap in the record win.
+ *
+ * `rankOf` is passed in rather than imported, so the ordering can put
+ * your preference in a column without this module learning what a
+ * preference is. Null means that venue has no ranking to sort on.
+ */
+export function venueOrder<V extends Venue>(
+  evaluations: Array<VenueEvaluation<V>>,
+  sort: VenueSort,
+  rankOf: (venueId: number) => number | null = () => null,
+): Array<VenueEvaluation<V>> {
+  const flip = sort.direction === "desc" ? -1 : 1;
+
   return [...evaluations].sort((a, b) => {
     if (a.viable !== b.viable) return a.viable ? -1 : 1;
+
+    // Settled before the flip is applied, which is what makes rule 2
+    // true in both directions: a blank is not a value at one end of the
+    // range, it is the absence of one, and reversing must not promote it.
+    const blankA = isBlank(sort.key, a, rankOf);
+    const blankB = isBlank(sort.key, b, rankOf);
+    if (blankA !== blankB) return blankA ? 1 : -1;
+
+    if (!blankA) {
+      const compared = compareBy(sort.key, a, b, rankOf);
+      if (compared !== 0) return compared * flip;
+    }
+
+    // Whatever the column, two venues that tie on it read best cheapest
+    // first, and two that tie on cost read best alphabetically - so the
+    // order never wobbles between renders.
     if (a.cost.totalCents !== b.cost.totalCents)
       return a.cost.totalCents - b.cost.totalCents;
     return a.venue.name.localeCompare(b.venue.name);
   });
 }
+
+/**
+ * Whether this venue has nothing to sort on in this column. Only the two
+ * columns that can genuinely be unrecorded have one - every money column
+ * is a number for every venue, estimated or floored but never absent.
+ */
+function isBlank<V extends Venue>(
+  key: VenueSortKey,
+  evaluation: VenueEvaluation<V>,
+  rankOf: (venueId: number) => number | null,
+): boolean {
+  if (key === "rank") return rankOf(evaluation.venue.id) === null;
+  if (key === "seats") return evaluation.fit.seatedCapacity === null;
+  return false;
+}
+
+function compareBy<V extends Venue>(
+  key: VenueSortKey,
+  a: VenueEvaluation<V>,
+  b: VenueEvaluation<V>,
+  rankOf: (venueId: number) => number | null,
+): number {
+  switch (key) {
+    case "rank":
+      // Neither is blank by the time this runs, so the nulls are gone.
+      return (rankOf(a.venue.id) ?? 0) - (rankOf(b.venue.id) ?? 0);
+    case "name":
+      return a.venue.name.localeCompare(b.venue.name);
+    case "seats":
+      return (a.fit.seatedCapacity ?? 0) - (b.fit.seatedCapacity ?? 0);
+    case "total":
+      return a.cost.totalCents - b.cost.totalCents;
+    case "perGuest":
+      return a.cost.perGuestCents - b.cost.perGuestCents;
+    case "delta":
+      return a.deltaFromCheapestCents - b.deltaFromCheapestCents;
+  }
+}
+
 
 /** First by the given measure; null for an empty list. Ties keep the earlier. */
 function minBy<T>(items: T[], measure: (item: T) => number): T | null {

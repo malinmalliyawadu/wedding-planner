@@ -226,10 +226,38 @@ describe("rankVenues", () => {
   });
 
   it("gives venues of equal strength the same rank and skips the next", () => {
-    // Nothing compared, so all three are level on the prior alone.
+    // 1 and 2 draw, so they share first; 3 lost to both and is third.
+    const ranking = rankVenues(venues(3), [
+      draw(1, 2),
+      pick(1, 3),
+      pick(2, 3),
+    ]);
+
+    expect(ranking.ranked.map((entry) => entry.rank)).toEqual([1, 1, 3]);
+  });
+
+  it("numbers nobody when nothing has been compared", () => {
     const ranking = rankVenues(venues(3), []);
 
-    expect(ranking.ranked.map((entry) => entry.rank)).toEqual([1, 1, 1]);
+    expect(ranking.ranked.map((entry) => entry.rank)).toEqual([
+      null,
+      null,
+      null,
+    ]);
+  });
+
+  it("does not let venues nobody has judged use up rank numbers", () => {
+    // The whole list ties on the prior except the two that were
+    // compared, so those two are 1st and 2nd of the two you have an
+    // opinion about - not 1st and 12th of twelve.
+    const ranking = rankVenues(venues(12), [pick(1, 2)]);
+    const ranks = new Map(
+      ranking.ranked.map((entry) => [entry.venue.id, entry.rank]),
+    );
+
+    expect(ranks.get(1)).toBe(1);
+    expect(ranks.get(2)).toBe(2);
+    expect(ranks.get(7)).toBeNull();
   });
 
   it("counts wins, losses and draws per venue", () => {
@@ -248,6 +276,7 @@ describe("rankVenues", () => {
       provisional: false,
       island: null,
       comparisons: 0,
+      rank: null,
     });
   });
 

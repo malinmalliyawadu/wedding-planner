@@ -7,6 +7,7 @@ import {
   evaluateVenues,
   TIGHT_SEAT_MARGIN,
   venueCost,
+  venueOrder,
   type Venue,
 } from "./venues";
 
@@ -543,6 +544,115 @@ describe("costOrder", () => {
       "Akaroa",
       "Zinnia",
     ]);
+  });
+});
+
+describe("venueOrder", () => {
+  /** Three bookable venues, deliberately in a different order per column. */
+  function threeVenues() {
+    return evaluateVenues(
+      [
+        venue({ id: 1, name: "Cedar", hireFixedCostCents: 900_000, seatedCapacity: 200 }),
+        venue({ id: 2, name: "Alder", hireFixedCostCents: 100_000, seatedCapacity: 140 }),
+        venue({ id: 3, name: "Birch", hireFixedCostCents: 500_000, seatedCapacity: 100 }),
+      ],
+      COUNTS,
+      CATERING,
+    );
+  }
+
+  const ids = (evaluations: ReturnType<typeof threeVenues>["evaluations"]) =>
+    evaluations.map((e) => e.venue.id);
+
+  it("orders by each column ascending", () => {
+    const { evaluations } = threeVenues();
+
+    expect(ids(venueOrder(evaluations, { key: "total", direction: "asc" }))).toEqual([2, 3, 1]);
+    expect(ids(venueOrder(evaluations, { key: "name", direction: "asc" }))).toEqual([2, 3, 1]);
+    expect(ids(venueOrder(evaluations, { key: "seats", direction: "asc" }))).toEqual([3, 2, 1]);
+  });
+
+  it("turns the list over when reversed", () => {
+    const { evaluations } = threeVenues();
+
+    expect(ids(venueOrder(evaluations, { key: "seats", direction: "desc" }))).toEqual([1, 2, 3]);
+    expect(ids(venueOrder(evaluations, { key: "name", direction: "desc" }))).toEqual([1, 3, 2]);
+  });
+
+  it("keeps venues you could book above ones you could not, whichever column", () => {
+    const c = evaluateVenues(
+      [
+        venue({ id: 1, name: "Bookable", hireFixedCostCents: 900_000 }),
+        venue({ id: 2, name: "Taken", hireFixedCostCents: 100_000, dateAvailable: false }),
+      ],
+      COUNTS,
+      CATERING,
+    );
+
+    // The blocked venue is cheaper, and still does not take the top off
+    // a venue you could actually ring - in either direction.
+    expect(ids(venueOrder(c.evaluations, { key: "total", direction: "asc" }))).toEqual([1, 2]);
+    expect(ids(venueOrder(c.evaluations, { key: "total", direction: "desc" }))).toEqual([1, 2]);
+  });
+
+  it("sorts a venue nobody has measured last in both directions", () => {
+    // The point of rule 2: reversing must not float the blank to the top,
+    // because an unknown capacity is not a very large one.
+    const c = evaluateVenues(
+      [
+        venue({ id: 1, name: "Measured", seatedCapacity: 140 }),
+        venue({ id: 2, name: "Unmeasured", seatedCapacity: null, hireFixedCostCents: 1 }),
+        venue({ id: 3, name: "Small", seatedCapacity: 95 }),
+      ],
+      COUNTS,
+      CATERING,
+    );
+
+    expect(ids(venueOrder(c.evaluations, { key: "seats", direction: "asc" })).at(-1)).toBe(2);
+    expect(ids(venueOrder(c.evaluations, { key: "seats", direction: "desc" })).at(-1)).toBe(2);
+  });
+
+  it("sorts by a ranking it is handed without knowing what one is", () => {
+    const { evaluations } = threeVenues();
+    const ranks = new Map([
+      [1, 1],
+      [3, 2],
+      [2, 3],
+    ]);
+
+    expect(
+      ids(venueOrder(evaluations, { key: "rank", direction: "asc" }, (id) => ranks.get(id) ?? null)),
+    ).toEqual([1, 3, 2]);
+  });
+
+  it("sinks an unranked venue below every ranked one, both ways round", () => {
+    const { evaluations } = threeVenues();
+    const rankOf = (id: number) => (id === 2 ? null : id === 1 ? 1 : 2);
+
+    expect(
+      ids(venueOrder(evaluations, { key: "rank", direction: "asc" }, rankOf)).at(-1),
+    ).toBe(2);
+    expect(
+      ids(venueOrder(evaluations, { key: "rank", direction: "desc" }, rankOf)).at(-1),
+    ).toBe(2);
+  });
+
+  it("falls back to cost order when nothing has been ranked at all", () => {
+    // A shortlist nobody has compared yet must read exactly as it did
+    // before ranking existed, rather than in some arbitrary order.
+    const { evaluations } = threeVenues();
+
+    expect(ids(venueOrder(evaluations, { key: "rank", direction: "asc" }))).toEqual(
+      ids(costOrder(evaluations)),
+    );
+  });
+
+  it("leaves the input untouched", () => {
+    const { evaluations } = threeVenues();
+    const before = ids(evaluations);
+    venueOrder(evaluations, { key: "name", direction: "desc" });
+
+    expect(ids(evaluations)).toEqual(before);
   });
 });
 
