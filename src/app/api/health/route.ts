@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 /**
  * Liveness plus a real database round-trip. Coolify probes this from
- * inside Docker, so it bypasses the Traefik basicauth in front of
+ * inside Docker, so it bypasses any basicauth in front of
  * everything else.
  *
  * It deliberately reports whether the app can actually do its job rather

@@ -7,14 +7,17 @@ import { db } from "@/db";
 import { faqItems, households, publicSite } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
 import { newInviteToken } from "@/lib/invite-token";
+import { requireAdmin } from "@/lib/auth/session";
 
 /**
  * The couple's side of the public invitation. All of this sits behind
- * basicauth in the (app) group; nothing here is reachable from /i.
+ * the sign-in, under /admin; nothing here is reachable from /i.
  */
 
 /** Mint links for every household that has none. Safe to press twice. */
 export async function mintMissingLinks(): Promise<ActionResult> {
+  await requireAdmin();
+
   const missing = await db
     .select({ id: households.id })
     .from(households)
@@ -40,6 +43,8 @@ export async function mintMissingLinks(): Promise<ActionResult> {
  * and it kills the old link the instant this runs.
  */
 export async function mintLink(householdId: number): Promise<ActionResult> {
+  await requireAdmin();
+
   const updated = await db
     .update(households)
     .set({ inviteToken: newInviteToken() })
@@ -53,6 +58,8 @@ export async function mintLink(householdId: number): Promise<ActionResult> {
 }
 
 export async function setPublished(published: boolean): Promise<ActionResult> {
+  await requireAdmin();
+
   await db
     .insert(publicSite)
     .values({ id: 1, published })
@@ -117,6 +124,8 @@ export async function updateSiteContent(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const text = (name: string) => String(formData.get(name) ?? "");
   const parsed = contentSchema.safeParse({
     welcomeMessage: text("welcomeMessage"),
@@ -158,6 +167,8 @@ export async function saveFaq(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = faqSchema.safeParse({
     question: formData.get("question") ?? "",
     answer: formData.get("answer") ?? "",
@@ -179,6 +190,8 @@ export async function saveFaq(
 }
 
 export async function deleteFaq(id: number): Promise<ActionResult> {
+  await requireAdmin();
+
   await db.delete(faqItems).where(eq(faqItems.id, id));
   revalidatePath("/admin/invitations/content");
   return { status: "success" };

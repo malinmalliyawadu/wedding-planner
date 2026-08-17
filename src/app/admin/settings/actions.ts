@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { settings } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
 import { parseDollarsToCents } from "@/lib/money";
+import { requireAdmin } from "@/lib/auth/session";
 
 const settingsSchema = z.object({
   partnerAName: z.string().trim().min(1, "Both names are required"),
@@ -66,6 +67,8 @@ export async function updateSettings(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = settingsSchema.safeParse({
     partnerAName: formData.get("partnerAName"),
     partnerBName: formData.get("partnerBName"),
@@ -97,6 +100,8 @@ export async function updateSettings(
 export async function updateMonthlyContribution(
   cents: number,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   if (!Number.isInteger(cents) || cents < 0) {
     return { status: "error", message: "Contribution must be a whole amount" };
   }

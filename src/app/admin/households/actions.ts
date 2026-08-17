@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { households } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
+import { requireAdmin } from "@/lib/auth/session";
 
 const householdSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
@@ -39,6 +40,8 @@ export async function createHousehold(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = parseHouseholdForm(formData);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0].message };
@@ -52,6 +55,8 @@ export async function updateHousehold(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const id = z.coerce.number().int().positive().safeParse(formData.get("id"));
   if (!id.success) return { status: "error", message: "Missing household id" };
 
@@ -69,6 +74,8 @@ export async function updateHousehold(
 
 /** Deleting a household cascades to its guests (FK on delete cascade). */
 export async function deleteHousehold(id: number): Promise<void> {
+  await requireAdmin();
+
   await db.delete(households).where(eq(households.id, id));
   revalidateHouseholdPages();
   revalidatePath("/admin/tables");

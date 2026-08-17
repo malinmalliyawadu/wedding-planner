@@ -1,7 +1,8 @@
 import { count } from "drizzle-orm";
 import Link from "next/link";
 import { connection } from "next/server";
-import { Settings } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
+import { signOut } from "@/app/admin/access/actions";
 import { db } from "@/db";
 import { guests, households, tables } from "@/db/schema";
 import { getSettings } from "@/lib/queries";
@@ -63,14 +64,32 @@ export async function Sidebar() {
           ) : (
             <p className="eyebrow text-spine-ink-soft">The Wedding Ledger</p>
           )}
-          <Link
-            href="/admin/settings"
-            aria-label="Settings"
-            title="Settings"
-            className="rounded-md p-1.5 text-spine-ink-soft transition-colors duration-150 hover:bg-spine-raised hover:text-spine-ink"
-          >
-            <Settings size={16} strokeWidth={1.75} aria-hidden />
-          </Link>
+          {/* Settled to the right so the countdown keeps the left edge. */}
+          <div className="flex shrink-0 items-center gap-0.5">
+            <Link
+              href="/admin/settings"
+              aria-label="Settings"
+              title="Settings"
+              className="rounded-md p-1.5 text-spine-ink-soft transition-colors duration-150 hover:bg-spine-raised hover:text-spine-ink pointer-coarse:p-2.5"
+            >
+              <Settings size={16} strokeWidth={1.75} aria-hidden />
+            </Link>
+            {/*
+             * A plain form, so signing out needs no JavaScript and cannot
+             * be triggered by a GET - a bare link here would let any page
+             * that could get an <img> in front of you log you out.
+             */}
+            <form action={signOut}>
+              <button
+                type="submit"
+                aria-label="Sign out"
+                title="Sign out"
+                className="rounded-md p-1.5 text-spine-ink-soft transition-colors duration-150 hover:bg-spine-raised hover:text-spine-ink pointer-coarse:p-2.5"
+              >
+                <LogOut size={16} strokeWidth={1.75} aria-hidden />
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     </>

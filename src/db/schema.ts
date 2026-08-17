@@ -517,7 +517,7 @@ export const photos = pgTable("photos", {
    * The album could have leaned on next/image instead, but that would
    * mean exposing `/_next/image` to unauthenticated guests - and the
    * optimiser fetches any same-origin path it is given, which turns it
-   * into a way around basicauth for every private route that returns an
+   * into a way around the sign-in for every private route that returns an
    * image. Shipping our own thumbnail keeps the public surface to `/i`.
    */
   thumbStorageKey: text("thumb_storage_key").unique(),
@@ -531,6 +531,82 @@ export const photos = pgTable("photos", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+});
+
+/**
+ * A passkey that opens the planner.
+ *
+ * There is one account here, not two. The planner has no per-person data
+ * to own - every page is written for both of you - so a passkey records
+ * *a device*, not a user, and both of you register your own. That is why
+ * there is no user table for these to hang off: the WebAuthn user handle
+ * is a constant (see `src/lib/auth/webauthn.ts`).
+ *
+ * `public_key` and `credential_id` are base64url, exactly as the browser
+ * and `@simplewebauthn/server` exchange them, so nothing has to be
+ * re-encoded on the way in or out.
+ */
+export const adminCredentials = pgTable("admin_credentials", {
+  id: serial("id").primaryKey(),
+  /** The authenticator's own id for this credential. Not a secret. */
+  credentialId: text("credential_id").notNull().unique(),
+  publicKey: text("public_key").notNull(),
+  /**
+   * The authenticator's use count, for spotting a cloned credential.
+   * Many passkeys report 0 forever, which is not an error - the check
+   * only bites once a device has reported a non-zero count.
+   */
+  counter: integer("counter").notNull().default(0),
+  /** Comma-joined hints ("internal,hybrid") the browser gives back. */
+  transports: text("transports"),
+  /** What you called it: "Malin's iPhone". The only human handle on it. */
+  label: text("label").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+});
+
+/**
+ * A signed-in browser.
+ *
+ * Only the SHA-256 of the cookie's token is stored. The database goes to
+ * off-site backups alongside the photo bucket, and a table of live
+ * session tokens is not a thing to have sitting in a `pg_dump`.
+ *
+ * `credential_id` cascades, which is the point of storing it: removing a
+ * passkey on the access page signs out the browsers that used it, so
+ * revoking a lost phone is one action rather than two. A session opened
+ * with the app password has no credential and survives on its own.
+ */
+export const adminSessions = pgTable("admin_sessions", {
+  id: serial("id").primaryKey(),
+  tokenHash: text("token_hash").notNull().unique(),
+  credentialId: integer("credential_id").references(
+    () => adminCredentials.id,
+    { onDelete: "cascade" },
+  ),
+  /** Recorded so the access page can say what each session is. */
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  /** Absolute, never extended. See `src/lib/auth/session.ts`. */
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+});
+
+/**
+ * One in-flight WebAuthn challenge.
+ *
+ * The challenge has to be *the server's* choice, single-use, and still
+ * available when the browser comes back with a signature - which is a
+ * row, not a cookie. A cookie the client can set is a challenge the
+ * client can choose, and a chosen challenge lets a captured assertion be
+ * replayed. Verifying deletes the row, so it works exactly once.
+ */
+export const adminChallenges = pgTable("admin_challenges", {
+  challenge: text("challenge").primaryKey(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
 });
 
 export const householdsRelations = relations(households, ({ many }) => ({

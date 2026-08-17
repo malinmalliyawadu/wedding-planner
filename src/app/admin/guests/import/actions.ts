@@ -9,6 +9,7 @@ import {
   parseGuestCsv,
   type ParseResult,
 } from "@/lib/guest-csv";
+import { requireAdmin } from "@/lib/auth/session";
 
 async function existingNameKeys(): Promise<Set<string>> {
   const all = await db
@@ -18,6 +19,8 @@ async function existingNameKeys(): Promise<Set<string>> {
 }
 
 export async function previewGuestCsv(csvText: string): Promise<ParseResult> {
+  await requireAdmin();
+
   return parseGuestCsv(csvText, await existingNameKeys());
 }
 
@@ -33,6 +36,8 @@ export type CommitResult = {
  * case-insensitively, and created when missing.
  */
 export async function commitGuestCsv(csvText: string): Promise<CommitResult> {
+  await requireAdmin();
+
   const result = parseGuestCsv(csvText, await existingNameKeys());
   if (result.fileError) {
     return { imported: 0, households: 0, skipped: result.rows.length };

@@ -8,6 +8,7 @@ import { contributions, payments } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
 import { parseDollarsToCents } from "@/lib/money";
 import { todayNZ } from "@/lib/dates";
+import { requireAdmin } from "@/lib/auth/session";
 
 const dollars = z
   .string()
@@ -68,6 +69,8 @@ export async function createContribution(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = parseContribution(formData);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0].message };
@@ -81,6 +84,8 @@ export async function updateContribution(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const id = z.coerce.number().int().positive().safeParse(formData.get("id"));
   if (!id.success) return { status: "error", message: "Missing contribution id" };
 
@@ -97,6 +102,8 @@ export async function updateContribution(
 }
 
 export async function deleteContribution(id: number): Promise<void> {
+  await requireAdmin();
+
   await db.delete(contributions).where(eq(contributions.id, id));
   revalidateSavings();
 }
@@ -128,6 +135,8 @@ export async function createPayment(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = parsePayment(formData);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0].message };
@@ -141,6 +150,8 @@ export async function updatePayment(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const id = z.coerce.number().int().positive().safeParse(formData.get("id"));
   if (!id.success) return { status: "error", message: "Missing payment id" };
 
@@ -154,6 +165,8 @@ export async function updatePayment(
 }
 
 export async function deletePayment(id: number): Promise<void> {
+  await requireAdmin();
+
   await db.delete(payments).where(eq(payments.id, id));
   revalidateSavings();
 }
@@ -163,6 +176,8 @@ export async function setPaymentPaid(
   id: number,
   paid: boolean,
 ): Promise<void> {
+  await requireAdmin();
+
   await db
     .update(payments)
     .set({ paidDate: paid ? todayNZ() : null })

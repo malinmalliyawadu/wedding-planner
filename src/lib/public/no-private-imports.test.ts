@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 /**
- * The public invitation tree is served with no basicauth in front of it.
+ * The public invitation tree is served with no sign-in in front of it.
  * Everything it can read has to come through `@/lib/public`, where the
  * column lists are written down and reviewable - not from `@/db` or the
  * planner's own query layer, where a stray `select()` would hand a guest

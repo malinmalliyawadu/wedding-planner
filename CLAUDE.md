@@ -7,14 +7,16 @@ a public invitation for their guests.
 
 **Two audiences, one deployment, and the split is structural:**
 
-- `src/app/admin/` - the planner, at `/admin/*`. Behind Traefik
-  basicauth, may read anything, no authentication code of its own.
-  `src/app/wall/` is also private but sits outside the group so a
-  projector gets no sidebar.
+- `src/app/admin/` - the planner, at `/admin/*`. Behind the app's own
+  sign-in (M10), may read anything. `src/app/wall/` is also private but
+  sits outside the group so a projector gets no sidebar.
 - `src/app/(public)/` - everything a stranger can load: the landing page
-  at `/` and the invitations at `/i/*`. **Served with no basicauth in
-  front of it.** Reaches the database only through `src/lib/public/`,
-  and `no-private-imports.test.ts` reads that exact folder to enforce it.
+  at `/` and the invitations at `/i/*`. **Served with no sign-in in front
+  of it.** Reaches the database only through `src/lib/public/`, and
+  `no-private-imports.test.ts` reads that exact folder to enforce it.
+- `src/app/login/` - in neither group, and that is the point: it is
+  unauthenticated but not guest-facing, so it may read the session tables
+  that `(public)` may not.
 
 Keeping the public surface in one folder is what makes that test
 exhaustive rather than a list somebody has to remember to extend. A new
@@ -36,23 +38,30 @@ projection (M3). Everything else is supporting structure.
 
 See `DEPLOYMENT.md`. Coolify builds the Dockerfile straight from GitHub -
 no CI pipeline, no registry, because nothing here needs build-time
-secrets. The only runtime variable is `DATABASE_URL`.
+secrets. The required runtime variables are `DATABASE_URL` and
+`APP_PASSWORD`.
 
-**The app has no authentication at all.** Traefik basicauth in front of
-it is the only thing between the internet and the guest list, addresses
-and budget - *except* `/` and `/i/*`, which are deliberately exempt so
-guests can reach the landing page and their invitation. Any change
-touching routing, domains or middleware needs both halves verified
-afterwards: `/admin/guests` must return `401`, and `/` and
-`/i/<a real token>` must return `200`. A carve-out that matches too much
-publishes everything - note the Traefik rule needs ``Path(`/`)``, never
-``PathPrefix(`/`)``, which would match the entire domain.
+**The app authenticates the planner itself** (M10), so basicauth in front
+of it is now optional belt and braces rather than the only lock. Any
+change touching routing, the proxy or the auth library needs both halves
+verified afterwards: `/admin/guests` must redirect to `/login`, and `/`
+and `/i/<a real token>` must return `200`.
 
-`src/proxy.ts` is the second lock: the public Traefik router stamps a
-header, and the app 404s any stamped request that did not land on a
-public route. That covers the case a path rule is most likely to get
-wrong - `/i/../admin/guests` matches `PathPrefix(/i)` going in and
-resolves to `/admin/guests` coming out.
+**Check bodies, not just status codes.** A refusal that still carries the
+page underneath is the failure mode a status-code check cannot see, and
+it has happened once already here: letting a request past the session
+gate renders the page before the layout's guard can redirect, and Next
+then answers `307 -> /login` with the whole guest list in the body. So
+`curl -s .../admin/guests | wc -c` belongs in the check alongside
+`%{http_code}`.
+
+`src/proxy.ts` also keeps the older lock, which matters if basicauth
+stays: the public Traefik router stamps a header, and the app 404s any
+stamped request that did not land on a public route. That covers the case
+a path rule is most likely to get wrong - `/i/../admin/guests` matches
+`PathPrefix(/i)` going in and resolves to `/admin/guests` coming out. A
+carve-out that matches too much publishes everything, so the Traefik rule
+needs ``Path(`/`)``, never ``PathPrefix(`/`)``.
 
 `/_next/image` must never be made public. The optimiser fetches any
 same-origin path it is handed, so opening it would serve every private
@@ -65,8 +74,10 @@ the other half. Without the `S3_*` variables every other feature still
 works and the album says it is not configured.
 
 `/api/health` does a real `select 1`, so it reports whether the app can
-actually work rather than merely that the process is alive. Coolify
-probes it from inside Docker, bypassing basicauth.
+actually work rather than merely that the process is alive. Coolify probes
+it from inside Docker, where there is no cookie to present, so it is the
+one private-by-default path exempt from the sign-in - a probe answering
+"not signed in" would say nothing about whether Postgres is reachable.
 
 Note `src/db/index.ts` deliberately does **not** guard on
 `DATABASE_URL`: that module is evaluated during `next build`, which has
@@ -95,9 +106,17 @@ before the server.
   `@/lib/queries` or `drizzle-orm`.** All of it goes through
   `src/lib/public/`, where the readable columns are written down in one
   place. `no-private-imports.test.ts` fails the build otherwise.
+- **Every exported action in `src/app/admin/**/actions.ts` opens with
+  `await requireAdmin();`, as its first statement.** Not a convention - a
+  server action is dispatched by the id in its `Next-Action` header rather
+  than by its path, so the proxy is the wrong shape of lock for one and
+  the guard inside it is the real boundary around every mutation in the
+  planner. `actions-guarded.test.ts` fails the build otherwise, and pins
+  the public actions as deliberately *un*guarded.
 - Non-goals (do not build or scaffold): guest logins or accounts, a
   public page outside `(public)`, a vendor directory, place cards, email
-  sending, mobile apps.
+  sending, mobile apps, per-person planner accounts (the two of you share
+  one; a passkey records a device, not a person).
 
 ## Decisions made
 
@@ -261,8 +280,10 @@ clients are both handled and both tested: **line folding at 75 octets**
 must never split a character) and TEXT escaping (backslash first, then
 `;` `,` and newlines). All-day `VEVENT`s with stable per-task UIDs so
 subscribers update rather than duplicate; done and undated tasks are
-left out. Subscribing goes through Traefik basicauth, so the URL a
-calendar client needs carries those credentials.
+left out. A calendar client cannot use a passkey, so this is the one
+private route that also accepts the app password over HTTP Basic - the
+subscription URL carries it (`https://ledger:<APP_PASSWORD>@host/...`).
+See `allowsAppPasswordAuth` in `proxy.ts` and the M10 section.
 
 Shared calendar arithmetic lives in `src/lib/iso-date.ts` and works on
 the date string, never a `Date` in some local zone, so a date cannot
@@ -343,10 +364,12 @@ shaped by that.
   image, so hiding one takes effect immediately instead of racing a
   signed URL. Moderation is hide, never delete.
 - **Two serving routes on purpose**: `/i/photo/[id]` refuses anything
-  hidden (public), `/admin/photos/[id]/image` does not (behind basicauth), or
-  the couple could not see what they had hidden in order to unhide it.
-- `/wall` sits outside `admin/` so a projector gets the picture
-  and no sidebar. It is still behind basicauth.
+  hidden (public), `/admin/photos/[id]/image` does not (behind the
+  sign-in), or the couple could not see what they had hidden in order to
+  unhide it.
+- `/wall` sits outside `admin/` so a projector gets the picture and no
+  sidebar. It is still private: the laptop driving the marquee screen
+  signs in once and the session outlasts the night.
 
 ### The invitation's design
 
@@ -649,6 +672,108 @@ the difference between ranking the list and giving up. Ruled-out and
 blocked venues are ranked like any other: filtering them was considered
 and declined, same argument as `costOrder` sinking rather than hiding.
 
+## Signing in (M10)
+
+The planner used to have no authentication of its own and leaned entirely
+on Traefik basicauth. It now owns the boundary: a passkey each, with
+`APP_PASSWORD` behind them. `src/lib/auth/` is the whole of it.
+
+**A passkey records a device, not a person.** There is one account here
+and both of you share it, because the planner has no per-person data to
+own - every page is written for the two of you. So there is no user
+table, the WebAuthn user handle is a constant, and `admin_credentials.label`
+("Malin's iPhone") carries the only distinction that matters. Per-person
+accounts are a non-goal, not an omission.
+
+- **`APP_PASSWORD` is the bootstrap and the fallback.** A passkey cannot
+  be the only credential, because registering one requires already being
+  signed in. Unset means *no password login at all* rather than one that
+  `""` satisfies - the dangerous reading of a missing variable - and with
+  no passkey either, `/login` says so plainly instead of showing a form
+  that cannot work.
+- **Sessions are opaque tokens in Postgres, not signed cookies.** The
+  cookie holds 256 bits of `randomBytes` and every check is a row lookup,
+  which is what makes "remove this passkey" and "sign out everywhere" take
+  effect on the next request. Only the SHA-256 goes in the table: backups
+  leave the machine, and a column of live session tokens should not. A
+  plain hash is right where it would be wrong for a password - there is no
+  dictionary to run against 256 random bits.
+- Expiry is **absolute at 30 days, never extended**. Sliding expiry means
+  writing on requests that only read, and re-issuing a cookie from places
+  that are not allowed to set one.
+- **`admin_sessions.credential_id` cascades**, which is why it is stored:
+  removing a lost phone's passkey signs out the browsers that used it, one
+  action rather than two. A password session has no credential and
+  survives on its own.
+- **Challenges are rows, not cookies** (`admin_challenges`), deleted on
+  use. A cookie the client can set is a challenge the client can choose,
+  and a chosen challenge lets a captured assertion be replayed.
+- **The relying party is derived from the request**, not configured, so
+  one image works on localhost and on the real domain. A forged `Host`
+  cannot let anyone in - the browser signs over the origin it is actually
+  on - but it can *refuse* a legitimate sign-in, so `APP_ORIGIN` exists as
+  an override for the setups where the forwarded headers are wrong.
+- `residentKey: "required"` is what makes these passkeys rather than
+  second factors: discoverable, so login needs no username and the page
+  offers one button. `userVerification` is `"preferred"` and verification
+  is not *required* on the server - every real platform does Face ID when
+  asked nicely, and the softer setting means an authenticator that
+  declines is refused a passkey instead of the couple being locked out.
+- Verification itself is `@simplewebauthn/server`. That is a deliberate
+  dependency: by hand it means CBOR-decoding authenticator data,
+  converting COSE keys and checking signatures, and the failure mode of
+  getting any of it subtly wrong is a lock that looks shut.
+
+### Where the locks are
+
+`src/proxy.ts` gates every path that is not public, written in terms of
+the same `isPublicPath` the older stamped-header check uses - one list of
+what a stranger may read, so the two cannot drift. `needsSession` is
+private-by-default: the question is not "is this one of the pages we
+protect" but "is this one of the few we do not". `/api/health` is the only
+non-public exemption.
+
+Three things are deliberately *not* covered by that gate, and each is
+worth understanding before changing it:
+
+1. **Server actions guard themselves.** See the hard rule above. The
+   proxy steps aside for a POST carrying `Next-Action`, because turning
+   one away there is both incomplete (the path did not select the action)
+   and harmful (an HTTP redirect is not something the router can follow
+   for an action POST - the click dies on a page that stays put).
+2. **The method matters, and it is the whole of the safety in that
+   exception.** `dispatchesServerAction` requires `POST`. A GET wearing
+   the same header is an ordinary page request, and letting one past
+   renders the page before the layout can redirect - Next then answers
+   `307 -> /login` with the guest list still in the body. This was a real
+   bug during M10, caught by checking body sizes rather than statuses.
+3. **The calendar feed takes the app password over HTTP Basic**, and is
+   the one private route the proxy guards alone. A calendar client cannot
+   use a passkey, fill in a form or be sent to a login page; it fetches
+   one URL forever and the only credential it can carry is a header.
+   `allowsAppPasswordAuth` is that one path and must stay that way - every
+   extra path is another URL a password can be guessed at.
+
+`requireAdmin()` in the admin layout and `/wall` is the second lock for
+pages, and the only lock for the two route handlers that render no layout
+(a photograph, a run sheet PDF). It is also how a page gets the session
+it is running under.
+
+**Password guesses are throttled**, eight per source per fifteen minutes,
+keyed by IP rather than globally - a single bucket would let a stranger
+hammering the form lock the couple out, turning a brute-force attempt into
+a denial of service. The store is an in-process Map, so it is per-process
+and lost on restart; both are fine at this scale and neither is hidden.
+Passkeys are not throttled and do not need to be: a wrong assertion is a
+signature that does not verify.
+
+`/admin/access` is where passkeys are added, renamed and revoked, and
+where the live sessions are listed. The app password is deliberately not
+editable there - it lives in the environment, so changing it is a
+redeploy, which means a browser someone else is holding cannot change the
+credential that would lock them out.
+
+
 ## Milestones
 
 M1 foundation, M2 budget & scenarios, M3 savings projection, M4 seating
@@ -657,8 +782,11 @@ done. M7, the public invitation, was requested afterwards and changed the
 premise the earlier work assumed - there is now a surface a stranger can
 load. M8, venue options, came later again and is planner-only: nothing
 about it touches `(public)`. M9, ranking the shortlist, was asked for
-once the list passed seventy venues and is planner-only too. Anything
-further is a new request, so ask before starting one.
+once the list passed seventy venues and is planner-only too. M10, signing
+in, was asked for after that and is the second change to move a boundary:
+the planner now authenticates itself instead of relying on the proxy in
+front of it. Anything further is a new request, so ask before starting
+one.
 
 The couple are Ru (side A, sage) and Malin (side B, rose); names live in
 the `settings` row and drive every side label in the UI. Edit them, the

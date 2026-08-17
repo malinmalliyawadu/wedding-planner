@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { venueComparisons } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
 import { orderPair } from "@/lib/venue-ranking";
+import { requireAdmin } from "@/lib/auth/session";
 
 /**
  * Neither action revalidates, and that is deliberate.
@@ -48,6 +49,8 @@ const verdictSchema = verdictShape
 export type Verdict = z.input<typeof verdictSchema>;
 
 export async function recordComparison(input: Verdict): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = verdictSchema.safeParse(input);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0].message };
@@ -85,6 +88,8 @@ export async function recordComparison(input: Verdict): Promise<ActionResult> {
 export async function undoComparison(
   input: Pick<Verdict, "leftId" | "rightId" | "judge">,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = pairShape.safeParse(input);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0].message };

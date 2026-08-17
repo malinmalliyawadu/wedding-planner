@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { tables } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
+import { requireAdmin } from "@/lib/auth/session";
 
 const tableSchema = z.object({
   name: z.string().trim().min(1, "Name is required"),
@@ -26,6 +27,8 @@ export async function createTable(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = tableSchema.safeParse({
     name: formData.get("name"),
     capacity: formData.get("capacity"),
@@ -42,6 +45,8 @@ export async function updateTable(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const id = z.coerce.number().int().positive().safeParse(formData.get("id"));
   if (!id.success) return { status: "error", message: "Missing table id" };
 
@@ -59,6 +64,8 @@ export async function updateTable(
 
 /** Guests seated at the table are unseated (FK on delete set null). */
 export async function deleteTable(id: number): Promise<void> {
+  await requireAdmin();
+
   await db.delete(tables).where(eq(tables.id, id));
   revalidateTablePages();
 }

@@ -8,6 +8,7 @@ import { tasks } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
 import { generateTimeline } from "@/lib/timeline";
 import { getSettings } from "@/lib/queries";
+import { requireAdmin } from "@/lib/auth/session";
 
 function revalidateTimeline() {
   revalidatePath("/admin/timeline");
@@ -52,6 +53,8 @@ export async function createTask(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = parseTask(formData);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0].message };
@@ -65,6 +68,8 @@ export async function updateTask(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const id = z.coerce.number().int().positive().safeParse(formData.get("id"));
   if (!id.success) return { status: "error", message: "Missing task id" };
 
@@ -78,11 +83,15 @@ export async function updateTask(
 }
 
 export async function deleteTask(id: number): Promise<void> {
+  await requireAdmin();
+
   await db.delete(tasks).where(eq(tasks.id, id));
   revalidateTimeline();
 }
 
 export async function setTaskDone(id: number, done: boolean): Promise<void> {
+  await requireAdmin();
+
   await db.update(tasks).set({ done }).where(eq(tasks.id, id));
   revalidateTimeline();
 }
@@ -98,6 +107,8 @@ export type GenerateResult = {
  * again after you have edited things.
  */
 export async function generateFromWeddingDate(): Promise<GenerateResult> {
+  await requireAdmin();
+
   const settings = await getSettings();
   if (settings.weddingDate === null) return { added: 0, skipped: 0 };
 

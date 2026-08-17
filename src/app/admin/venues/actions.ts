@@ -7,6 +7,7 @@ import { db } from "@/db";
 import { venues } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
 import { parseDollarsToCents } from "@/lib/money";
+import { requireAdmin } from "@/lib/auth/session";
 
 /**
  * A dollar amount, where blank means "there isn't one" rather than zero.
@@ -118,6 +119,8 @@ export async function createVenue(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = parseVenue(formData);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0].message };
@@ -131,6 +134,8 @@ export async function updateVenue(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const id = z.coerce.number().int().positive().safeParse(formData.get("id"));
   if (!id.success) return { status: "error", message: "Missing venue id" };
 
@@ -148,6 +153,8 @@ export async function updateVenue(
  * points at one - so deleting is just a delete.
  */
 export async function deleteVenue(id: number): Promise<void> {
+  await requireAdmin();
+
   await db.delete(venues).where(eq(venues.id, id));
   revalidateVenues();
 }

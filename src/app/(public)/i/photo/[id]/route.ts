@@ -6,7 +6,7 @@ import { getObject } from "@/lib/storage";
  *
  * Deliberately under /i, alongside the invitations, so the whole public
  * surface is a single path prefix and the Traefik rule that exempts it
- * from basicauth stays one line. `photo` cannot collide with a token:
+ * from the sign-in stays one line. `photo` cannot collide with a token:
  * tokens are twenty characters and this is five.
  *
  * The bucket itself stays private and guests never hold a URL into it.

@@ -54,6 +54,26 @@ export function formatDateShort(iso: string): string {
   }).format(isoToDate(iso));
 }
 
+/**
+ * Format an instant as "20 Mar 2027, 9:14 am".
+ *
+ * The odd one out here, and deliberately marked as such: everything else
+ * in this module formats a plain calendar date in UTC so the day cannot
+ * drift. This takes a real timestamp - when a passkey was last used, when
+ * a session was opened - and those want the couple's own clock, so this is
+ * the one function that formats in Pacific/Auckland.
+ */
+export function formatMomentNZ(at: Date): string {
+  return new Intl.DateTimeFormat("en-NZ", {
+    timeZone: TZ,
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(at);
+}
+
 /** Whole days from today (NZ) until the given ISO date. Negative if past. */
 export function daysUntilNZ(iso: string): number {
   const msPerDay = 24 * 60 * 60 * 1000;
