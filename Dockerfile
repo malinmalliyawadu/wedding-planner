@@ -46,8 +46,9 @@ USER nextjs
 
 EXPOSE 3000
 
-# Coolify reads this; it probes from inside Docker, so it never passes
-# through the basicauth in front of the app.
+# Coolify reads this; it probes from inside Docker, so it presents no
+# session cookie. /api/health is exempt from the sign-in for exactly that
+# reason - see needsSession in src/proxy.ts.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD node -e "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 

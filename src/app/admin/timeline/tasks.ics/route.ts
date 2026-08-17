@@ -12,8 +12,18 @@ export const dynamic = "force-dynamic";
  * this URL, so edits in the app show up in the calendar. UIDs are stable
  * per task for exactly that reason.
  *
- * Note the app sits behind Traefik basicauth, so the subscription URL a
- * calendar client needs carries those credentials.
+ * **The one private route the proxy guards on its own.** Everywhere else
+ * the session check is written out a second time - in the layout, or at
+ * the top of the handler - but a calendar client cannot sign in with a
+ * passkey, cannot fill in a form and cannot be sent to a login page: it
+ * fetches this URL every few hours forever and the only credential it can
+ * carry is a password in a header. So `allowsAppPasswordAuth` in
+ * `src/proxy.ts` accepts HTTP Basic for this path and nothing else, and
+ * repeating the check here would only be able to refuse what the proxy
+ * has already allowed. `proxy.test.ts` pins both halves.
+ *
+ * The URL a calendar wants therefore carries the app password:
+ * `https://ledger:<APP_PASSWORD>@host/admin/timeline/tasks.ics`
  */
 export async function GET() {
   const [settings, taskRows] = await Promise.all([

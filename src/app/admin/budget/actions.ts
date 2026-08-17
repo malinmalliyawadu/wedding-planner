@@ -12,6 +12,7 @@ import {
 } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
 import { parseDollarsToCents } from "@/lib/money";
+import { requireAdmin } from "@/lib/auth/session";
 
 /** Dollar strings from a form become integer cents, or a validation error. */
 const dollarsToCents = z
@@ -91,6 +92,8 @@ export async function createBudgetItem(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = parseBudgetItemForm(formData);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0].message };
@@ -104,6 +107,8 @@ export async function updateBudgetItem(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const id = z.coerce.number().int().positive().safeParse(formData.get("id"));
   if (!id.success) return { status: "error", message: "Missing item id" };
 
@@ -121,6 +126,8 @@ export async function updateBudgetItem(
 
 /** Deleting an item cascades to its tiers, scenario choices and payments. */
 export async function deleteBudgetItem(id: number): Promise<void> {
+  await requireAdmin();
+
   await db.delete(budgetItems).where(eq(budgetItems.id, id));
   revalidateBudget();
 }
@@ -140,6 +147,8 @@ export async function createItemOption(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = itemOptionSchema.safeParse({
     budgetItemId: formData.get("budgetItemId"),
     label: formData.get("label"),
@@ -160,6 +169,8 @@ export async function updateItemOption(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const id = z.coerce.number().int().positive().safeParse(formData.get("id"));
   if (!id.success) return { status: "error", message: "Missing tier id" };
 
@@ -181,6 +192,8 @@ export async function updateItemOption(
 
 /** Scenarios pointing at this tier fall back to the item's base costs. */
 export async function deleteItemOption(id: number): Promise<void> {
+  await requireAdmin();
+
   await db.delete(itemOptions).where(eq(itemOptions.id, id));
   revalidateBudget();
 }
@@ -212,6 +225,8 @@ export type SaveScenarioInput = z.input<typeof saveScenarioSchema>;
 export async function saveScenario(
   input: SaveScenarioInput,
 ): Promise<ActionResult & { scenarioId?: number }> {
+  await requireAdmin();
+
   const parsed = saveScenarioSchema.safeParse(input);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0].message };
@@ -251,6 +266,8 @@ export async function saveScenario(
 }
 
 export async function deleteScenario(id: number): Promise<void> {
+  await requireAdmin();
+
   await db.delete(scenarios).where(eq(scenarios.id, id));
   revalidateBudget();
 }

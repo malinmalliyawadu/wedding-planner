@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { photos } from "@/db/schema";
+import { requireAdmin } from "@/lib/auth/session";
 import { getObject } from "@/lib/storage";
 
 /**
@@ -9,8 +10,12 @@ import { getObject } from "@/lib/storage";
  * The public route at /i/photo/[id] deliberately refuses anything
  * hidden, which is what makes hiding work - but it also means the couple
  * could not see what they had hidden in order to unhide it. This route
- * is the counterpart, and it is inside the (app) group, so it sits
- * behind the same basicauth as the guest list and the budget.
+ * is the counterpart, and it sits behind the same sign-in as the guest
+ * list and the budget.
+ *
+ * A route handler renders no layout, so the guard the planner's pages get
+ * for free is written out here. The proxy has already refused an
+ * unauthenticated request; this is the same second lock the layout is.
  */
 export const dynamic = "force-dynamic";
 
@@ -18,6 +23,8 @@ export async function GET(
   _request: Request,
   context: RouteContext<"/admin/photos/[id]/image">,
 ) {
+  await requireAdmin();
+
   const id = Number((await context.params).id);
   if (!Number.isSafeInteger(id) || id <= 0) {
     return new Response("Not found", { status: 404 });

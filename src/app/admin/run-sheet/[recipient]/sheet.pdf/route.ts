@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth/session";
 import { formatDateShort } from "@/lib/dates";
 import { getSettings } from "@/lib/queries";
 import { itemsForRecipient, sortItems } from "@/lib/run-sheet";
@@ -11,11 +12,16 @@ export const runtime = "nodejs";
 /**
  * One recipient's run sheet as a PDF. `everyone` gives the master copy:
  * the whole day, including moments no supplier is assigned to.
+ *
+ * Guarded here rather than by a layout, because a route handler renders
+ * none. The sheet carries every supplier's phone number.
  */
 export async function GET(
   _request: Request,
   { params }: RouteContext<"/admin/run-sheet/[recipient]/sheet.pdf">,
 ) {
+  await requireAdmin();
+
   const { recipient: recipientParam } = await params;
   const [settings, { items, recipients }] = await Promise.all([
     getSettings(),

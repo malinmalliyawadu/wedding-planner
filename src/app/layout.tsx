@@ -28,7 +28,7 @@ export const metadata: Metadata = {
  * Deliberately thin: fonts, tokens and the document, nothing else.
  *
  * The planner's sidebar lives in the (app) group's layout instead, because
- * the invitation under /i/[token] is served to guests with no basicauth in
+ * the invitation under /i/[token] is served to guests with no sign-in in
  * front of it and must never render a link into the private app. Keeping
  * the shell out of the root layout makes that structural rather than a
  * rule someone has to remember.

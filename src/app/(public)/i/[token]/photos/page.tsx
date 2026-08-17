@@ -95,7 +95,7 @@ export default async function PhotosPage({
                      * would need `/_next/image` open to unauthenticated
                      * guests, and the optimiser will fetch any
                      * same-origin path it is handed - which would turn
-                     * it into a way past basicauth into every private
+                     * it into a way past the sign-in into every private
                      * route that returns an image. The thumbnail was
                      * made on the guest's phone instead.
                      */}

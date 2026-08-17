@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { guests } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
+import { requireAdmin } from "@/lib/auth/session";
 
 const guestSchema = z.object({
   firstName: z.string().trim().min(1, "First name is required"),
@@ -48,6 +49,8 @@ export async function createGuest(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = parseGuestForm(formData);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0].message };
@@ -61,6 +64,8 @@ export async function updateGuest(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const id = z.coerce.number().int().positive().safeParse(formData.get("id"));
   if (!id.success) return { status: "error", message: "Missing guest id" };
 
@@ -74,6 +79,8 @@ export async function updateGuest(
 }
 
 export async function deleteGuest(id: number): Promise<void> {
+  await requireAdmin();
+
   await db.delete(guests).where(eq(guests.id, id));
   revalidateGuestPages();
 }

@@ -9,6 +9,7 @@ import {
   venueNameKey,
   type VenueParseResult,
 } from "@/lib/venue-csv";
+import { requireAdmin } from "@/lib/auth/session";
 
 async function existingNameKeys(): Promise<Set<string>> {
   const all = await db.select({ name: venues.name }).from(venues);
@@ -18,6 +19,8 @@ async function existingNameKeys(): Promise<Set<string>> {
 export async function previewVenueCsv(
   csvText: string,
 ): Promise<VenueParseResult> {
+  await requireAdmin();
+
   return parseVenueCsv(csvText, await existingNameKeys());
 }
 
@@ -38,6 +41,8 @@ export type VenueCommitResult = {
 export async function commitVenueCsv(
   csvText: string,
 ): Promise<VenueCommitResult> {
+  await requireAdmin();
+
   const result = await previewVenueCsv(csvText);
   if (result.fileError !== null) {
     return { imported: 0, skipped: result.rows.length, unquoted: 0 };

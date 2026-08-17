@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { guests, seatingConstraints } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
+import { requireAdmin } from "@/lib/auth/session";
 
 function revalidateSeating() {
   revalidatePath("/admin/seating");
@@ -30,6 +31,8 @@ const arrangementSchema = z.array(
 export async function saveArrangement(
   entries: Array<{ guestId: number; tableId: number | null; pinned: boolean }>,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = arrangementSchema.safeParse(entries);
   if (!parsed.success) {
     return { status: "error", message: "That arrangement could not be read" };
@@ -51,6 +54,8 @@ export async function saveArrangement(
 
 /** Put everyone back in the pool and let the solver have the room. */
 export async function clearSeating(): Promise<void> {
+  await requireAdmin();
+
   await db.update(guests).set({ tableId: null, pinned: false });
   revalidateSeating();
 }
@@ -76,6 +81,8 @@ export async function createSeatingConstraint(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = constraintSchema.safeParse({
     guestAId: formData.get("guestAId"),
     guestBId: formData.get("guestBId"),
@@ -91,6 +98,8 @@ export async function createSeatingConstraint(
 }
 
 export async function deleteSeatingConstraint(id: number): Promise<void> {
+  await requireAdmin();
+
   await db.delete(seatingConstraints).where(eq(seatingConstraints.id, id));
   revalidateSeating();
 }

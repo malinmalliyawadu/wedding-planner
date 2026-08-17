@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { photos } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
+import { requireAdmin } from "@/lib/auth/session";
 
 /**
  * Moderation is a hide, never a delete.
@@ -18,6 +19,8 @@ export async function setPhotoHidden(
   id: number,
   hidden: boolean,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   await db.update(photos).set({ hidden }).where(eq(photos.id, id));
   revalidatePath("/admin/photos");
   // The wall sits outside admin/ so a projector gets no sidebar.

@@ -71,6 +71,13 @@
       "when": 1786788960542,
       "tag": "0009_absurd_genesis",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1786955212546,
+      "tag": "0010_outgoing_rick_jones",
+      "breakpoints": true
     }
   ]
 }

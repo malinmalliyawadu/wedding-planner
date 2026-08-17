@@ -10,6 +10,7 @@ import {
   runSheetRecipients,
 } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
+import { requireAdmin } from "@/lib/auth/session";
 
 function revalidateRunSheet() {
   revalidatePath("/admin/run-sheet");
@@ -69,6 +70,8 @@ export async function createRunSheetItem(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = parseItem(formData);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0].message };
@@ -95,6 +98,8 @@ export async function updateRunSheetItem(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const id = z.coerce.number().int().positive().safeParse(formData.get("id"));
   if (!id.success) return { status: "error", message: "Missing item id" };
 
@@ -125,6 +130,8 @@ export async function updateRunSheetItem(
 }
 
 export async function deleteRunSheetItem(id: number): Promise<void> {
+  await requireAdmin();
+
   await db.delete(runSheetItems).where(eq(runSheetItems.id, id));
   revalidateRunSheet();
 }
@@ -151,6 +158,8 @@ export async function createRecipient(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const parsed = parseRecipient(formData);
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0].message };
@@ -164,6 +173,8 @@ export async function updateRecipient(
   _prev: ActionResult,
   formData: FormData,
 ): Promise<ActionResult> {
+  await requireAdmin();
+
   const id = z.coerce.number().int().positive().safeParse(formData.get("id"));
   if (!id.success) return { status: "error", message: "Missing recipient id" };
 
@@ -180,6 +191,8 @@ export async function updateRecipient(
 }
 
 export async function deleteRecipient(id: number): Promise<void> {
+  await requireAdmin();
+
   await db.delete(runSheetRecipients).where(eq(runSheetRecipients.id, id));
   revalidateRunSheet();
 }
