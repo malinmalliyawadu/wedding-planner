@@ -45,6 +45,21 @@
   --color-rose-bright: #d5a7ad;
 
   /*
+   * The watercolour wash, for the public invitation only.
+   *
+   * The planner is printed on plain ivory; the invitation is printed on
+   * washed paper, the way the stationery it is modelled on is. These are
+   * sampled from the artwork in `src/assets/florals` rather than picked,
+   * so the painted corners and the CSS behind them are the same colour -
+   * which is the whole reason the feathered edges of those images are
+   * invisible. Change one and you have to resample the other.
+   */
+  --color-blush: #fbe7d9;
+  --color-blush-soft: #fdf2e9;
+  --color-blush-deep: #f6dbc8;
+  --color-blush-green: #eef0e4;
+
+  /*
    * Sealing wax, for the public invitation only. Deliberately a deepened
    * side-B rose rather than a generic oxblood: the seal is the couple's
    * mark, so it is drawn from the couple's colours. It also has to stay
@@ -129,12 +144,13 @@
 
   /*
    * Breaking the seal. One orchestrated sequence, staged by delay: the
-   * wax splits and falls, the flap swings back, the card rises out. It
-   * runs once, on a deliberate tap, and nothing on the page moves again
-   * afterwards - the drama is spent in one place on purpose.
+   * wax splits and falls, the flap swings open on its lining, and the
+   * card rises out while the camera moves in behind it. It runs once, on
+   * a deliberate tap, and nothing on the page moves again afterwards -
+   * the drama is spent in one place on purpose.
    *
    * Every keyframe here animates transform and opacity only, so the
-   * whole sequence stays off the layout path.
+   * whole sequence stays off the layout path and on the compositor.
    */
   /*
    * The halves hold their opacity through the first half of the fall.
@@ -167,7 +183,60 @@
       opacity: 0;
     }
   }
+
   /*
+   * The camera.
+   *
+   * These translate the envelope in Z under the stage's perspective,
+   * which is a dolly and not a zoom: the distance changes, so the
+   * foreshortening changes with it and the flap's swing reads as depth
+   * rather than as a triangle getting bigger. scale() cannot do this,
+   * and the difference is most of what separates a cinematic open from
+   * an animated one.
+   *
+   * `drift` is the ambient creep before anything is tapped - a fifth of
+   * a pixel a frame, invisible moment to moment and unmistakable over
+   * twenty seconds. It is what stops the sealed envelope reading as a
+   * screenshot. It is also the one exception to the stillness rule, and
+   * it lives on the curtain, never on the invitation underneath.
+   */
+  @keyframes envelope-drift {
+    from {
+      transform: translateZ(-70px) rotateX(7deg);
+    }
+    to {
+      transform: translateZ(0px) rotateX(5.2deg);
+    }
+  }
+  /*
+   * Lifted and levelled, as though picked up to be opened - and panned
+   * down, which is the part that is not decoration. A flap this size
+   * swings up through about half the envelope's height again, and the
+   * card comes up after it; at this framing there is simply not that
+   * much room above. Tilting down as it opens is what a camera operator
+   * would do, and it buys back the headroom the flourish needs.
+   */
+  @keyframes camera-lift {
+    to {
+      transform: translateY(19%) translateZ(110px) rotateX(1.5deg);
+    }
+  }
+  /* Then past the envelope and into the card. */
+  @keyframes camera-approach {
+    from {
+      transform: translateY(19%) translateZ(110px) rotateX(1.5deg);
+    }
+    to {
+      transform: translateY(30%) translateZ(300px) rotateX(0deg);
+    }
+  }
+
+  /*
+   * The flap hinges on its top edge and swings past vertical, so what
+   * you see for the second half of the movement is its underside - the
+   * lining. Two faces back to back make that a real surface with its own
+   * colour rather than the same paper seen from behind.
+   *
    * The hinge sits a hair in front of the envelope's own plane. Without
    * that, preserve-3d puts the swinging flap behind the front panel the
    * moment it passes vertical and the whole movement is hidden - z-index
@@ -178,15 +247,58 @@
       transform: translateZ(1px) rotateX(0deg);
     }
     to {
-      transform: translateZ(1px) rotateX(-164deg);
+      transform: translateZ(1px) rotateX(-138deg);
     }
   }
-  @keyframes card-rise {
+  /*
+   * Paper turning away from the light gets darker. The flap's faces are
+   * lit by an overlay whose opacity rides the swing, which is a shading
+   * change and not a filter - a filter would flatten the 3D context and
+   * take the two faces with it.
+   */
+  /*
+   * The crease, going. Closed, all that shows of the shadow triangle is
+   * a sliver along the flap's diagonals; left up once the flap is off
+   * it, the whole of it would be a grey triangle painted on the paper.
+   */
+  @keyframes crease-lift {
+    to {
+      opacity: 0;
+    }
+  }
+  /* What the lifting flap uncovers. */
+  @keyframes throat-open {
     from {
-      transform: translateY(14%) scale(0.96);
+      opacity: 0;
     }
     to {
-      transform: translateY(-118%) scale(1);
+      opacity: 1;
+    }
+  }
+  @keyframes flap-shade {
+    0% {
+      opacity: 0;
+    }
+    45% {
+      opacity: 0.34;
+    }
+    100% {
+      opacity: 0.16;
+    }
+  }
+  /*
+   * The handoff. The invitation comes up underneath the envelope while
+   * the envelope is still going, so the two cross rather than one being
+   * swapped for the other on a blank frame.
+   */
+  @keyframes content-reveal {
+    from {
+      opacity: 0;
+      transform: translateY(12px) scale(0.992);
+    }
+    to {
+      opacity: 1;
+      transform: none;
     }
   }
   @keyframes envelope-away {
@@ -204,6 +316,185 @@
     to {
       opacity: 1;
       letter-spacing: 0.12em;
+    }
+  }
+
+  /*
+   * Arrivals.
+   *
+   * Each flourish arrives once, as you reach it. Only the doves keep
+   * moving afterwards, and only just - see `sketch-idle`, which is four
+   * pixels over eleven seconds. Nothing here follows the cursor and
+   * nothing demands to be watched: this is a page of type, and the
+   * motion is there to make the paper feel alive rather than to be
+   * looked at.
+   */
+  /*
+   * Every one of these ends on `translateX(var(--sketch-x))` rather than
+   * on `none`, and that is not fussiness: how far a flourish hangs out
+   * into the margin is also a transform, and an animation replaces the
+   * property outright rather than adding to it. End on `none` and each
+   * one snaps back into the text column the moment it arrives.
+   */
+  @keyframes sketch-arrive {
+    from {
+      opacity: 0;
+      transform: translate(var(--sketch-x), 1.1rem);
+    }
+    to {
+      opacity: var(--sketch-opacity);
+      transform: translateX(var(--sketch-x));
+    }
+  }
+  /* A dove should arrive on the wing, not rise off the floor. */
+  @keyframes sketch-wing {
+    from {
+      opacity: 0;
+      transform: translate(calc(var(--sketch-x) + var(--wing-from, 1.6rem)), 0.9rem)
+        rotate(6deg);
+    }
+    to {
+      opacity: var(--sketch-opacity);
+      transform: translateX(var(--sketch-x)) rotate(0deg);
+    }
+  }
+  /* A ribbon unfurls from its bow, which is at the right-hand end. */
+  @keyframes sketch-unfurl {
+    from {
+      opacity: 0;
+      transform: translateX(var(--sketch-x)) scaleX(0.35);
+    }
+    to {
+      opacity: var(--sketch-opacity);
+      transform: translateX(var(--sketch-x)) scaleX(1);
+    }
+  }
+  /*
+   * The ornament draws itself. Every stroked path carries
+   * `pathLength="1"`, so one dash pattern fits the stalk, a leaf and a
+   * tendril alike without knowing how long any of them is.
+   *
+   * This animates `stroke-dashoffset`, which is a paint-level property
+   * and not a composited one - the only thing on these pages that is.
+   * It is affordable here and nowhere else: the ornament is around
+   * 170px across, so the repaint is a few thousand pixels over a short
+   * scroll range. Do not reach for this on anything larger.
+   */
+  @keyframes draw-on {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+  @keyframes seed-set {
+    to {
+      opacity: 1;
+    }
+  }
+  /*
+   * The idles. Each object moves the way that object would: a dove
+   * rides, a candle gutters, a ribbon stirs, a heart beats, a hanging
+   * bow swings. Nothing here is a generic pulse applied to everything,
+   * because five things breathing in unison reads as a screensaver.
+   *
+   * All of them are transform or opacity, so they stay on the
+   * compositor, and all of them are slow enough to be caught only if you
+   * stop and look.
+   */
+  @keyframes idle-fly {
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-7px) rotate(-3deg);
+    }
+  }
+  /* A flame is never quite steady, so this is deliberately not a sine:
+     the stops are uneven and the loop does not read as a loop. */
+  @keyframes idle-flicker {
+    0%,
+    100% {
+      opacity: 0.86;
+    }
+    17% {
+      opacity: 1;
+    }
+    31% {
+      opacity: 0.78;
+    }
+    46% {
+      opacity: 0.97;
+    }
+    62% {
+      opacity: 0.72;
+    }
+    79% {
+      opacity: 0.94;
+    }
+  }
+  /* Held at the bow, so the loose end travels furthest. */
+  @keyframes idle-stir {
+    0%,
+    100% {
+      transform: rotate(0deg) scaleX(1);
+    }
+    35% {
+      transform: rotate(0.9deg) scaleX(0.985);
+    }
+    70% {
+      transform: rotate(-1.1deg) scaleX(1.01);
+    }
+  }
+  /* Lub-dub, then a rest that is most of the loop - which is what makes
+     it read as a pulse rather than as a throb. */
+  @keyframes idle-beat {
+    0%,
+    52%,
+    100% {
+      transform: scale(1);
+    }
+    12% {
+      transform: scale(1.11);
+    }
+    24% {
+      transform: scale(1.005);
+    }
+    36% {
+      transform: scale(1.06);
+    }
+  }
+  /* The ornament, breathing. Smaller than any of the others because it
+     repeats eight times down the page and is structural rather than
+     decorative - it should never be the thing you notice moving. */
+  @keyframes idle-breathe {
+    0%,
+    100% {
+      transform: scale(1) rotate(0deg);
+    }
+    50% {
+      transform: scale(1.022) rotate(-0.5deg);
+    }
+  }
+  /* The painted corners. Slow and small enough to be weather rather than
+     movement - a wash this size sliding about would read as a parallax
+     trick, which is the opposite of paper. */
+  @keyframes idle-wash {
+    0%,
+    100% {
+      transform: scale(1) translate(0, 0);
+    }
+    50% {
+      transform: scale(1.018) translate(0.4%, -0.5%);
+    }
+  }
+  /* Hung from its knot. */
+  @keyframes idle-swing {
+    0%,
+    100% {
+      transform: rotate(-2.4deg);
+    }
+    50% {
+      transform: rotate(2.4deg);
     }
   }
 }
@@ -343,6 +634,258 @@
 }
 
 /*
+ * The same grain with no blend mode, for anything that moves.
+ *
+ * mix-blend-mode makes the compositor read back whatever is underneath
+ * on every frame it paints. Over a still page that is free; over a
+ * subtree rotating in 3D it is the difference between a sequence that
+ * runs on the GPU and one that does not, and it was the most expensive
+ * thing in the envelope. At this opacity, over paper this pale, the two
+ * are indistinguishable side by side - so the moving parts use this and
+ * the still page keeps multiply.
+ *
+ * The texture is coarser than `grain` as well: an envelope is a heavier,
+ * fibrous stock than the sheet inside it, and the low-frequency octave
+ * is what reads as felt rather than as noise.
+ */
+@utility grain-stock {
+  isolation: isolate;
+}
+.grain-stock::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.55;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.34 0.62' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.19'/%3E%3C/svg%3E");
+}
+
+/*
+ * The watercolour wash.
+ *
+ * Four soft washes pushed into the corners and left clear in the middle,
+ * which is where the type goes - the same shape a painted card has,
+ * because it is the shape a wet brush makes when you work in from the
+ * edges. It sets no `position` for the same reason `grain` does not:
+ * callers place it, this only paints. Pair it with `grain` and the
+ * gradient stops reading as a gradient.
+ */
+:root {
+  /*
+   * Held in a variable rather than written out twice, because the
+   * envelope has to be painted with the same wash as the invitation it
+   * holds - and because the painted corners in `src/assets/florals` are
+   * feathered rather than cut out, so anywhere one of those sits, this
+   * has to be underneath it or its edge becomes a rectangle of blush.
+   */
+  --wash-layers:
+    radial-gradient(58% 42% at 4% 0%, var(--color-blush) 0%, transparent 64%),
+    radial-gradient(52% 36% at 98% 6%, var(--color-blush-deep) 0%, transparent 60%),
+    radial-gradient(64% 44% at 96% 98%, var(--color-blush) 0%, transparent 62%),
+    radial-gradient(60% 40% at 2% 94%, var(--color-blush-soft) 0%, transparent 60%),
+    radial-gradient(40% 30% at 76% 44%, var(--color-blush-green) 0%, transparent 70%);
+}
+
+@utility wash {
+  pointer-events: none;
+  background-image: var(--wash-layers);
+}
+
+/* ------------------------------------------------------------------ *
+ * The flourishes, arriving.
+ *
+ * Scroll-driven, so there is no observer, no scroll listener and no
+ * JavaScript at all: `animation-timeline: view()` is handled by the
+ * compositor. It is wrapped in @supports and the un-enhanced state is
+ * the *finished* state, so a browser without it shows the page exactly
+ * as it will end up rather than showing nothing.
+ * ------------------------------------------------------------------ */
+
+@utility sketch {
+  --sketch-opacity: 0.4;
+  /* How far it hangs out past the column. Also the resting state of
+     every arrival above, and what a browser with no scroll timelines
+     gets on its own. */
+  --sketch-x: 0px;
+  opacity: var(--sketch-opacity);
+  transform: translateX(var(--sketch-x));
+}
+
+/*
+ * Above the fold there is nothing to scroll into, so those two arrive on
+ * a clock instead. Same movement, different trigger.
+ */
+@utility sketch-now {
+  animation: sketch-arrive 1100ms cubic-bezier(0.22, 1, 0.36, 1) 260ms both;
+}
+@utility sketch-wing-now {
+  animation: sketch-wing 1400ms cubic-bezier(0.22, 1, 0.36, 1) 320ms both;
+}
+
+/*
+ * Each of these names its animation with the `animation` *shorthand*, and
+ * that is load-bearing rather than stylistic: the build only follows the
+ * shorthand when it decides which `@keyframes` are reachable. Name one
+ * through `animation-name` alone and its keyframes are treated as dead,
+ * dropped from the output, and the declaration that referenced them goes
+ * too - leaving a class that exists, matches, and does nothing.
+ */
+@supports (animation-timeline: view()) {
+  .sketch-in {
+    animation: sketch-arrive cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 34%;
+  }
+  .sketch-wing-in {
+    animation: sketch-wing cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 34%;
+  }
+  .sketch-unfurl-in {
+    animation: sketch-unfurl cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 34%;
+    /* The bow is at the right-hand end, so that is the end it unrolls
+       from. Unfurling towards the knot would be running the film back. */
+    transform-origin: right center;
+  }
+}
+
+/*
+ * The idles, one per subject. These sit on the image inside the wrapper,
+ * never on the wrapper itself: the arrival owns the span's transform,
+ * and two animations on one property replace each other rather than
+ * composing.
+ */
+@utility idle-fly {
+  animation: idle-fly 6.5s ease-in-out infinite;
+}
+@utility idle-flicker {
+  animation: idle-flicker 4.2s ease-in-out infinite;
+}
+@utility idle-stir {
+  animation: idle-stir 9s ease-in-out infinite;
+  transform-origin: right center;
+}
+@utility idle-beat {
+  animation: idle-beat 3.4s ease-in-out infinite;
+}
+@utility idle-swing {
+  animation: idle-swing 7s ease-in-out infinite;
+  transform-origin: top center;
+}
+@utility idle-breathe {
+  animation: idle-breathe 8.5s ease-in-out infinite;
+}
+@utility idle-wash {
+  animation: idle-wash 24s ease-in-out infinite;
+}
+
+/* ------------------------------------------------------------------ *
+ * The ornament, drawing itself.
+ * ------------------------------------------------------------------ */
+
+@supports (animation-timeline: view()) {
+  .ornament-draw [data-draw] {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    animation: draw-on linear both;
+    animation-timeline: view();
+    animation-range: entry 10% cover 40%;
+  }
+  /* The seeds are fruit on a drawn stem, so they cannot be there before
+     the stem is. They set after the line has passed them. */
+  .ornament-draw [data-seed] {
+    opacity: 0;
+    animation: seed-set linear both;
+    animation-timeline: view();
+    animation-range: cover 30% cover 46%;
+  }
+}
+
+/*
+ * The same arrivals, for browsers with no scroll-driven animations -
+ * which is still a real share of the phones this page is opened on. The
+ * flourish is held at its opening state and released by `data-shown`,
+ * which `<Reveal>` sets from one IntersectionObserver. Triggered rather
+ * than scroll-linked, so it plays through once instead of tracking the
+ * scrollbar, but it arrives, which is the point.
+ */
+@supports not (animation-timeline: view()) {
+  [data-reveal].sketch-in,
+  [data-reveal].sketch-wing-in,
+  [data-reveal].sketch-unfurl-in {
+    opacity: 0;
+    transition:
+      opacity 900ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  [data-reveal].sketch-in {
+    transform: translate(var(--sketch-x), 1.1rem);
+  }
+  [data-reveal].sketch-wing-in {
+    transform: translate(calc(var(--sketch-x) + var(--wing-from, 1.6rem)), 0.9rem)
+      rotate(6deg);
+  }
+  [data-reveal].sketch-unfurl-in {
+    transform: translateX(var(--sketch-x)) scaleX(0.35);
+    transform-origin: right center;
+  }
+  [data-reveal][data-shown].sketch-in,
+  [data-reveal][data-shown].sketch-wing-in,
+  [data-reveal][data-shown].sketch-unfurl-in {
+    opacity: var(--sketch-opacity);
+    transform: translateX(var(--sketch-x));
+  }
+
+  .ornament-draw[data-reveal] [data-draw] {
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+    transition: stroke-dashoffset 1200ms cubic-bezier(0.32, 0.72, 0.3, 1);
+  }
+  .ornament-draw[data-reveal][data-shown] [data-draw] {
+    stroke-dashoffset: 0;
+  }
+  .ornament-draw[data-reveal] [data-seed] {
+    opacity: 0;
+    transition: opacity 420ms ease-out 780ms;
+  }
+  .ornament-draw[data-reveal][data-shown] [data-seed] {
+    opacity: 1;
+  }
+}
+
+/*
+ * Reduced motion switches all of it off by hand. The blanket rule in the
+ * base layer collapses a *duration*, which says nothing to an animation
+ * driven by a scrollbar - so these have to be named.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .sketch-in,
+  .sketch-wing-in,
+  .sketch-unfurl-in,
+  .sketch-now,
+  .sketch-wing-now,
+  .idle-fly,
+  .idle-flicker,
+  .idle-stir,
+  .idle-beat,
+  .idle-swing,
+  .idle-breathe,
+  .idle-wash,
+  [data-reveal],
+  .ornament-draw [data-draw],
+  .ornament-draw [data-seed] {
+    /* No `transform: none` here: that would take the margin offset with
+       it. Switching the animation off leaves the resting transform on
+       `.sketch`, which is exactly where these are meant to end up. */
+    animation: none !important;
+    transition: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+}
+
+/*
  * Letterpress. Type pressed into damp paper catches light on the lower
  * edge of the bite and shadows on the upper - not a drop shadow, which
  * would read as type floating above the sheet instead of struck into it.
@@ -389,6 +932,11 @@
  * strategy: with no JavaScript the <noscript> rule below removes the
  * overlay and the guest simply reads the invitation. Nothing is behind a
  * gesture that only works when a script does.
+ *
+ * The framing is deliberately close. An envelope held at arm's length is
+ * a picture of an envelope; one that runs past the edges of the screen
+ * is an envelope you are holding, and the whole flourish is worth having
+ * only if it is the second thing.
  * ------------------------------------------------------------------ */
 
 @utility envelope-stage {
@@ -396,79 +944,271 @@
   inset: 0;
   z-index: 60;
   display: grid;
-  /* minmax(0,…) so the envelope cannot push the track wider than the
+  /* minmax(0,…) so the grid track cannot be pushed wider than the
      viewport, and align-content so the two rows sit together in the
-     middle rather than each claiming half the screen. */
+     middle rather than each claiming half the screen. The envelope is
+     allowed to overflow this track on purpose - see .envelope. */
   grid-template-columns: minmax(0, 1fr);
   align-content: center;
   justify-items: center;
   padding: 1.5rem;
   background-color: var(--color-paper);
-  /* The flap has to swing in depth, so the stage owns the perspective. */
-  perspective: 1400px;
+  /* The flap swings in depth and the camera moves in Z, so the stage
+     owns the perspective. Tighter than a typical UI value: a short focal
+     length is what gives a close subject its bulge. */
+  perspective: 1100px;
+}
+
+/*
+ * The camera, in two nested pieces so the two movements compose instead
+ * of fighting. An animation replaces a transform outright rather than
+ * adding to it, so the ambient drift and the tap-driven dolly cannot
+ * live on the same element without the second snapping away whatever
+ * the first had reached.
+ */
+@utility envelope-camera {
+  /* Both wrappers fill the stage's grid track rather than shrinking to
+     fit, because .envelope sizes itself as a percentage of its parent
+     and a shrink-to-fit parent gives that nothing to resolve against. */
+  display: block;
+  width: 100%;
+  transform: rotateX(6deg);
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+@utility envelope-drift {
+  display: block;
+  width: 100%;
+  transform-style: preserve-3d;
+  /* Runs from the moment the curtain mounts, and is the one thing here
+     that moves without being asked. Reduced motion collapses it to its
+     end state along with everything else. */
+  animation: envelope-drift 20s cubic-bezier(0.16, 0.6, 0.36, 1) forwards;
 }
 
 @utility envelope {
   position: relative;
-  /* C6 proportions, the shape a real invitation arrives in. */
-  width: min(32rem, 100%);
+  /*
+   * Centred by hand, and not with `justify-items: center` on the wrapper
+   * above, because this box is deliberately wider than the track it sits
+   * in: grid and flex both fall back to start-alignment for an item that
+   * overflows its container, which quietly parks the envelope against
+   * the left edge on exactly the narrow screens the bleed is for.
+   */
+  left: 50%;
+  transform: translateX(-50%);
+  /*
+   * C6 proportions, the shape a real invitation arrives in - but sized
+   * to fill the frame rather than to sit politely inside it.
+   *
+   * The three terms answer three different screens. `58rem` is the cap a
+   * desktop hits: past that an envelope stops reading as an object and
+   * starts reading as a wall. `96dvh` is what a landscape window hits,
+   * and keeps the whole of it on screen. `190%` is the phone, and is the
+   * one that looks like a mistake: a 1.42:1 envelope on a portrait
+   * screen can only ever be a band across the middle unless it is
+   * allowed to run off both sides, so it is - the V of the flap is what
+   * reads as an envelope, and it is still dead centre.
+   *
+   * This one cannot bleed as hard as the reference it is modelled on,
+   * and the reason is the addressee. That envelope crops to its flap and
+   * loses nothing; this one is addressed, and the name in the lower half
+   * is the whole point of addressing it.
+   */
+  width: min(58rem, 190%, 96dvh);
   aspect-ratio: 1.42 / 1;
   transform-style: preserve-3d;
 }
 
 /*
- * Anatomy, back to front: the envelope's inside, the card tucked in it,
- * the front face carrying the address, then the flap folded over the
- * top. The card is completely hidden until the flap opens, which is what
- * makes it read as coming *out* of something rather than fading in.
+ * Anatomy, back to front: the envelope's inside, the front face
+ * carrying the address, then the flap folded over the top.
+ *
+ * There is deliberately no card in here. One rising out was the obvious
+ * thing to draw and it fought everything else in the frame: at this
+ * framing a C6 card covers all but the corners of the envelope, so it
+ * hid the lining the flap had just uncovered, and it arrived at the same
+ * moment as the invitation it was standing in for. The envelope opens,
+ * and what is inside it is the page.
  */
 .envelope-back {
   position: absolute;
   inset: 0;
   z-index: 0;
   border: 1px solid var(--color-hairline-strong);
-  background-color: #efe9dc;
+  /* The throat. Darkest at the top, where you would be looking furthest
+     into it once the flap is up. */
+  background:
+    linear-gradient(to bottom, #cfc6b0 0%, #e2dac6 26%, #efe9dc 62%);
   box-shadow: var(--shadow-overlay);
 }
 
-.envelope-card {
+/*
+ * The addressed face. The two gradients are the light: a soft key from
+ * the upper left, and the falloff every photograph of paper has towards
+ * the bottom edge. Painted once and never animated.
+ */
+/*
+ * The crease, and the impression the flap leaves behind once it is up.
+ *
+ * The same triangle as the flap, a few pixels lower, so all that shows
+ * of it is a sliver along the two diagonals - which is what the eye
+ * reads as a folded edge. Drawn here rather than as a drop-shadow on the
+ * flap itself because a filter would flatten the flap's 3D context and
+ * take its two faces with it.
+ */
+.envelope-front::after {
+  content: "";
   position: absolute;
-  inset: 5% 7% 5% 7%;
-  z-index: 1;
-  border: 1px solid var(--color-hairline);
-  background-color: var(--color-card);
-  box-shadow: var(--shadow-card);
+  inset: 0 0 auto 0;
+  height: 52%;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  transform: translateY(4px) scale(1.006);
+  background: linear-gradient(
+    to bottom,
+    rgb(33 43 37 / 0.06) 0%,
+    rgb(33 43 37 / 0.17) 100%
+  );
 }
 
+/* The addressed face. */
 .envelope-front {
   position: absolute;
   inset: 0;
   z-index: 2;
   border: 1px solid var(--color-hairline-strong);
-  background-color: var(--color-card);
 }
 
 /*
- * The flap, drawn as a triangle with a border trick rather than a clip
- * path, so its lit face keeps a real edge against the envelope beneath.
+ * One light, over one envelope.
+ *
+ * A soft key from the upper left and the falloff every photograph of
+ * paper has towards its bottom edge - but declared once for the front
+ * and the flap together, because they are the same sheet folded, and
+ * lighting them separately is what makes an envelope look like a stack
+ * of shapes. The flap is 52% of the envelope's height, so its copy of
+ * the gradient is stretched to 1/0.52 and pinned to the top: the same
+ * light then lands on the same part of the paper whether the flap is
+ * folded over it or standing open.
+ *
+ * Closed, this leaves the flap invisible but for its crease - which is
+ * exactly what an envelope looks like.
+ */
+.envelope-front,
+.envelope-flap-face {
+  background-color: var(--color-card);
+  /* Key light first, then the falloff, then the wash underneath both -
+     the light falls on the paper, not the other way round. */
+  background-image:
+    radial-gradient(
+      124% 88% at 27% 3%,
+      rgb(255 255 255 / 0.82) 0%,
+      rgb(255 255 255 / 0) 64%
+    ),
+    linear-gradient(to bottom, rgb(104 94 70 / 0) 42%, rgb(104 94 70 / 0.14) 100%),
+    var(--wash-layers);
+}
+.envelope-flap-face {
+  background-size: 100% 192.31%;
+  background-position: top center;
+}
+
+/*
+ * The flap, and the reason it is three elements rather than one.
+ *
+ * It swings past vertical, so for the second half of the movement you
+ * are looking at its underside - and on a lined envelope that is not the
+ * same paper, it is the lining. Two faces back to back, each hiding its
+ * own backface, is what makes that a real surface. The pair only works
+ * while the flap stays in a 3D context, which is why the fold is drawn
+ * as a gradient here and not as the drop-shadow it used to be: a filter
+ * would flatten the context and take both faces with it.
  */
 .envelope-flap {
   position: absolute;
   inset: 0 0 auto 0;
   z-index: 3;
   height: 52%;
+  transform: translateZ(1px);
   transform-origin: top center;
-  /*
-   * No backface-visibility: hidden here. The flap swings past 90deg, and
-   * hiding the back face makes it vanish mid-swing instead of opening.
-   * What you see after the halfway point is the inside of the flap,
-   * which is the same paper - exactly as it would be.
-   */
-  background: linear-gradient(to bottom, var(--color-card) 0%, #eee7d8 100%);
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+.envelope-flap-face,
+.envelope-flap-lining,
+.envelope-flap-shade {
+  position: absolute;
+  inset: 0;
   clip-path: polygon(0 0, 100% 0, 50% 100%);
-  /* The clip eats a border, so the fold is drawn as a shadow instead -
-     which is what the eye actually reads as a folded edge anyway. */
-  filter: drop-shadow(0 2px 2px rgb(33 43 37 / 0.14));
+  backface-visibility: hidden;
+}
+/*
+ * The lining. Sage and rose, the two sides of this wedding, running into
+ * each other under where the wax was.
+ *
+ * It is painted twice, on two different surfaces, and the second one is
+ * the one that matters. A flap standing open at 150 degrees is nearly
+ * edge-on and lands above the envelope, where the rising card covers
+ * most of it; what a lined envelope actually shows you is the *throat* -
+ * the area the flap was covering. So `.envelope-throat` carries the
+ * lining on the envelope itself and fades up as the flap comes off it,
+ * and the flap's own underside merely agrees with it.
+ *
+ * Note that the flap's copy is written back to front on purpose:
+ * rotateY(180deg) mirrors that face, so the colour written on the right
+ * is the one that appears on the left. The throat is not mirrored, so it
+ * reads in the usual order - side A sage on the left, as everywhere.
+ */
+.envelope-throat {
+  background:
+    /* Deeper in at the top, where the throat actually is. */
+    linear-gradient(to bottom, rgb(33 43 37 / 0.14) 0%, rgb(33 43 37 / 0) 66%),
+    linear-gradient(
+      126deg,
+      #f2cdb4 0%,
+      var(--color-blush-deep) 44%,
+      var(--color-blush-green) 100%
+    );
+}
+.envelope-flap-lining {
+  transform: rotateY(180deg);
+  /*
+   * Written back to front: rotateY(180deg) mirrors this face, so the
+   * colour put on the right is the one that appears on the left, and it
+   * has to arrive at the fold as the same colour the throat leaves it.
+   *
+   * No shading gradient on this one either. The flap's rotation turns
+   * its top edge into the one that meets the throat, so a gradient dark
+   * at the top lands as a bar straight across the fold - and the flap's
+   * light is already handled by .envelope-flap-shade, which is the layer
+   * that knows what angle it is at.
+   */
+  background: linear-gradient(
+    -126deg,
+    #f2cdb4 0%,
+    var(--color-blush-deep) 44%,
+    var(--color-blush-green) 100%
+  );
+}
+
+/*
+ * The throat: the flap's own footprint, painted on the envelope and
+ * hidden under the flap until it lifts. A hair smaller than the flap, so
+ * no antialiased edge of it can show along the fold while it is shut.
+ */
+.envelope-throat {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 52%;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+  transform: scale(0.99);
+  transform-origin: top center;
+  opacity: 0;
+}
+/* Paper turning away from the light. Opacity only - see flap-shade. */
+.envelope-flap-shade {
+  background-color: #2a3229;
+  opacity: 0;
 }
 
 .seal {
@@ -479,24 +1219,42 @@
   top: 52%;
   width: 26%;
   aspect-ratio: 1;
-  translate: -50% -50%;
   border-radius: 9999px;
   background: transparent;
+  /*
+   * In front of the flap, which is itself a pixel in front of the
+   * envelope. The z-index above is not what decides this: once the
+   * children are in a 3D context, depth arbitrates and a seal at z 0
+   * has its top half swallowed by the flap it is supposed to be holding
+   * shut. Wax sits on top of the fold, so it has to be nearer than it.
+   */
+  /*
+   * Centred with the transform rather than the `translate` property, so
+   * the whole of it - the centring and the depth - is stated once. The
+   * two do compose, but a base `transform` here and a `translate` there
+   * is an invitation to write the hover state without one of them.
+   */
+  transform: translate(-50%, -50%) translateZ(2px);
   /* Comfortably past 44px at every width the envelope is allowed. */
   transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .seal:hover:not(:disabled),
 .seal:focus-visible {
-  transform: scale(1.04);
+  transform: translate(-50%, -50%) translateZ(2px) scale(1.04);
 }
 .seal:active:not(:disabled) {
-  transform: scale(0.97);
+  transform: translate(-50%, -50%) translateZ(2px) scale(0.97);
 }
 
 /*
- * Staged by delay off one state change. Durations are deliberately not
- * uniform: wax falls under gravity (ease-in), the flap and the card are
- * lifted by hand (ease-out).
+ * Staged by delay off one state change, and overlapping rather than
+ * queued: the card is still rising as the stage begins to go, so the
+ * handoff to the invitation is a dissolve and not a stop followed by a
+ * fade. Durations are deliberately not uniform - wax falls under gravity
+ * (ease-in), everything else is lifted by hand (ease-out).
+ *
+ * The whole sequence is 1400ms. OPEN_SEQUENCE_MS in envelope.tsx has to
+ * agree with the last of these, or the stage is torn down mid-movement.
  */
 /*
  * An SVG <g> has no CSS box, so a percentage translate and a rotation
@@ -514,17 +1272,63 @@
 [data-seal="broken"] .wax-right {
   animation: wax-right 620ms cubic-bezier(0.55, 0, 0.85, 0.35) forwards;
 }
-[data-seal="broken"] .envelope-flap {
-  animation: flap-open 700ms cubic-bezier(0.32, 0.72, 0.3, 1) 240ms forwards;
+[data-seal="broken"] .envelope-camera {
+  animation:
+    camera-lift 760ms cubic-bezier(0.32, 0.72, 0.3, 1) 120ms forwards,
+    camera-approach 580ms cubic-bezier(0.5, 0, 0.7, 0.62) 820ms forwards;
 }
-[data-seal="broken"] .envelope-card {
-  animation: card-rise 780ms cubic-bezier(0.22, 1, 0.36, 1) 680ms forwards;
+[data-seal="broken"] .envelope-flap {
+  animation: flap-open 760ms cubic-bezier(0.32, 0.72, 0.3, 1) 240ms forwards;
+}
+[data-seal="broken"] .envelope-front::after {
+  animation: crease-lift 580ms cubic-bezier(0.32, 0.72, 0.3, 1) 240ms forwards;
+}
+[data-seal="broken"] .envelope-throat {
+  animation: throat-open 460ms ease-out 300ms forwards;
+}
+[data-seal="broken"] .envelope-flap-shade {
+  animation: flap-shade 760ms cubic-bezier(0.32, 0.72, 0.3, 1) 240ms forwards;
 }
 [data-seal="broken"] {
-  animation: envelope-away 420ms ease-out 1180ms forwards;
+  animation: envelope-away 320ms ease-out 1080ms forwards;
 }
 [data-seal="broken"] .seal {
   pointer-events: none;
+}
+
+/*
+ * The other half of the handoff.
+ *
+ * The invitation is server-rendered under the envelope from the first
+ * byte, so it has to be held back rather than built late - and held back
+ * only when there is actually something over it. The attribute comes off
+ * the same cookie that decides whether to render the envelope at all, so
+ * a guest who has opened it before is never dark for a frame, and the
+ * <noscript> rule in the public layout releases it for a browser that
+ * will never run the script that would.
+ */
+main[data-envelope="pending"] {
+  opacity: 0;
+}
+/*
+ * `settle` on the names is declared `both`, so pausing it at zero holds
+ * its first frame - the names wait, engraved and wide, for the envelope
+ * to be off them rather than settling behind it.
+ *
+ * The same goes for anything above the fold that arrives on a clock. The
+ * envelope takes about a second and a half, which is longer than these
+ * run: leave them going and they are spent before the curtain is up, and
+ * a first-time guest - the only guest this page has - sees a dove that
+ * has already landed. The ones further down are scroll-driven and need
+ * none of this; they are nowhere near the viewport yet.
+ */
+main[data-envelope="pending"] #invitation-title,
+main[data-envelope="pending"] .sketch-now,
+main[data-envelope="pending"] .sketch-wing-now {
+  animation-play-state: paused;
+}
+main[data-envelope="opened"] {
+  animation: content-reveal 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 /*

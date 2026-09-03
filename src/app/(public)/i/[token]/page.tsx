@@ -13,7 +13,7 @@ import { formatTime, formatTimeRange } from "@/lib/run-sheet";
 import { Envelope } from "./envelope";
 import { RsvpCard } from "./rsvp-card";
 import { sealCookieName } from "./seal-cookie";
-import { Ornament, Panel, Prose, Section } from "../../sections";
+import { FloralCorner, Ornament, Panel, Prose, Section, Sketch } from "../../sections";
 import { StickyRsvp } from "./sticky-rsvp";
 
 /*
@@ -61,11 +61,56 @@ export default async function InvitationPage({
         />
       )}
 
-      <main id="main">
+      {/*
+        * Held back while the envelope is over it, and only then. The
+        * flag comes off the same cookie the envelope itself does, so a
+        * returning guest gets the page with no opacity on it at all
+        * rather than one that has to be released by a script.
+        */}
+      <main id="main" data-envelope={alreadyOpened ? undefined : "pending"}>
         {/* ---------------------------------------------------------- *
          * The card itself.
          * ---------------------------------------------------------- */}
-        <header className="mx-auto flex min-h-[92dvh] w-full max-w-2xl flex-col items-center justify-center px-6 py-16 text-center">
+        {/*
+          * The card. One washed sheet with painted corners, spanning the
+          * whole viewport rather than the text column - the wash belongs
+          * to the paper, and paper does not stop at 42rem.
+          *
+          * `isolate` so the -z-10 on the corners is measured against this
+          * header and not the page, which would put them behind the
+          * paper and out of sight; `overflow-hidden` is what crops each
+          * cluster to the two edges it bleeds off.
+          */}
+        <header className="relative isolate flex min-h-[92dvh] w-full flex-col items-center justify-center overflow-hidden pt-16 pb-[min(calc(40vw+1.5rem),19rem)] text-center">
+          <div className="wash grain absolute inset-0 -z-10" aria-hidden />
+          {/* The type is centred in what is left above these, not in the
+              header - which is why the padding below is so lopsided. A
+              painted corner the names sit on top of is a busy card, and
+              the whole point of this layout is the clear middle.
+              The padding tracks the corner rather than the viewport:
+              these are sized as a fraction of the width, so 40vw is the
+              taller one's own height, and a vh-based gap would leave a
+              hole on a phone and still crowd on a laptop. */}
+          {/* One dove, high and faint, opposite the painted corners -
+              the hero is bottom-heavy without something up here. */}
+          <Sketch
+            name="dove-rising"
+            arrive="now-wing"
+            className="top-[6%] right-[2%] w-[17vw] max-w-[6.5rem] [--sketch-opacity:0.3] sm:right-[7%]"
+          />
+          <FloralCorner at="bottom-left" className="w-[64%] max-w-[27rem]" />
+          <FloralCorner at="bottom-right" className="w-[38%] max-w-[16rem]" />
+          {/* The card dissolving into the page. Without it the wash and
+              the painted corners both stop dead on the header's bottom
+              edge, and a cluster sliced off mid-leaf reads as a mistake
+              rather than as bleed. Last of the three so it paints over
+              them: they share a z-index, so DOM order decides. */}
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 -z-10 h-[16%] bg-gradient-to-b from-transparent to-paper"
+            aria-hidden
+          />
+
+          <div className="mx-auto w-full max-w-2xl px-6">
           <p className="eyebrow text-brass">
             Together with their families
           </p>
@@ -140,6 +185,7 @@ export default async function InvitationPage({
               {daysAway === 1 ? " day away" : " days away"}
             </p>
           )}
+          </div>
         </header>
 
         {site.welcomeMessage && (
@@ -154,7 +200,13 @@ export default async function InvitationPage({
          * The day. Filtered from the one canonical run sheet.
          * ---------------------------------------------------------- */}
         {schedule.length > 0 && (
-          <Section id="the-day" eyebrow="How the day runs" title="The day">
+          <Section
+            id="the-day"
+            eyebrow="How the day runs"
+            title="The day"
+            motif="glasses"
+            sketch={{ name: "candelabra", side: "left" }}
+          >
             <ol className="space-y-0">
               {schedule.map((moment) => (
                 <li
@@ -237,7 +289,12 @@ export default async function InvitationPage({
          * Dress code and the questions that otherwise arrive by text.
          * ---------------------------------------------------------- */}
         {(site.dressCode || faq.length > 0) && (
-          <Section id="details" eyebrow="Everything else" title="Good to know">
+          <Section
+            id="details"
+            eyebrow="Everything else"
+            title="Good to know"
+            sketch={{ name: "ribbon", side: "left", className: "w-[26vw] max-w-[10rem]" }}
+          >
             {site.dressCode && (
               <div className="mb-8 text-center">
                 <p className="eyebrow text-ink-faint">What to wear</p>
@@ -274,7 +331,7 @@ export default async function InvitationPage({
         )}
 
         {site.giftNote && (
-          <Section id="gifts" eyebrow="You have asked" title="Gifts">
+          <Section id="gifts" eyebrow="You have asked" title="Gifts" motif="gift">
             <Panel className="text-center">
               <Prose>{site.giftNote}</Prose>
             </Panel>
@@ -294,6 +351,12 @@ export default async function InvitationPage({
               : "Please reply"
           }
           title="Will you be there?"
+          motif="rings"
+          sketch={{
+            name: "heart",
+            side: "right",
+            className: "w-[15vw] max-w-[5.5rem]",
+          }}
         >
           <RsvpCard
             token={token}
@@ -306,7 +369,13 @@ export default async function InvitationPage({
         </Section>
 
         {site.photosEnabled && (
-          <Section id="photos" eyebrow="Share the day" title="Photographs">
+          <Section
+            id="photos"
+            eyebrow="Share the day"
+            title="Photographs"
+            motif="camera"
+            sketch={{ name: "dove-turning", side: "right" }}
+          >
             <Panel className="text-center">
               <p className="text-[0.95rem] leading-relaxed text-ink-soft">
                 Whatever you catch on the day, we would love to see. Add your

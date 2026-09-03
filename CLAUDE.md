@@ -380,34 +380,205 @@ envelope. Generous, one idea per screen, mobile-first.
 - **The signature is breaking a wax seal.** An envelope addressed to the
   household, the couple's duogram struck into the wax, and one
   orchestrated sequence on tap - the wax cracks along an irregular fault
-  and falls, the flap swings, the card rises. Then complete stillness:
-  the drama is spent in one place deliberately, and nothing else on the
-  page moves.
+  and falls, the flap swings open on its lining, and the invitation comes
+  up underneath as the envelope goes.
+- **The framing is macro, and the camera moves.** The envelope is sized to
+  run off the edges of a phone (`190%`), because a 1.42:1 envelope on a
+  portrait screen is otherwise a band across the middle, and the whole
+  flourish is only worth having if it reads as an envelope you are
+  holding. The dolly is `translateZ` under the stage's perspective, not
+  `scale`: the distance changes, so the foreshortening changes with it,
+  and that is most of the difference between a cinematic open and an
+  animated one. It pans down as the flap swings, because a flap this size
+  needs headroom that does not otherwise exist.
+- **Nothing slides out of it.** A card rising was tried and cut: at this
+  framing a C6 card covers all but the corners of the envelope, so it hid
+  the lining the flap had just uncovered and arrived at the same moment
+  as the invitation it was standing in for. The envelope opens, and what
+  is inside it is the page.
+- **The lining is painted on the envelope, not on the flap.** A flap
+  standing open at 138 degrees is nearly edge-on and lands above the
+  envelope; what a lined envelope actually shows you is the *throat* -
+  the area the flap was covering. `.envelope-throat` carries it and fades
+  up as the flap comes off, and the flap's own underside merely agrees.
+  Sage and rose, meeting under where the wax was.
+- **Nothing in the moving subtree blends or filters.** `mix-blend-mode`
+  makes the compositor read back what is underneath on every frame, which
+  is free over a still page and the difference between running on the GPU
+  and not over a subtree rotating in 3D; `filter` additionally flattens
+  the 3D context and would take the flap's two faces with it. So the
+  envelope uses `grain-stock` rather than `grain`, and the fold is drawn
+  as an offset triangle on the panel beneath rather than as a
+  drop-shadow. If you add either back here, you have put the jank back.
 - It is rendered **under** the server-rendered invitation, so `<noscript>`
   removing it leaves a working page. A cookie records that it has been
   opened and the *server* then leaves it out entirely, so a returning
-  guest never sees it flash past.
+  guest never sees it flash past. The same cookie sets
+  `main[data-envelope]`: the invitation is held at zero opacity only while
+  something is actually over it, and released into `content-reveal` as
+  the envelope fades, so the two cross instead of leaving a blank frame
+  between them. `<noscript>` releases it too, or a browser that will
+  never run the script would never get it back.
 - `wax-seal.tsx` is drawn deterministically - no RNG, because it renders
   on both server and client. What makes it read as wax is the lighting
   being inverted between surfaces: the blot is domed (lit upper left),
   the die impression is recessed (lit lower right), the monogram stands
   proud again. Get those the same way round and it collapses into a
   sticker.
-- Three CSS traps, all commented at the point of use: SVG `<g>` needs
+- Four CSS traps, all commented at the point of use: SVG `<g>` needs
   `transform-box: fill-box` or percentage translates never apply;
-  `backface-visibility: hidden` makes the flap vanish mid-swing; and
-  `preserve-3d` means depth, not `z-index`, decides what occludes the
-  flap - hence its `translateZ(1px)`.
+  `preserve-3d` means depth, not `z-index`, decides what occludes - hence
+  the flap's `translateZ(1px)` and the seal's `translateZ(2px)`, without
+  which the flap swallows the top half of the wax holding it shut;
+  `backface-visibility: hidden` is right on the flap's *two* faces and
+  was wrong on the one face it used to have, where it made the flap
+  vanish mid-swing; and a box deliberately wider than its container
+  cannot be centred by `justify-items: center`, because grid and flex
+  both fall back to start-alignment for an overflowing item - which
+  parks the envelope against the left edge on exactly the narrow screens
+  the bleed is for.
+- **Watercolour, over the engraving.** The invitation, the landing page
+  and the envelope are printed on a washed sheet with painted corners.
+  Three watercolour clusters live in `src/assets/florals`, cut from one
+  sheet of licensed stock artwork (`17cc.eps`, rendered with Ghostscript)
+  so they agree about light, palette and brush. Two rules come with them:
+  - **They are not cut out.** Each carries its own wash and is feathered
+    on the two edges facing into the page; the other two bleed off. That
+    is why they have no silhouette to give them away - and why one only
+    works on top of `wash`, whose `--wash-layers` are *sampled from these
+    files*. Put a corner on plain paper and its feathered edge becomes a
+    visible rectangle of blush. Change either and resample the other.
+  - **They go through the bundler, never `public/`.** A static import is
+    emitted under `/_next/static/`, which `isPublicPath` already allows;
+    a file in `public/` is served from a path the proxy blocks for
+    exactly the guests these pages are for. It also keeps `next/image`
+    out of it, which matters: `/_next/image` is deliberately not public.
+    Nothing under `(public)` may use `next/image`, and the two `<img>`
+    tags carry an eslint-disable saying so.
+- **The clear middle is the layout.** Type is centred in what is left
+  *above* the painted corners, not in the box - hence the lopsided
+  `pb-[min(calc(40vw+1.5rem),19rem)]` on the invitation's header. The
+  padding tracks the corner's own height, because the corners are sized
+  as a fraction of the width; a vh-based gap leaves a hole on a phone and
+  still crowds on a laptop. Below the corners a gradient fades the card
+  into the page, or a cluster sliced flat against the header's bottom
+  edge reads as a mistake rather than as bleed.
+- **The ornament draws itself** as it comes into view, stalk then leaves
+  then seeds. Every stroked shape carries `pathLength="1"`, so one dash
+  pattern fits a stalk, a leaf and a tendril without the stylesheet
+  knowing how long any of them is - and it has to sit on each shape,
+  because `pathLength` is a geometry attribute and a `<g>` cannot hand
+  it down. This is the one place on these pages that animates a
+  paint-level property (`stroke-dashoffset`) rather than a composited
+  one; it is affordable at 170px across and would not be at 700.
+- **The ornament is drawn, not placed** (`sprig.tsx`). A botanical spray
+  in brass line - stalk, five leaves, a curled tendril, three seeds -
+  mirrored about the lozenge the ornament has always had, which is now
+  the pivot the two sprays grow out of. It is the gold line vocabulary
+  from the painted corners, on its own. It stands alone: the hairline
+  rules that used to flank the lozenge are gone, because a flat rule
+  butting into the sprig's end curl reads as a line that ran out rather
+  than as a finished ornament.
+  - Drawn rather than cut out of the artwork because it had to be: the
+    gold line in those files runs *behind* the painted leaves, so any
+    crop takes green with it. Drawing it also means it recolours,
+    rescales and costs nothing.
+  - Deterministic like `wax-seal.tsx`. The leaf geometry is computed from
+    base/tip/width, but there is no RNG, so the server and client agree.
+  - The stroke weights are set for the size it actually renders at, a
+    little over 120px wide. Much smaller and the leaves close into a
+    smudge, which is why `Ornament` sizes it in rem rather than letting
+    it take the height of a line of text.
+- **The emblems are drawn too** (`motifs.tsx`), and sit at the heart of a
+  section's ornament in place of the lozenge - rings on the RSVP, flutes
+  on the day, a gift on gifts, a camera on the album. The subjects are
+  the ones every wedding clip-art set has; only the hand is different,
+  and that is the whole point. Packs of wedding iconography are almost
+  invariably felt-tip doodles - thick, wobbly, cheerful - which is a
+  register at war with Marcellus and a watercolour corner. Drawing them
+  in the same fine line as the sprig is what lets the page have
+  illustrations at all.
+  - `motif` on `Section` is optional on purpose. A section with nothing
+    obvious to draw gets the plain lozenge rather than a laboured
+    metaphor, and the page is better for the odd plain one.
+  - Each is drawn in its own 24x24 box and sets no stroke width, so the
+    caller picks weight and colour. `Sprig` widens from 120 to 144 units
+    when it carries one, which is the only thing the emblem changes.
+- **Marginalia, in a second hand** (`src/assets/sketches`, `Sketch`). Six
+  pen-and-ink drawings - two doves, a heart, a ribbon, a candelabra, a
+  bow - hung in the white space beside a section at 30-40% opacity. They
+  are deliberately *not* the engraved line of the sprig: they are looser,
+  and that only works while they stay rare. One or two down a long page
+  read as something pressed between the leaves; a dozen would read as a
+  sticker sheet and would start arguing with the ornament, which is the
+  thing doing the structural work.
+  - Vector, brass baked in, `<img>` through the bundler like the florals,
+    and ~40KB for all six. Nothing is inlined into the HTML.
+  - On a phone there is no margin to hang in, so they fall behind the
+    text column and behave as a watermark rather than being cropped off.
+  - **They arrive as you reach them**, on `animation-timeline: view()`
+    where it exists - the compositor drives it, with no listener, and the
+    drawing tracks the scrollbar rather than merely being triggered by
+    it. The two above the fold have nothing to scroll into and run on a
+    clock instead.
+  - **`view()` is not everywhere yet**, and this page is opened by a
+    hundred guests on whatever browser came with their phone - Firefox
+    has no support at all. So `@supports not (...)` holds each flourish
+    at its opening state and waits for `data-shown`, which `<Reveal>`
+    sets from a single IntersectionObserver for the whole document. It
+    costs nothing where `view()` works: the effect returns on its first
+    line and no observer is ever built. `<noscript>` releases them, as it
+    does the envelope.
+  - Because the fallback is a *transition*, reduced motion has to kill
+    `transition` as well as `animation`, and `<Reveal>` marks everything
+    shown immediately rather than leaving it held at opacity zero.
+  - **Everything keeps moving once it has arrived, and each thing moves
+    the way that thing would**: a dove rides, a candle gutters (opacity,
+    on uneven stops so the loop does not read as one), a ribbon stirs
+    from its bow, a heart beats lub-dub and then rests for most of the
+    cycle, a hanging bow swings from its knot. The ornament breathes and
+    the painted corners drift, both far slower and smaller than the
+    flourishes - they are structure and weather respectively, and neither
+    should ever be the thing you notice moving. One pulse applied to all
+    of them would read as a screensaver; the point is that they are not
+    the same motion. All transform or opacity, so they stay composited.
+  - Whether one of these is actually running is read off the animation
+    engine - `el.getAnimations()[0].effect.getComputedTiming().progress` -
+    and never off `getComputedStyle`, which reports stale transforms in a
+    backgrounded or non-compositing tab and will happily tell you a
+    running animation is frozen.
+  - That is why `Sketch` renders a span around the image: the arrival
+    owns the span's transform and the idle owns the image's, and two
+    animations on one property replace each other rather than composing.
+  - **Anything above the fold that arrives on a clock is paused while the
+    envelope is up**, alongside `settle` on the names. Breaking the seal
+    takes about a second and a half, which is longer than those
+    animations run - leave them going and they are spent behind the
+    curtain, and the first-time guest, who is the only guest this page
+    has, meets a dove that has already landed.
+  - Every arrival ends on `translateX(var(--sketch-x))`, never on `none`.
+    How far a flourish hangs into the margin is a transform too, and an
+    animation that ends on `none` snaps it back into the text column.
+  - **The couple portraits in that sheet are deliberately unused.** They
+    draw a specific bride and groom who are not Ru and Malin, and a
+    stock couple on someone's own invitation is the one thing on this
+    page that would read as clip art.
 - **One new typeface, for one glyph.** EB Garamond italic sets the
   ampersand between the two names, the way an engraver has always taken
   the ampersand from a different fount. Marcellus is lapidary and has no
   italic to give. Loaded by the invitation layout only.
 - The `grain` utility sets no `position`, so it can be added to something
-  already fixed or absolute. Callers position themselves.
+  already fixed or absolute. Callers position themselves. `grain-stock` is
+  its blend-free, coarser twin for the envelope: see the note above on why
+  nothing in the moving subtree may blend.
 
 ## Design language ("engraved stationery meets ledger")
 
-- Single deliberate light theme; no dark mode.
+- Single deliberate light theme; no dark mode. The planner is the ledger
+  half and is printed on plain ivory. The public invitation is the
+  stationery half and, since M7's watercolour pass, is printed on a
+  washed sheet - same ink, same brass, different paper. The blush tokens
+  and `wash` exist for `(public)` only; nothing under `admin/` uses them.
 - Tokens live in `globals.css`: paper/card surfaces, evergreen ink, brass
   accent, hairlines; the sidebar is the dark "spine".
 - Side A is sage, side B is rose, threaded through chips, the duogram and

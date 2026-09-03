@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { EB_Garamond } from "next/font/google";
+import { Reveal } from "./reveal";
 
 /** Loaded here and nowhere else: the planner never sets an ampersand. */
 const ebGaramond = EB_Garamond({
@@ -38,9 +39,27 @@ export default function PublicLayout({ children }: LayoutProps<"/">) {
          * away. Nothing here is behind a gesture that only works when a
          * script does.
          */}
-        <style>{`.envelope-stage{display:none!important}`}</style>
+        <style>{
+          /*
+           * Take the curtain away, and release what it was covering -
+           * the invitation is held at zero opacity for the script that
+           * is going to animate it up, and without one it would stay
+           * there.
+           */
+          `.envelope-stage{display:none!important}` +
+          `main[data-envelope="pending"]{opacity:1!important}` +
+          /*
+           * The flourishes are held at their opening state for a script
+           * that is never going to run here, so release those too.
+           */
+          `[data-reveal]{opacity:var(--sketch-opacity,1)!important;` +
+          `transform:translateX(var(--sketch-x,0))!important}` +
+          `[data-reveal] [data-draw]{stroke-dashoffset:0!important}` +
+          `[data-reveal] [data-seed]{opacity:1!important}`
+        }</style>
       </noscript>
       {children}
+      <Reveal />
     </div>
   );
 }
