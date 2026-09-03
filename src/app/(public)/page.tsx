@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { daysUntilNZ, formatDateFull } from "@/lib/dates";
 import { getSiteContent } from "@/lib/public/queries";
-import { Ornament } from "./sections";
+import { FloralCorner, Ornament, Sketch } from "./sections";
 
 /**
  * The front door.
@@ -35,8 +35,30 @@ export default async function LandingPage() {
   return (
     <main
       id="main"
-      className="mx-auto flex min-h-dvh w-full max-w-xl flex-col items-center justify-center px-6 py-16 text-center"
+      className="relative isolate flex min-h-dvh w-full flex-col items-center justify-center overflow-hidden px-6 py-16 text-center"
     >
+      <div className="wash grain absolute inset-0 -z-10" aria-hidden />
+      {/*
+        * One corner, not three: this is the front door for someone who
+        * has mislaid their link, and it should look like the same
+        * wedding as the invitation without pretending to be it.
+        *
+        * The top corner rather than the bottom, which is where the
+        * invitation puts its. This page has more prose than the card
+        * does and runs past the fold on a phone - a corner down there is
+        * a flourish nobody scrolls to, and one up here frames the names
+        * without needing the room the invitation reserves below them.
+        */}
+      <FloralCorner at="top-left" className="w-[46%] max-w-[19rem]" />
+      {/* The bow hangs off the opposite corner to the flowers, low
+          enough that the prose below clears it. */}
+      <Sketch
+        name="bow"
+        arrive="now"
+        className="top-[14%] right-[5%] w-[16vw] max-w-[6rem] [--sketch-opacity:0.35]"
+      />
+
+      <div className="mx-auto w-full max-w-xl">
       <p className="eyebrow text-brass">The wedding of</p>
 
       <h1 className="engraved deboss mt-8 text-[clamp(2.5rem,13vw,5.5rem)] text-ink">
@@ -105,6 +127,7 @@ export default async function LandingPage() {
       >
         Planning
       </Link>
+      </div>
     </main>
   );
 }

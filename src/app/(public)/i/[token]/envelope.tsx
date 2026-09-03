@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import floral from "@/assets/florals/corner-bottom-left.webp";
 import { SEAL_COOKIE_MAX_AGE, sealCookieName } from "./seal-cookie";
 import { WaxSeal } from "./wax-seal";
 
@@ -19,7 +20,20 @@ import { WaxSeal } from "./wax-seal";
  * again, which is what a client-side check would have cost.
  */
 
-const OPEN_SEQUENCE_MS = 1600;
+/**
+ * The whole sequence, and the last delay + duration in the
+ * `[data-seal="broken"]` rules in globals.css. Tear the stage down any
+ * earlier and the flap is still moving when it goes.
+ */
+const OPEN_SEQUENCE_MS = 1400;
+
+/**
+ * When the invitation underneath starts coming up - the moment the stage
+ * begins to fade, not the moment it finishes. The two are meant to cross:
+ * an envelope that vanishes and *then* a page that arrives leaves a blank
+ * frame between them, which is the one thing a dissolve is for avoiding.
+ */
+const REVEAL_AT_MS = 1080;
 
 export function Envelope({
   token,
@@ -38,8 +52,22 @@ export function Envelope({
   const stageRef = useRef<HTMLDivElement>(null);
   const sealRef = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const revealTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+
+  /**
+   * Hands the page back. Idempotent: the sequence fires it part way
+   * through so the two cross, and Skip and Escape fire it on their way
+   * out, when there is nothing left to cross with.
+   */
+  const reveal = useCallback(() => {
+    const main = document.getElementById("main");
+    if (main) main.dataset.envelope = "opened";
+  }, []);
 
   const dismiss = useCallback(() => {
+    reveal();
     setPhase("gone");
     // Written from the client because that is where "the guest has
     // actually seen it" is known. The server reads it on the next visit
@@ -53,9 +81,15 @@ export function Envelope({
     // Hand focus to the invitation rather than dropping it on <body>,
     // where a keyboard user would have to tab from the top of the page.
     document.getElementById("invitation-title")?.focus();
-  }, [token]);
+  }, [token, reveal]);
 
-  useEffect(() => () => clearTimeout(timer.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(timer.current);
+      clearTimeout(revealTimer.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (phase !== "sealed") return;
@@ -74,6 +108,7 @@ export function Envelope({
     // the full sequence would leave a blank stage sitting there.
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     timer.current = setTimeout(dismiss, reduced ? 120 : OPEN_SEQUENCE_MS);
+    if (!reduced) revealTimer.current = setTimeout(reveal, REVEAL_AT_MS);
   }
 
   if (phase === "gone") return null;
@@ -81,7 +116,7 @@ export function Envelope({
   return (
     <div
       ref={stageRef}
-      className="envelope-stage grain"
+      className="envelope-stage grain-stock"
       data-seal={phase === "breaking" ? "broken" : "sealed"}
       role="dialog"
       aria-modal="true"
@@ -91,53 +126,79 @@ export function Envelope({
         if (event.key === "Escape") dismiss();
       }}
     >
-      <div className="envelope">
-        <div className="envelope-back" />
+      {/* Two nested wrappers, not one: an animation replaces a transform
+          rather than adding to it, so the ambient drift and the dolly the
+          tap fires have to sit on separate elements or the second snaps
+          away whatever the first had reached. */}
+      <div className="envelope-camera">
+        <div className="envelope-drift">
+          <div className="envelope">
+            <div className="envelope-back" />
 
-        {/* What rises out. Kept plain: the real card is underneath the
-            whole stage, and this is only the gesture of it arriving. */}
-        <div className="envelope-card grain grid place-items-center px-6">
-          <p className="engraved deboss text-center text-[clamp(1rem,4vw,1.5rem)] text-ink">
-            {initialA}
-            <span className="ampersand mx-1.5 text-[1.3em]">&amp;</span>
-            {initialB}
-          </p>
-        </div>
+            <div className="envelope-front grain-stock">
+              {/* The lining, on the envelope rather than on the flap:
+                  what a lined envelope shows you is the area the flap
+                  was covering. Hidden under the flap until it lifts. */}
+              <div className="envelope-throat" />
 
-        <div className="envelope-front grain">
-          {/* Addressed the way it would be if it had come by post: in the
-              lower half, clear of the flap and the wax. */}
-          <div className="absolute inset-x-0 top-[62%] bottom-0 flex flex-col items-center justify-center px-6 text-center sm:px-10">
-            <p className="deboss font-display text-[clamp(1rem,4.2vw,1.4rem)] leading-tight text-ink">
-              {addressee}
-            </p>
-            {address && (
-              <p className="mt-1.5 text-[clamp(0.7rem,2.6vw,0.8125rem)] text-ink-faint">
-                {address}
-              </p>
-            )}
+              {/* The same painted corner the invitation opens on, so the
+                  envelope and what is in it are visibly one piece of
+                  stationery. Small: this one is addressed, and the name
+                  has to stay the loudest thing on it. */}
+              {/* See the note in sections.tsx: /_next/image is not public,
+                  so nothing under (public) may use next/image. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={floral.src}
+                alt=""
+                aria-hidden
+                className="pointer-events-none absolute bottom-0 left-0 w-[46%] select-none"
+              />
+
+              {/* Addressed the way it would be if it had come by post: in
+                  the lower half, clear of the flap and the wax. */}
+              <div className="absolute inset-x-0 top-[62%] bottom-0 flex flex-col items-center justify-center px-6 text-center sm:px-10">
+                <p className="deboss font-display text-[clamp(1rem,4.2vw,1.4rem)] leading-tight text-ink">
+                  {addressee}
+                </p>
+                {address && (
+                  <p className="mt-1.5 text-[clamp(0.7rem,2.6vw,0.8125rem)] text-ink-faint">
+                    {address}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Outer paper, the lining behind it, and a shading layer that
+                darkens the pair as they turn away from the light. */}
+            <div className="envelope-flap">
+              <div className="envelope-flap-face grain-stock" />
+              <div className="envelope-flap-lining grain-stock" />
+              <div className="envelope-flap-shade" />
+            </div>
+
+            <button
+              ref={sealRef}
+              type="button"
+              className="seal"
+              onClick={open}
+              disabled={phase !== "sealed"}
+            >
+              <span className="sr-only">
+                Break the seal and open your invitation
+              </span>
+              <WaxSeal initialA={initialA} initialB={initialB} />
+            </button>
           </div>
         </div>
-
-        <div className="envelope-flap grain" />
-
-        <button
-          ref={sealRef}
-          type="button"
-          className="seal"
-          onClick={open}
-          disabled={phase !== "sealed"}
-        >
-          <span className="sr-only">Break the seal and open your invitation</span>
-          <WaxSeal initialA={initialA} initialB={initialB} />
-        </button>
       </div>
 
-      {/* Sits under the envelope, where the thing it names actually is -
-          and goes the moment the seal is struck, because there is nothing
-          left to instruct. */}
+      {/* Pinned to the bottom of the stage rather than sitting in flow
+          under the envelope, so it costs the envelope no height - which
+          is what lets the framing be as close as it is. Goes the moment
+          the seal is struck: there is nothing left to instruct. */}
       <p
-        className={`mt-8 text-center transition-opacity duration-200 ${
+        className={`pointer-events-none absolute inset-x-0 bottom-8 text-center transition-opacity duration-200 sm:bottom-12 ${
           phase === "sealed" ? "opacity-100" : "opacity-0"
         }`}
         aria-hidden
