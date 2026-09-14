@@ -1,11 +1,13 @@
 "use client";
 
-import { ImagePlus, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { ImagePrepError, prepareImage } from "@/lib/image-prep";
 import { useRemembered } from "@/lib/use-remembered";
 import { recordUpload, requestUpload } from "./actions";
+import { Motif } from "../../../motifs";
+import { Frame, FrameCorners } from "../../../sections";
 
 /**
  * Uploading, from a phone, at a wedding.
@@ -38,6 +40,7 @@ export function Uploader({ token }: { token: string }) {
   // Nobody wants to type their name again for the second batch.
   const [name, setName] = useRemembered(NAME_KEY);
   const [caption, setCaption] = useState("");
+  const [dragging, setDragging] = useState(false);
 
   function update(id: string, patch: Partial<Item>) {
     setItems((current) =>
@@ -127,33 +130,32 @@ export function Uploader({ token }: { token: string }) {
   const failed = items.filter((item) => item.status === "failed");
 
   return (
-    <div className="rounded-lg border border-hairline bg-card p-6 shadow-card sm:p-8">
-      <div className="space-y-4">
+    <div className="relative isolate bg-card px-6 py-8 shadow-card sm:px-12 sm:py-10">
+      <Frame />
+      <FrameCorners />
+
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-10">
         <label className="block">
-          <span className="mb-1.5 block text-xs font-semibold tracking-wide text-ink-soft">
-            Your name
-          </span>
+          <span className="eyebrow block text-ink-faint">Your name</span>
           <input
             type="text"
             value={name}
             onChange={(event) => setName(event.target.value)}
             maxLength={80}
             placeholder="So we know who to thank"
-            className="w-full rounded-md border border-hairline-strong bg-white px-3 py-2 text-sm text-ink transition-colors duration-150 placeholder:text-ink-faint focus:border-brass focus:outline-none pointer-coarse:min-h-11 pointer-coarse:text-base"
+            className="field-line"
           />
         </label>
 
         <label className="block">
-          <span className="mb-1.5 block text-xs font-semibold tracking-wide text-ink-soft">
-            A note about these ones
-          </span>
+          <span className="eyebrow block text-ink-faint">A note about these ones</span>
           <input
             type="text"
             value={caption}
             onChange={(event) => setCaption(event.target.value)}
             maxLength={280}
             placeholder="Optional"
-            className="w-full rounded-md border border-hairline-strong bg-white px-3 py-2 text-sm text-ink transition-colors duration-150 placeholder:text-ink-faint focus:border-brass focus:outline-none pointer-coarse:min-h-11 pointer-coarse:text-base"
+            className="field-line"
           />
         </label>
       </div>
@@ -171,28 +173,50 @@ export function Uploader({ token }: { token: string }) {
           if (files && files.length > 0) void onFiles(files);
         }}
       />
+      {/*
+       * The whole panel takes a drop as well as a tap, because on a
+       * laptop the photographs are in a folder and dragging them is the
+       * obvious thing. On a phone the label is the button.
+       */}
       <label
         htmlFor="photo-input"
-        className={`mt-6 flex min-h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-md bg-ink px-6 text-sm font-medium text-paper transition-colors duration-150 hover:bg-spine-raised ${
-          busy ? "pointer-events-none opacity-45" : ""
-        }`}
+        onDragOver={(event) => {
+          event.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={(event) => {
+          event.preventDefault();
+          setDragging(false);
+          if (busy) return;
+          const files = event.dataTransfer.files;
+          if (files && files.length > 0) void onFiles(files);
+        }}
+        className={`mt-8 flex min-h-36 w-full cursor-pointer flex-col items-center justify-center gap-3 border border-dashed px-6 py-8 text-center transition-colors duration-150 ${
+          dragging ? "border-brass bg-brass-tint/60" : "border-hairline-strong hover:border-ink-faint"
+        } ${busy ? "pointer-events-none opacity-60" : ""}`}
       >
         {busy ? (
           <>
-            <Loader2 className="size-4 animate-spin" aria-hidden />
-            Sending {done + 1} of {items.length}…
+            <Loader2 className="size-6 animate-spin text-brass" aria-hidden />
+            <span className="font-display text-lg text-ink">
+              Sending {done + 1} of {items.length}…
+            </span>
           </>
         ) : (
           <>
-            <ImagePlus className="size-4" aria-hidden />
-            Choose photographs
+            <svg viewBox="0 0 24 24" className="size-8 text-brass-bright" aria-hidden>
+              <Motif name="camera" />
+            </svg>
+            <span className="font-display text-lg text-ink">Choose photographs</span>
+            <span className="text-xs text-ink-faint">or drop them here</span>
           </>
         )}
       </label>
 
       {/* Announced politely so a screen reader hears the outcome without
           being interrupted mid-sentence for every file in the queue. */}
-      <div aria-live="polite" className="mt-4 space-y-1 text-sm">
+      <div aria-live="polite" className="mt-4 space-y-1 text-center text-sm">
         {!busy && done > 0 && (
           <p className="text-fern">
             {done === 1 ? "One photograph added" : `${done} photographs added`}
@@ -206,7 +230,7 @@ export function Uploader({ token }: { token: string }) {
         ))}
       </div>
 
-      <p className="mt-4 text-xs text-ink-faint">
+      <p className="mt-5 text-center text-xs text-ink-faint">
         Photographs are resized on your phone before they are sent, so this
         works on the venue&rsquo;s wifi and does not eat your data.
       </p>

@@ -371,6 +371,69 @@ shaped by that.
   sidebar. It is still private: the laptop driving the marquee screen
   signs in once and the session outlasts the night.
 
+### The card as a whole (the second pass)
+
+The first pass made the invitation a page of type with an envelope in
+front of it. The second pass made it one object - a card you can hold -
+and gave the long page a way to be *used* as well as read.
+
+- **Dates and times are set in words** (`src/lib/date-words.ts`, pure
+  and tested): "Saturday, the twentieth of March, two thousand and
+  twenty-seven, at two o'clock in the afternoon". That wording is most
+  of what separates a card from a calendar entry. Figures still appear
+  alongside - the at-a-glance strip, the calendar button - so a guest
+  skimming for the date is never made to parse prose. `timeInWords`
+  returns null for anything that is not a quarter hour rather than
+  inventing "two twenty in the afternoon", and the page falls back to
+  figures.
+- **The card is addressed** ("An invitation for Ngata Whānau") and the
+  couple's welcome is set as a letter to that household. The envelope
+  carried the name; a guest who skipped the seal still knows this one
+  is theirs.
+- **A double rule frames the names** (`Frame`, `FrameCorners`), inset
+  in pixels so the gap is even on a tall phone-width box. It fades up
+  whole, paused under `main[data-envelope="pending"]` with the names.
+  Drawing it on as a stroke was tried and cut: a box caught with two
+  sides missing reads as broken, not as ruled, and structure must never
+  be seen half-built. Reused on the reply card, the uploader and the
+  front door, so the frame is *the* device of the second pass the way
+  the sprig was of the first.
+- **The at-a-glance strip** is the information architecture: when,
+  where, wear, reply by - the four facts a guest comes back for at
+  eleven at night - each a link into its section. It sits under the
+  welcome, before the day in full.
+- **The ribbon** (`ribbon.tsx`) follows the reader once the card's face
+  has scrolled away: monogram, the sections that exist, the reply. It
+  is anchors into one page, never routes, so the invitation stays one
+  shareable URL and the back button behaves. Scroll-spy is a rAF-throttled
+  measure of which section's top has passed 40% of the viewport - the
+  heading you scrolled past is the section you are in. Smooth anchor
+  scrolling is keyed off `main[data-invitation]` so the planner's tables
+  still jump.
+- **The day is a programme**: a brass spine with a seed at each moment,
+  the ceremony's seed a lozenge. Times in the display face, never mono -
+  mono is the planner's figure style and reads as a run sheet, which is
+  what this is *made from* and must not look like.
+- **The reply is a reply card**: "Accepts with pleasure" and "Declines
+  with regret" with the printed tick box, fields as ruled underlines
+  (`field-line`) rather than boxes, and on success the couple's wax seal
+  stamped under the form. Same radio semantics as before - "not ticked"
+  and "cannot come" are still different answers.
+- **No cards.** `Panel` is gone from the invitation; the travel and
+  accommodation notes are a `Spread` - two leaves of a folded programme
+  divided by a hairline. A rounded box with a shadow is the planner's
+  furniture and reads as a website on stationery.
+- **Blocks arrive as you reach them** (`Rise`), on the same
+  `view()`-or-`data-shown` path as the marginalia, so there is one
+  fallback and reduced motion switches one list off.
+- **The album lays prints at their own proportions** in columns, using
+  the width and height recorded at upload so nothing reflows, and opens
+  one at a time on a native `<dialog>` lightbox. The invitation shows
+  the three latest fanned on the table. The uploader takes a drop as
+  well as a tap.
+- **The front door is a calling card**: the unbroken seal at the head,
+  names, the date in words, the town - and nothing more than before.
+
 ### The invitation's design
 
 Same paper, ink and brass as the planner in an entirely different
@@ -563,10 +626,15 @@ envelope. Generous, one idea per screen, mobile-first.
     draw a specific bride and groom who are not Ru and Malin, and a
     stock couple on someone's own invitation is the one thing on this
     page that would read as clip art.
-- **One new typeface, for one glyph.** EB Garamond italic sets the
-  ampersand between the two names, the way an engraver has always taken
-  the ampersand from a different fount. Marcellus is lapidary and has no
-  italic to give. Loaded by the invitation layout only.
+- **One new typeface, for the ampersand and the formula.** EB Garamond
+  italic sets the ampersand between the two names, the way an engraver
+  has always taken the ampersand from a different fount, and - since the
+  second pass - the card's *formula* lines too (`formula` utility):
+  "request the pleasure of your company", the time in words, the letter
+  to the household, the reply card's two choices. On an engraved card the
+  names are in caps and the sentences holding them together are in a
+  lighter italic; Marcellus is lapidary and has no italic to give, so the
+  second fount does both jobs. Loaded by the invitation layout only.
 - The `grain` utility sets no `position`, so it can be added to something
   already fixed or absolute. Callers position themselves. `grain-stock` is
   its blend-free, coarser twin for the envelope: see the note above on why

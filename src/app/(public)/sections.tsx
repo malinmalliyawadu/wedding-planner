@@ -8,7 +8,7 @@ import heart from "@/assets/sketches/heart.svg";
 import ribbon from "@/assets/sketches/ribbon.svg";
 import bottomRight from "@/assets/florals/corner-bottom-right.webp";
 import topLeft from "@/assets/florals/corner-top-left.webp";
-import type { MotifName } from "./motifs";
+import { Motif, type MotifName } from "./motifs";
 import { Sprig } from "./sprig";
 
 /**
@@ -207,13 +207,20 @@ export function Section({
   id,
   eyebrow,
   title,
+  intro,
   motif,
   sketch,
+  width = "prose",
   children,
 }: {
   id?: string;
   eyebrow: string;
   title: string;
+  /**
+   * A line under the ornament in the italic the ampersand is set in -
+   * the card's own voice, for the sentence that frames what follows.
+   */
+  intro?: string;
   /**
    * An emblem for this section's ornament. Optional on purpose: a
    * section with nothing obvious to draw gets the lozenge rather than a
@@ -222,14 +229,18 @@ export function Section({
   motif?: MotifName;
   /** A flourish in the margin. `side` is which one it hangs off. */
   sketch?: { name: SketchName; side: "left" | "right"; className?: string };
+  /** The column: `prose` for words, `wide` for a spread or a gallery. */
+  width?: "prose" | "wide";
   children: ReactNode;
 }) {
   return (
     <section
       id={id}
-      // scroll-mt keeps a heading clear of the sticky RSVP bar when the
-      // section is jumped to from a link rather than scrolled to.
-      className="relative mx-auto w-full max-w-2xl scroll-mt-24 px-6 py-14 sm:py-20"
+      // scroll-mt keeps a heading clear of the ribbon when the section is
+      // jumped to from a link rather than scrolled to.
+      className={`relative mx-auto w-full scroll-mt-20 px-6 py-16 sm:py-24 ${
+        width === "wide" ? "max-w-5xl" : "max-w-3xl"
+      }`}
     >
       {sketch && (
         <Sketch
@@ -248,15 +259,178 @@ export function Section({
           } ${sketch.className ?? "w-[18vw] max-w-[7rem]"}`}
         />
       )}
-      <header className="text-center">
+      <Rise as="header" className="text-center">
         <p className="eyebrow text-brass">{eyebrow}</p>
-        <h2 className="mt-3 font-display text-[clamp(1.6rem,6vw,2.25rem)] leading-tight text-ink">
+        <h2 className="mt-3 font-display text-[clamp(1.85rem,6.5vw,2.75rem)] leading-tight text-ink">
           {title}
         </h2>
         <Ornament motif={motif} className="mt-5" />
-      </header>
-      <div className="mt-8 sm:mt-10">{children}</div>
+        {intro && (
+          <p className="formula mx-auto mt-5 max-w-lg text-[1.15rem] leading-relaxed text-ink-soft sm:text-[1.25rem]">
+            {intro}
+          </p>
+        )}
+      </Rise>
+      <div className="mt-10 sm:mt-12">{children}</div>
     </section>
+  );
+}
+
+/**
+ * Something that arrives as you reach it. Blocks of the card rather
+ * than marginalia: the strip of facts, a moment of the day, the reply
+ * card. Rendered as whatever element the layout needs, with the same
+ * `data-reveal` hook the sketches use so there is one fallback path.
+ */
+export function Rise({
+  as: Tag = "div",
+  className = "",
+  children,
+}: {
+  as?: "div" | "header" | "li" | "section" | "footer" | "p";
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Tag className={`rise rise-in ${className}`} data-reveal="">
+      {children}
+    </Tag>
+  );
+}
+
+/**
+ * The engraved frame: two ruled lines around the names on the card's
+ * face, with a lozenge set into each corner of the inner one. It fades
+ * up whole with the type. Drawing it on as a stroke was tried and cut:
+ * a box caught with two sides missing reads as broken, not as ruled.
+ *
+ * Two SVGs rather than two rects in one, and the inner one is inset in
+ * pixels: a percentage inset on a tall narrow box gives a wider gap at
+ * the top than at the sides, which reads as a mistake at phone widths.
+ * Each rect sits exactly on its box's edge (`overflow: visible` shows
+ * the outer half of the stroke), stroked in screen pixels regardless of
+ * how the box is stretched.
+ */
+export function Frame({ className = "" }: { className?: string }) {
+  return (
+    <div className={`frame-draw pointer-events-none absolute inset-0 -z-10 text-brass-bright ${className}`} aria-hidden>
+      <Rule className="inset-0 size-full" strokeWidth={1} opacity={1} which="outer" />
+      <Rule
+        className="inset-[7px] h-[calc(100%-14px)] w-[calc(100%-14px)]"
+        strokeWidth={0.7}
+        opacity={0.8}
+        which="inner"
+      />
+    </div>
+  );
+}
+
+function Rule({
+  className,
+  strokeWidth,
+  opacity,
+  which,
+}: {
+  className: string;
+  strokeWidth: number;
+  opacity: number;
+  which: "outer" | "inner";
+}) {
+  return (
+    <svg
+      // Sized explicitly: an absolutely positioned SVG with `auto` sizes
+      // takes its intrinsic 300x150 rather than filling its box, and
+      // the frame then stops halfway down the names.
+      className={`absolute overflow-visible ${className}`}
+      preserveAspectRatio="none"
+      viewBox="0 0 100 100"
+    >
+      <rect
+        x="0"
+        y="0"
+        width="100"
+        height="100"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={strokeWidth}
+        strokeOpacity={opacity}
+        vectorEffect="non-scaling-stroke"
+        data-rule={which}
+      />
+    </svg>
+  );
+}
+
+/**
+ * The lozenges at a frame's corners. An HTML sibling of the SVG rather
+ * than a child, because `preserveAspectRatio="none"` would squash a
+ * square drawn inside it into whatever shape the box is.
+ */
+export function FrameCorners() {
+  return (
+    <div className="frame-draw pointer-events-none absolute inset-0" aria-hidden>
+      {["top-[7px] left-[7px]", "top-[7px] right-[7px]", "bottom-[7px] left-[7px]", "bottom-[7px] right-[7px]"].map(
+        (place) => (
+          <span
+            key={place}
+            className={`absolute ${place} size-1.5 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-brass-bright`}
+          />
+        ),
+      )}
+    </div>
+  );
+}
+
+/**
+ * A spread: two columns of the card divided by a vertical hairline,
+ * the way a folded programme opens. Replaces the pair of cards that
+ * used to sit here - a card is the planner's furniture, and on
+ * stationery two boxes side by side read as a website.
+ */
+export function Spread({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`grid grid-cols-1 gap-10 sm:grid-cols-2 sm:gap-0 sm:divide-x sm:divide-hairline ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+/** One leaf of a spread. */
+export function Leaf({
+  motif,
+  eyebrow,
+  children,
+  className = "",
+}: {
+  motif?: MotifName;
+  eyebrow: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Rise className={`sm:px-10 first:sm:pl-0 last:sm:pr-0 ${className}`}>
+      <div className="flex items-center gap-3">
+        {motif && (
+          <svg
+            viewBox="0 0 24 24"
+            className="size-6 shrink-0 text-brass-bright"
+            aria-hidden
+          >
+            <Motif name={motif} />
+          </svg>
+        )}
+        <p className="eyebrow text-brass">{eyebrow}</p>
+      </div>
+      <div className="mt-4">{children}</div>
+    </Rise>
   );
 }
 
@@ -284,7 +458,7 @@ export function Panel({
  */
 export function Prose({ children }: { children: string }) {
   return (
-    <p className="text-[0.95rem] leading-relaxed whitespace-pre-line text-ink-soft">
+    <p className="text-[1rem] leading-[1.7] whitespace-pre-line text-ink-soft">
       {children}
     </p>
   );
