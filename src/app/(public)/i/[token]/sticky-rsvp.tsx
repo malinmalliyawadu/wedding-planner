@@ -7,8 +7,9 @@ import { useEffect, useState } from "react";
  *
  * It appears once the invitation's opening card has scrolled away and
  * hides again while the reply card is actually on screen, so it never
- * covers the thing it is pointing at. Desktop has room for the button in
- * the hero and does not need it, so it stays out of the way there.
+ * covers the thing it is pointing at. From `sm` up the ribbon carries
+ * the reply itself, so this is for phones only - two reply buttons on
+ * one screen is one too many.
  */
 export function StickyRsvp() {
   const [visible, setVisible] = useState(false);
@@ -41,7 +42,7 @@ export function StickyRsvp() {
 
   return (
     <div
-      className={`fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))] transition-opacity duration-200 lg:hidden ${
+      className={`fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(1rem,env(safe-area-inset-bottom))] transition-opacity duration-200 sm:hidden ${
         visible ? "opacity-100" : "pointer-events-none opacity-0"
       }`}
     >

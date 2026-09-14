@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { daysUntilNZ, formatDateFull } from "@/lib/dates";
+import { dateInWords } from "@/lib/date-words";
+import { daysUntilNZ } from "@/lib/dates";
 import { getSiteContent } from "@/lib/public/queries";
-import { FloralCorner, Ornament, Sketch } from "./sections";
+import { WaxSeal } from "./i/[token]/wax-seal";
+import { FloralCorner, Frame, FrameCorners, Ornament, Sketch } from "./sections";
 
 /**
  * The front door.
@@ -15,6 +17,8 @@ import { FloralCorner, Ornament, Sketch } from "./sections";
  *
  * The one job it does is stop a guest who has mislaid their link from
  * being met with a 404 and assuming the whole thing has been called off.
+ * It is set as a calling card: the couple's seal, their names, the date
+ * in words, and a line saying where the invitation itself is.
  */
 export const dynamic = "force-dynamic";
 
@@ -31,72 +35,85 @@ export default async function LandingPage() {
   const initialA = (site.partnerAName[0] ?? "A").toUpperCase();
   const initialB = (site.partnerBName[0] ?? "B").toUpperCase();
   const daysAway = site.weddingDate ? daysUntilNZ(site.weddingDate) : null;
+  const words = site.weddingDate ? dateInWords(site.weddingDate) : null;
 
   return (
     <main
       id="main"
-      className="relative isolate flex min-h-dvh w-full flex-col items-center justify-center overflow-hidden px-6 py-16 text-center"
+      className="relative isolate flex min-h-dvh w-full flex-col items-center justify-center overflow-hidden px-5 py-16 text-center sm:px-6"
     >
-      <div className="wash grain absolute inset-0 -z-10" aria-hidden />
+      <div className="wash absolute inset-0 -z-10" aria-hidden />
       {/*
         * One corner, not three: this is the front door for someone who
         * has mislaid their link, and it should look like the same
         * wedding as the invitation without pretending to be it.
-        *
-        * The top corner rather than the bottom, which is where the
-        * invitation puts its. This page has more prose than the card
-        * does and runs past the fold on a phone - a corner down there is
-        * a flourish nobody scrolls to, and one up here frames the names
-        * without needing the room the invitation reserves below them.
         */}
       <FloralCorner at="top-left" className="w-[46%] max-w-[19rem]" />
-      {/* The bow hangs off the opposite corner to the flowers, low
-          enough that the prose below clears it. */}
       <Sketch
         name="bow"
         arrive="now"
-        className="top-[14%] right-[5%] w-[16vw] max-w-[6rem] [--sketch-opacity:0.35]"
+        className="top-[10%] right-[5%] w-[16vw] max-w-[6rem] [--sketch-opacity:0.35]"
       />
 
-      <div className="mx-auto w-full max-w-xl">
-      <p className="eyebrow text-brass">The wedding of</p>
+      <div className="relative isolate mx-auto w-full max-w-xl px-6 py-12 sm:px-12 sm:py-14">
+        <Frame />
+        <FrameCorners />
 
-      <h1 className="engraved deboss mt-8 text-[clamp(2.5rem,13vw,5.5rem)] text-ink">
-        <span className="block">{site.partnerAName}</span>
-        <span className="ampersand my-1 block text-[0.62em] leading-none">
-          &amp;
-        </span>
-        <span className="block">{site.partnerBName}</span>
-      </h1>
+        {/* The couple's mark, at the head of the card. The same seal that
+            holds every envelope shut, unbroken here. */}
+        <div className="rise-now mx-auto size-24 [--rise-delay:80ms] sm:size-28">
+          <WaxSeal initialA={initialA} initialB={initialB} idPrefix="door" />
+        </div>
 
-      <Ornament className="mt-10" />
+        <p className="eyebrow rise-now mt-6 text-brass [--rise-delay:200ms]">The wedding of</p>
 
-      {site.weddingDate && (
-        <p className="mt-8 font-display text-[clamp(1.1rem,4.4vw,1.5rem)] text-ink">
-          {formatDateFull(site.weddingDate)}
-        </p>
-      )}
+        <h1
+          className="engraved deboss mt-6 text-[clamp(2.4rem,12vw,5rem)] text-ink"
+          style={{ animation: "settle 900ms cubic-bezier(0.22,1,0.36,1) both" }}
+        >
+          <span className="block">{site.partnerAName}</span>
+          <span className="ampersand my-1 block text-[0.62em] leading-none">
+            &amp;
+          </span>
+          <span className="block">{site.partnerBName}</span>
+        </h1>
 
-      {/*
-       * The town, not the address. Guests who are coming have the full
-       * details on their own invitation; everyone else has no business
-       * with them.
-       */}
-      {site.venueAddress && (
-        <p className="mt-1.5 text-sm text-ink-soft">
-          {townFrom(site.venueAddress)}
-        </p>
-      )}
+        <Ornament className="mt-8" />
 
-      {daysAway !== null && daysAway >= 0 && (
-        <p className="mt-8 text-xs text-ink-faint">
-          <span className="figures">{daysAway}</span>
-          {daysAway === 1 ? " day away" : " days away"}
-        </p>
-      )}
+        {words && (
+          <div className="rise-now mt-7 [--rise-delay:420ms]">
+            <p className="font-display text-[clamp(1.15rem,4.2vw,1.5rem)] leading-tight text-ink">
+              {words.weekday}, {words.day}
+            </p>
+            <p className="mt-1 font-display text-[clamp(1rem,3.4vw,1.2rem)] text-ink-soft">
+              {words.year}
+            </p>
+          </div>
+        )}
 
-      <div className="mt-14 border-t border-hairline pt-8">
-        <p className="text-[0.95rem] leading-relaxed text-ink-soft">
+        {/*
+         * The town, not the address. Guests who are coming have the full
+         * details on their own invitation; everyone else has no business
+         * with them.
+         */}
+        {site.venueAddress && (
+          <p className="eyebrow rise-now mt-5 text-ink-soft [--rise-delay:520ms]">
+            {townFrom(site.venueAddress)}
+          </p>
+        )}
+
+        {daysAway !== null && daysAway >= 0 && (
+          <p className="rise-now mt-7 text-ink-faint [--rise-delay:640ms]">
+            <span className="font-display text-[1.5rem] text-ink">{daysAway}</span>
+            <span className="eyebrow ml-2">
+              {daysAway === 1 ? "day to go" : "days to go"}
+            </span>
+          </p>
+        )}
+      </div>
+
+      <div className="rise-now mx-auto mt-10 w-full max-w-md [--rise-delay:800ms]">
+        <p className="formula text-[1.2rem] leading-relaxed text-ink-soft sm:text-[1.3rem]">
           If you are joining us, we sent you a link of your own. Open that
           and you will find your invitation, the plan for the day, and
           somewhere to reply.
@@ -109,12 +126,6 @@ export default async function LandingPage() {
         </p>
       </div>
 
-      <p className="engraved mt-16 text-base text-ink-faint">
-        {initialA}
-        <span className="ampersand mx-1 text-[1.25em]">&amp;</span>
-        {initialB}
-      </p>
-
       {/*
        * The couple's way in. The link is only a URL - /admin is not on
        * the proxy's public allowlist, so following it still meets the
@@ -123,11 +134,10 @@ export default async function LandingPage() {
        */}
       <Link
         href="/admin"
-        className="mt-6 inline-flex min-h-11 items-center rounded-md px-3 text-xs text-ink-faint/70 transition-colors hover:text-ink-soft"
+        className="mt-10 inline-flex min-h-11 items-center rounded-md px-3 text-xs text-ink-faint/70 transition-colors hover:text-ink-soft"
       >
         Planning
       </Link>
-      </div>
     </main>
   );
 }

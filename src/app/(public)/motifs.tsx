@@ -19,6 +19,12 @@ export const MOTIF_NAMES = [
   "cake",
   "camera",
   "gift",
+  "clock",
+  "pin",
+  "key",
+  "hanger",
+  "quill",
+  "compass",
 ] as const;
 
 export type MotifName = (typeof MOTIF_NAMES)[number];
@@ -103,12 +109,98 @@ function Gift() {
   );
 }
 
+/**
+ * The facts at a glance: when, where, what to wear, and reply by. These
+ * four sit in the strip under the welcome, where a guest comes back to
+ * check one thing, so each has to read at 20px in brass on paper.
+ */
+
+/** A face and two hands at two o'clock - the ceremony's hour. */
+function Clock() {
+  return (
+    <>
+      <circle cx="12" cy="12.6" r="8.2" pathLength={1} data-draw />
+      <path d="M 12 7.4 L 12 12.6 L 15.6 10.4" pathLength={1} data-draw />
+      {/* The winder, so it is a pocket watch and not a ring. */}
+      <path d="M 10.6 3.6 L 13.4 3.6 M 12 3.6 L 12 4.6" pathLength={1} data-draw />
+    </>
+  );
+}
+
+/** A map pin. The teardrop, with the point on the ground. */
+function Pin() {
+  return (
+    <>
+      <path
+        d="M 12 21.2 C 12 21.2 5.4 14.6 5.4 9.8 A 6.6 6.6 0 0 1 18.6 9.8 C 18.6 14.6 12 21.2 12 21.2 Z"
+        pathLength={1}
+        data-draw
+      />
+      <circle cx="12" cy="9.8" r="2.4" pathLength={1} data-draw />
+    </>
+  );
+}
+
+/** A room key: an oval bow, a shaft and two teeth. */
+function Key() {
+  return (
+    <>
+      <ellipse cx="7.6" cy="12" rx="3.9" ry="3.9" pathLength={1} data-draw />
+      <path d="M 11.5 12 L 20.6 12" pathLength={1} data-draw />
+      <path d="M 17.2 12 L 17.2 15.2 M 20 12 L 20 14.4" pathLength={1} data-draw />
+    </>
+  );
+}
+
+/** A coat hanger, for the dress code. */
+function Hanger() {
+  return (
+    <>
+      <path d="M 12 8.6 C 9.9 8.6 9.9 5.6 12 5.6 C 13.8 5.6 14.1 7.6 12.4 8.2 L 12 9.4" pathLength={1} data-draw />
+      <path d="M 12 9.4 L 3.6 15.8 Q 2.8 16.6 3.9 17 L 20.1 17 Q 21.2 16.6 20.4 15.8 Z" pathLength={1} data-draw />
+    </>
+  );
+}
+
+/** A quill, for the reply. The feather, and the nib touching the line. */
+function Quill() {
+  return (
+    <>
+      <path
+        d="M 19.6 4.4 C 13.2 4.8 8.6 9.2 7.4 15.6 L 9.2 15.6 C 12.6 15.6 16.4 12.8 18 8.6 C 18.8 6.8 19.4 5.4 19.6 4.4 Z"
+        pathLength={1}
+        data-draw
+      />
+      <path d="M 7.4 15.6 L 4.6 19.6" pathLength={1} data-draw />
+      <path d="M 9.6 12.4 L 13.8 8.4" pathLength={1} data-draw />
+      <path d="M 3.2 20.6 L 11.6 20.6" pathLength={1} data-draw />
+    </>
+  );
+}
+
+/** A compass rose, for the way there. */
+function Compass() {
+  return (
+    <>
+      <circle cx="12" cy="12" r="8.4" pathLength={1} data-draw />
+      <path d="M 12 5 L 14 12 L 12 19 L 10 12 Z" pathLength={1} data-draw />
+      <path d="M 5 12 L 12 10 L 19 12 L 12 14 Z" pathLength={1} data-draw />
+    </>
+  );
+}
+
 const MOTIFS: Record<MotifName, () => React.JSX.Element> = {
   rings: Rings,
   glasses: Glasses,
   cake: Cake,
   camera: Camera,
   gift: Gift,
+  clock: Clock,
+  pin: Pin,
+  key: Key,
+  hanger: Hanger,
+  quill: Quill,
+  compass: Compass,
 };
 
 /**

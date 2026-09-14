@@ -627,6 +627,15 @@
   content: "";
   position: absolute;
   inset: 0;
+  /*
+   * On top of everything in its box, not underneath it. Paper texture
+   * shows through whatever is printed on the sheet, and a grain painted
+   * *under* the content stops wherever something opaque is painted over
+   * it - which is exactly what made the card's face end in a flat,
+   * texture-free band with a visible edge where the page's grain took
+   * over. One grain, over the whole sheet, and no seams.
+   */
+  z-index: 1;
   pointer-events: none;
   opacity: 0.5;
   mix-blend-mode: multiply;
@@ -917,6 +926,20 @@
   color: var(--color-brass);
 }
 
+/*
+ * The card's formula lines - "request the pleasure of your company",
+ * the date in words - set in the italic the ampersand comes from. On an
+ * engraved invitation the names are in caps and the sentences that hold
+ * them together are in a lighter italic; Marcellus has no italic, so
+ * the second fount does the job for both.
+ */
+@utility formula {
+  font-family: var(--font-amp);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+
 /* Tabular money/count figures. */
 @utility figures {
   font-family: var(--font-mono);
@@ -944,6 +967,14 @@
   inset: 0;
   z-index: 60;
   display: grid;
+  /*
+   * The envelope is deliberately wider than a phone (see .envelope), and
+   * without this the overflow widens the layout viewport itself: the
+   * page gains a sideways scroll, and anything pinned to the right edge
+   * - the Skip button - is pinned to an edge that is off the screen.
+   * Clipping here is the whole intent: the envelope runs off the sides.
+   */
+  overflow: hidden;
   /* minmax(0,…) so the grid track cannot be pushed wider than the
      viewport, and align-content so the two rows sit together in the
      middle rather than each claiming half the screen. The envelope is
@@ -1410,4 +1441,362 @@ main[data-envelope="opened"] {
 .slider:hover:not(:disabled)::-moz-range-thumb,
 .slider:focus-visible::-moz-range-thumb {
   transform: scale(1.15);
+}
+
+/* ------------------------------------------------------------------ *
+ * The invitation's second pass: the card as a whole object.
+ *
+ * Everything below is for `(public)` only. Same rules as the first pass:
+ * transform and opacity on the compositor, the finished state is the
+ * default state, and reduced motion switches every one of these off by
+ * name because the base layer's blanket rule cannot see a scrollbar.
+ * ------------------------------------------------------------------ */
+
+/*
+ * The engraved frame. Two rules around the names, arriving as one
+ * piece: it fades up with the type, and is held with the names while
+ * the envelope is over them. It was drawn on as a stroke once, and that
+ * was cut - a box caught with two of its sides missing reads as broken,
+ * not as being ruled, and a frame is the one thing on the card that
+ * should never be seen half-built.
+ */
+@keyframes rise-up {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rise-y, 1.25rem));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fan-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 1rem) rotate(0deg);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) rotate(var(--fan-angle, 0deg));
+  }
+}
+
+@utility frame-draw {
+  animation: fade 900ms ease-out 120ms both;
+}
+
+/*
+ * Blocks of the card that arrive as you reach them: the at-a-glance
+ * strip, each moment of the day, the reply card. The same mechanism as
+ * the marginalia - scroll-driven where `view()` exists, released by
+ * `<Reveal>` where it does not - so there is one fallback path and not
+ * two. `--rise-y` is how far it comes up from; a whole card travels
+ * less than a line of type or the page starts to bounce.
+ */
+@utility rise {
+  --rise-y: 1.25rem;
+}
+@utility rise-now {
+  animation: rise-up 900ms cubic-bezier(0.22, 1, 0.36, 1) var(--rise-delay, 0ms) both;
+}
+@supports (animation-timeline: view()) {
+  .rise-in {
+    animation: rise-up cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 55%;
+  }
+}
+@supports not (animation-timeline: view()) {
+  [data-reveal].rise-in {
+    opacity: 0;
+    transform: translateY(var(--rise-y, 1.25rem));
+    transition:
+      opacity 800ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 800ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  [data-reveal][data-shown].rise-in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/*
+ * Photographs fanned on a table, on the invitation's album section: the
+ * three latest prints, each turned a few degrees, the way a handful of
+ * prints land when they are put down. The angle lives in a variable so
+ * the arrival can end on it rather than on none.
+ */
+@utility fan {
+  --fan-angle: 0deg;
+  transform: translate(-50%, 0) rotate(var(--fan-angle));
+}
+@supports (animation-timeline: view()) {
+  .fan-in {
+    animation: fan-in cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 70%;
+  }
+}
+@supports not (animation-timeline: view()) {
+  [data-reveal].fan-in {
+    opacity: 0;
+    transform: translate(-50%, 1rem) rotate(0deg);
+    transition:
+      opacity 800ms cubic-bezier(0.22, 1, 0.36, 1),
+      transform 800ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  [data-reveal][data-shown].fan-in {
+    opacity: 1;
+    transform: translate(-50%, 0) rotate(var(--fan-angle));
+  }
+}
+
+/* Held with the names while the envelope is over them. */
+main[data-envelope="pending"] .frame-draw,
+main[data-envelope="pending"] .rise-now {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .frame-draw,
+  .rise-in,
+  .rise-now,
+  .fan-in {
+    animation: none !important;
+    transition: none !important;
+    stroke-dashoffset: 0 !important;
+    opacity: 1;
+  }
+  /* The fan keeps its angle; only the arrival goes. */
+  [data-reveal].fan-in {
+    transform: translate(-50%, 0) rotate(var(--fan-angle));
+  }
+  [data-reveal].rise-in {
+    transform: none;
+  }
+}
+
+/*
+ * A ruled line to write on. The reply card's fields are underlines, not
+ * boxes: a box is a form and a line is a card you fill in with a pen.
+ * The line is what changes on focus, in brass, so the field still says
+ * where you are without growing a ring.
+ */
+@utility field-line {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--color-hairline-strong);
+  border-radius: 0;
+  background: transparent;
+  padding: 0.5rem 0;
+  color: var(--color-ink);
+  font-size: 1rem;
+  line-height: 1.5;
+  transition: border-color 150ms ease-out;
+}
+.field-line::placeholder {
+  color: var(--color-ink-faint);
+}
+.field-line:focus {
+  outline: none;
+  border-bottom-color: var(--color-brass);
+  box-shadow: 0 1px 0 0 var(--color-brass);
+}
+
+/*
+ * The reply card's tick boxes: "Accepts with pleasure" and "Declines
+ * with regret", each with the small square a reply card prints for the
+ * pen. The square fills with ink when chosen, and the whole row is the
+ * target - a finger has to be able to land on the words.
+ */
+@utility reply-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+  cursor: pointer;
+  user-select: none;
+  color: var(--color-ink-soft);
+  transition: color 150ms ease-out;
+}
+.reply-choice .reply-box {
+  position: relative;
+  flex: none;
+  width: 1.05rem;
+  height: 1.05rem;
+  border: 1px solid var(--color-hairline-strong);
+  background: var(--color-card);
+  transition:
+    background-color 150ms ease-out,
+    border-color 150ms ease-out,
+    transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+/* The tick, drawn in paper on the inked square. */
+.reply-choice .reply-box::after {
+  content: "";
+  position: absolute;
+  left: 0.3rem;
+  top: 0.08rem;
+  width: 0.32rem;
+  height: 0.6rem;
+  border-right: 1.5px solid var(--color-paper);
+  border-bottom: 1.5px solid var(--color-paper);
+  transform: rotate(45deg) scale(0);
+  transform-origin: center;
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.reply-choice:hover .reply-box {
+  border-color: var(--color-ink-faint);
+}
+.peer:checked + .reply-choice {
+  color: var(--color-ink);
+}
+.peer:checked + .reply-choice .reply-box {
+  background: var(--color-ink);
+  border-color: var(--color-ink);
+}
+.peer:checked + .reply-choice .reply-box::after {
+  transform: rotate(45deg) scale(1);
+}
+.peer:focus-visible + .reply-choice .reply-box {
+  outline: 2px solid var(--color-brass);
+  outline-offset: 2px;
+}
+
+/*
+ * The ribbon: a narrow strip of paper that follows the guest once the
+ * card's face has scrolled away, carrying the monogram, the sections and
+ * the reply. Translucent so the painted corners show through it as it
+ * crosses them, and a hairline underneath so it reads as a strip and
+ * not a smear.
+ */
+@utility ribbon {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 40;
+  background-color: rgb(246 243 236 / 0.86);
+  -webkit-backdrop-filter: blur(10px) saturate(1.1);
+  backdrop-filter: blur(10px) saturate(1.1);
+  border-bottom: 1px solid var(--color-hairline);
+  transform: translateY(-100%);
+  transition:
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 240ms ease-out;
+  opacity: 0;
+}
+.ribbon[data-shown] {
+  transform: translateY(0);
+  opacity: 1;
+}
+.ribbon-link {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  padding: 0 0.125rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--color-ink-soft);
+  white-space: nowrap;
+  transition: color 150ms ease-out;
+}
+.ribbon-link:hover {
+  color: var(--color-ink);
+}
+/* The brass underline that marks where you are. Transform, so it can
+   slide rather than snap. */
+.ribbon-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.55rem;
+  height: 1px;
+  background: var(--color-brass);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ribbon-link[aria-current="true"] {
+  color: var(--color-ink);
+}
+.ribbon-link[aria-current="true"]::after {
+  transform: scaleX(1);
+}
+/* Hide the scrollbar on the row of links where it would draw a bar under
+   the ribbon on a phone; the row still scrolls. */
+.ribbon-row {
+  scrollbar-width: none;
+}
+.ribbon-row::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * The programme: the day as a brass spine with a seed at each moment.
+ * The spine is a hairline drawn once down the list; each seed is a
+ * ring of paper around a brass dot, so the line appears to pass behind
+ * it rather than through it.
+ */
+.programme {
+  position: relative;
+}
+.programme::before {
+  content: "";
+  position: absolute;
+  top: 0.9rem;
+  bottom: 0.9rem;
+  left: calc(var(--spine-x) - 0.5px);
+  width: 1px;
+  background: var(--color-hairline-strong);
+}
+.programme-seed {
+  position: absolute;
+  top: 0.55rem;
+  left: calc(var(--spine-x) - 0.4rem);
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 9999px;
+  background: var(--color-paper);
+  box-shadow: 0 0 0 1px var(--color-brass-bright) inset;
+}
+.programme-seed::after {
+  content: "";
+  position: absolute;
+  inset: 0.22rem;
+  border-radius: 9999px;
+  background: var(--color-brass-bright);
+}
+/* The ceremony gets the lozenge the ornament is built on. */
+.programme-seed[data-key]::after {
+  inset: 0.2rem;
+  border-radius: 0;
+  transform: rotate(45deg);
+}
+
+/*
+ * The lightbox: one photograph at a time on the spine dark, the way a
+ * print looks on a lightbox. The dialog is native, so dismissal is the
+ * platform's; only the backdrop and the sizing are ours.
+ */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-spine-ink);
+}
+.lightbox::backdrop {
+  background: rgb(29 38 33 / 0.94);
+}
+.lightbox[open] {
+  animation: fade 220ms ease-out;
 }
