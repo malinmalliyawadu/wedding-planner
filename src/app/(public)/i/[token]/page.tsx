@@ -537,7 +537,7 @@ export default async function InvitationPage({
               householdName={invitation.householdName}
               guests={invitation.guests}
               message={invitation.message}
-              songRequest={invitation.songRequest}
+              songRequests={invitation.songRequests}
               respondedAt={invitation.respondedAt?.toISOString() ?? null}
               initialA={initialA}
               initialB={initialB}

@@ -107,8 +107,33 @@ export const households = pgTable("households", {
   rsvpRespondedAt: timestamp("rsvp_responded_at", { withTimezone: true }),
   /** Free text left for the couple on the RSVP card. */
   rsvpMessage: text("rsvp_message"),
-  /** One request per household, handed to the band as a list. */
-  songRequest: text("song_request"),
+});
+
+/**
+ * The songs a household asked for on the reply card, handed to the band
+ * as a list. Up to three per household (`MAX_SONG_REQUESTS` in
+ * `src/lib/songs.ts`), replaced whole every time the card is sent, and
+ * kept in the order they were entered - the first one is the one they
+ * thought of first.
+ *
+ * `externalId` is the search provider's track id when the song was
+ * picked from the autocomplete, and null when it was typed. It is what
+ * lets two households' picks be recognised as the same song without
+ * comparing spellings; the title and artist are stored as well because
+ * the band's list must not depend on a third party still answering.
+ */
+export const songRequests = pgTable("song_requests", {
+  id: serial("id").primaryKey(),
+  householdId: integer("household_id")
+    .notNull()
+    .references(() => households.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  /** Null when the request was typed and did not split into two halves. */
+  artist: text("artist"),
+  externalId: text("external_id"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 export const tables = pgTable(
@@ -612,6 +637,14 @@ export const adminChallenges = pgTable("admin_challenges", {
 export const householdsRelations = relations(households, ({ many }) => ({
   guests: many(guests),
   photos: many(photos),
+  songRequests: many(songRequests),
+}));
+
+export const songRequestsRelations = relations(songRequests, ({ one }) => ({
+  household: one(households, {
+    fields: [songRequests.householdId],
+    references: [households.id],
+  }),
 }));
 
 export const photosRelations = relations(photos, ({ one }) => ({

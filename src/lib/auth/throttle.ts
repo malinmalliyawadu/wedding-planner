@@ -32,21 +32,32 @@ export type ThrottleVerdict =
   /** Seconds until the oldest attempt in the window falls out of it. */
   | { allowed: false; retryAfterSeconds: number };
 
+export type ThrottleLimits = {
+  /** Attempts allowed per key per window. */
+  max: number;
+  windowMs: number;
+};
+
+const PASSWORD_LIMITS: ThrottleLimits = { max: MAX_ATTEMPTS, windowMs: WINDOW_MS };
+
 /**
  * Record an attempt and say whether it may proceed.
  *
  * Pure in the sense that matters: the store is passed in, so a test can
- * hold its own and time is a parameter rather than a clock read.
+ * hold its own and time is a parameter rather than a clock read. The
+ * limits default to the password's; the song search on the invitation
+ * counts with the same window logic and a far looser ceiling.
  */
 export function recordAttempt(
   store: ThrottleStore,
   key: string,
   now: number,
+  { max, windowMs }: ThrottleLimits = PASSWORD_LIMITS,
 ): ThrottleVerdict {
-  const cutoff = now - WINDOW_MS;
+  const cutoff = now - windowMs;
   const recent = (store.get(key) ?? []).filter((at) => at > cutoff);
 
-  if (recent.length >= MAX_ATTEMPTS) {
+  if (recent.length >= max) {
     // Keep the window as it stands. Hammering must not push the retry
     // time further out, or a slow script would lock the couple out for
     // as long as it kept running.
@@ -56,14 +67,14 @@ export function recordAttempt(
       allowed: false,
       retryAfterSeconds: Math.max(
         1,
-        Math.ceil((oldest + WINDOW_MS - now) / 1000),
+        Math.ceil((oldest + windowMs - now) / 1000),
       ),
     };
   }
 
   recent.push(now);
   store.set(key, recent);
-  return { allowed: true, remaining: MAX_ATTEMPTS - recent.length };
+  return { allowed: true, remaining: max - recent.length };
 }
 
 /** Called on a correct password, so a near-miss does not count against you. */

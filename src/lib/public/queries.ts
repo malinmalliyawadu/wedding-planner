@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, ne } from "drizzle-orm";
 import { cache } from "react";
 import { db } from "@/db";
 import {
@@ -9,9 +9,11 @@ import {
   publicSite,
   runSheetItems,
   settings,
+  songRequests,
   tables,
 } from "@/db/schema";
 import { isInviteTokenShape } from "@/lib/invite-token";
+import { songKey } from "@/lib/songs";
 
 /**
  * Everything the unauthenticated invitation is allowed to know.
@@ -38,6 +40,15 @@ export type PublicGuest = {
   tableName: string | null;
 };
 
+/** One of a household's own song requests, as the reply card shows it back. */
+export type PublicSongRequest = {
+  title: string;
+  artist: string | null;
+  externalId: string | null;
+  /** Another household asked for this one too. Which household is not said. */
+  alsoRequested: boolean;
+};
+
 export type Invitation = {
   householdId: number;
   token: string;
@@ -46,7 +57,7 @@ export type Invitation = {
   guests: PublicGuest[];
   respondedAt: Date | null;
   message: string | null;
-  songRequest: string | null;
+  songRequests: PublicSongRequest[];
 };
 
 export type SiteContent = {
@@ -145,7 +156,6 @@ export const getInvitation = cache(
         address: households.address,
         respondedAt: households.rsvpRespondedAt,
         message: households.rsvpMessage,
-        songRequest: households.songRequest,
       })
       .from(households)
       .where(eq(households.inviteToken, token))
@@ -154,6 +164,19 @@ export const getInvitation = cache(
 
     const site = await getSiteContent();
     if (!site) return null;
+
+    const [songs, elsewhere] = await Promise.all([
+      db
+        .select({
+          title: songRequests.title,
+          artist: songRequests.artist,
+          externalId: songRequests.externalId,
+        })
+        .from(songRequests)
+        .where(eq(songRequests.householdId, household.id))
+        .orderBy(asc(songRequests.id)),
+      getSongsRequestedElsewhere(household.id),
+    ]);
 
     const rows = await db
       .select({
@@ -177,7 +200,10 @@ export const getInvitation = cache(
       address: household.address,
       respondedAt: household.respondedAt,
       message: household.message,
-      songRequest: household.songRequest,
+      songRequests: songs.map((song) => ({
+        ...song,
+        alsoRequested: elsewhere.has(songKey(song.title, song.artist)),
+      })),
       guests: rows.map((guest) => ({
         ...guest,
         // Withheld until the plan is final, so nobody memorises a table
@@ -185,6 +211,40 @@ export const getInvitation = cache(
         tableName: site.tableRevealEnabled ? guest.tableName : null,
       })),
     };
+  },
+);
+
+/**
+ * A household id for a token, or null: malformed, unknown, or the site
+ * is not published. The light version of `getInvitation`, for the
+ * routes that only need to know the caller holds a live link.
+ */
+export const getHouseholdIdForToken = cache(
+  async (token: string): Promise<number | null> => {
+    if (!isInviteTokenShape(token)) return null;
+    if (!(await getSiteContent())) return null;
+    const [household] = await db
+      .select({ id: households.id })
+      .from(households)
+      .where(eq(households.inviteToken, token))
+      .limit(1);
+    return household?.id ?? null;
+  },
+);
+
+/**
+ * The songs every *other* household has asked for, as matching keys
+ * (`songKey`). A guest learns from this that a song is already on the
+ * band's list, and nothing else: not whose it is, not how many, and
+ * only ever for songs they searched for themselves.
+ */
+export const getSongsRequestedElsewhere = cache(
+  async (householdId: number): Promise<Set<string>> => {
+    const rows = await db
+      .select({ title: songRequests.title, artist: songRequests.artist })
+      .from(songRequests)
+      .where(ne(songRequests.householdId, householdId));
+    return new Set(rows.map((row) => songKey(row.title, row.artist)));
   },
 );
 

@@ -1,7 +1,8 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { guests, households, photos, publicSite } from "@/db/schema";
+import { guests, households, photos, publicSite, songRequests } from "@/db/schema";
 import { isInviteTokenShape } from "@/lib/invite-token";
+import { normaliseSongRequests, type SongRequest } from "@/lib/songs";
 
 /**
  * The only writes an unauthenticated visitor can cause.
@@ -22,7 +23,8 @@ export type RsvpAnswer = {
 export type RsvpSubmission = {
   answers: RsvpAnswer[];
   message: string | null;
-  songRequest: string | null;
+  /** Replaces the household's list whole; tidied and capped here as well. */
+  songRequests: SongRequest[];
 };
 
 async function resolveOpenHousehold(token: string): Promise<number | null> {
@@ -82,13 +84,22 @@ export async function submitRsvp(
       .update(households)
       .set({
         rsvpMessage: submission.message,
-        songRequest: submission.songRequest,
         rsvpRespondedAt: new Date(),
         // Replying is what "confirmed" means; the couple no longer have
         // to move this by hand for every household that answers.
         inviteStage: "confirmed",
       })
       .where(eq(households.id, householdId));
+
+    // The card is sent whole, so the list is replaced whole: a song
+    // taken off the card comes off the band's list too.
+    await tx.delete(songRequests).where(eq(songRequests.householdId, householdId));
+    const songs = normaliseSongRequests(submission.songRequests);
+    if (songs.length > 0) {
+      await tx
+        .insert(songRequests)
+        .values(songs.map((song) => ({ ...song, householdId })));
+    }
   });
 
   return true;

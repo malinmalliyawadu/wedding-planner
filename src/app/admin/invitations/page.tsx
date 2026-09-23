@@ -3,9 +3,10 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import QRCode from "qrcode";
 import { db } from "@/db";
-import { guests, households, publicSite } from "@/db/schema";
+import { guests, households, publicSite, songRequests } from "@/db/schema";
 import { Chip, EmptyState, PageHeader } from "@/components/ui";
 import { inviteUrl } from "@/lib/invite-token";
+import { describeSong, songKey } from "@/lib/songs";
 import {
   buildChaseList,
   countAttending,
@@ -26,7 +27,7 @@ export const dynamic = "force-dynamic";
  * looking at it on. Nothing to set, nothing to get wrong on a rename.
  */
 export default async function InvitationsPage() {
-  const [headerList, [site], householdRows, guestRows] = await Promise.all([
+  const [headerList, [site], householdRows, guestRows, songRows] = await Promise.all([
     headers(),
     db.select().from(publicSite).limit(1),
     db.select().from(households).orderBy(asc(households.name)),
@@ -42,6 +43,7 @@ export default async function InvitationsPage() {
       })
       .from(guests)
       .orderBy(asc(guests.id)),
+    db.select().from(songRequests).orderBy(asc(songRequests.id)),
   ]);
 
   const host = headerList.get("host") ?? "localhost:3000";
@@ -54,6 +56,45 @@ export default async function InvitationsPage() {
     list.push(guest);
     byHousehold.set(guest.householdId, list);
   }
+
+  const songsByHousehold = new Map<number, typeof songRows>();
+  for (const song of songRows) {
+    const list = songsByHousehold.get(song.householdId) ?? [];
+    list.push(song);
+    songsByHousehold.set(song.householdId, list);
+  }
+
+  // The band's list: one line per song however many households asked,
+  // matched the same way the invitation matches them, so what the couple
+  // see here and what a guest is told on the card cannot disagree.
+  const bandList = new Map<
+    string,
+    { title: string; artist: string | null; householdIds: Set<number> }
+  >();
+  for (const song of songRows) {
+    const key = songKey(song.title, song.artist);
+    const entry = bandList.get(key) ?? {
+      title: song.title,
+      artist: song.artist,
+      householdIds: new Set<number>(),
+    };
+    // A picked request carries title and artist apart; a typed one has
+    // them run together on one line. Show the picked form when there is
+    // one, whichever household's came first.
+    if (!entry.artist && song.artist) {
+      entry.title = song.title;
+      entry.artist = song.artist;
+    }
+    entry.householdIds.add(song.householdId);
+    bandList.set(key, entry);
+  }
+  const bandRows = [...bandList.values()].sort(
+    (a, b) =>
+      b.householdIds.size - a.householdIds.size ||
+      a.title.localeCompare(b.title),
+  );
+  const askedElsewhere = (song: { title: string; artist: string | null }) =>
+    (bandList.get(songKey(song.title, song.artist))?.householdIds.size ?? 1) - 1;
 
   const enriched: RsvpHousehold[] = householdRows.map((household) => ({
     id: household.id,
@@ -226,11 +267,26 @@ export default async function InvitationsPage() {
                     ))}
                   </ul>
 
-                  {row.songRequest && (
-                    <p className="mt-3 text-sm text-ink-soft">
-                      <span className="eyebrow mr-2 text-ink-faint">Song</span>
-                      {row.songRequest}
-                    </p>
+                  {(songsByHousehold.get(household.id) ?? []).length > 0 && (
+                    <ul className="mt-3 space-y-1">
+                      {(songsByHousehold.get(household.id) ?? []).map((song) => {
+                        const others = askedElsewhere(song);
+                        return (
+                          <li
+                            key={song.id}
+                            className="flex flex-wrap items-center gap-2 text-sm text-ink-soft"
+                          >
+                            <span className="eyebrow text-ink-faint">Song</span>
+                            {describeSong(song)}
+                            {others > 0 && (
+                              <Chip tone="brass">
+                                also asked for by {others} other{others === 1 ? "" : "s"}
+                              </Chip>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
                   )}
                   {row.rsvpMessage && (
                     <p className="mt-2 border-l-2 border-brass-tint pl-3 text-sm whitespace-pre-line text-ink-soft italic">
@@ -240,6 +296,46 @@ export default async function InvitationsPage() {
                 </li>
               );
             })}
+          </ul>
+        )}
+      </section>
+
+      {/* ------------------------------------------------------------- *
+       * What the band is asked to play.
+       * ------------------------------------------------------------- */}
+      <section className="mt-10">
+        <h2 className="font-display text-xl text-ink">For the band</h2>
+        <p className="mt-1 text-sm text-ink-soft">
+          Every song asked for on a reply card, the most requested first.
+          A song two households both picked is listed once.
+        </p>
+        {bandRows.length === 0 ? (
+          <div className="mt-4">
+            <EmptyState
+              title="No requests yet"
+              hint="Songs guests ask for on the reply card will collect here."
+            />
+          </div>
+        ) : (
+          <ul className="mt-4 rounded-lg border border-hairline bg-card px-5 shadow-card">
+            {bandRows.map((song) => (
+              <li
+                key={`${song.title}|${song.artist ?? ""}`}
+                className="flex items-center justify-between gap-3 border-t border-hairline py-3 first:border-t-0"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-ink">{song.title}</p>
+                  <p className="truncate text-xs text-ink-faint">
+                    {song.artist ?? "Typed in, no artist given"}
+                  </p>
+                </div>
+                {song.householdIds.size > 1 && (
+                  <Chip tone="brass">
+                    <span className="figures">{song.householdIds.size}</span> households
+                  </Chip>
+                )}
+              </li>
+            ))}
           </ul>
         )}
       </section>
