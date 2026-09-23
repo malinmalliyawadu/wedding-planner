@@ -733,7 +733,7 @@ async function main() {
     venueMapUrl: "https://maps.google.com/?q=Hamurana+Road+Rotorua",
     arrivalTime: "13:30",
     ceremonyTime: "14:00",
-    dressCode: "Garden formal - and flat shoes, the lawn is real grass",
+    dressCode: "Cocktail - and bring a layer, it turns cold once the sun goes",
     giftNote:
       "Your being there is the gift. If you would still like to do something, we are putting a little aside for a honeymoon in the Marlborough Sounds - ask either of us and we will point you at it.",
     travelNotes:

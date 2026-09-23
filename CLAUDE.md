@@ -479,6 +479,18 @@ and gave the long page a way to be *used* as well as read.
   is a drawing of one building, so `isVenueDrawn` shows it only while
   the venue name in settings says the wedding is there; the seed's
   fake wedding is elsewhere and does not show it.
+- **The dress code is drawn too** (`attire.tsx`): four garments on a
+  rail - a dress to the knee, a suit with its tie, a coat, a pair of
+  low shoes - and eight colour dabs, under the phrase. Examples, not a
+  uniform, and chosen for an exposed coast: the coat hangs where a sun
+  hat would on a lawn. Found artwork was looked for first and set
+  aside: what is free is felt-tip clip art, pencil scans, or the
+  Rijksmuseum's 1930s fashion plates, which are pictures of 1931. Like
+  the lodge it is a drawing of one dress code, so `isCocktail` shows it
+  only while the dress code in settings says "cocktail"; change that
+  and it goes rather than illustrating something else. The hanging
+  three sway from the hook (`idle-sway`, a fraction of the bow's
+  swing); the shoes lie still.
 
 ### The third pass: the card answering back
 
