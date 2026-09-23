@@ -64,16 +64,16 @@ export default async function InvitationsPage() {
     songsByHousehold.set(song.householdId, list);
   }
 
-  // The band's list: one line per song however many households asked,
+  // The playlist: one line per song however many households asked,
   // matched the same way the invitation matches them, so what the couple
   // see here and what a guest is told on the card cannot disagree.
-  const bandList = new Map<
+  const playlist = new Map<
     string,
     { title: string; artist: string | null; householdIds: Set<number> }
   >();
   for (const song of songRows) {
     const key = songKey(song.title, song.artist);
-    const entry = bandList.get(key) ?? {
+    const entry = playlist.get(key) ?? {
       title: song.title,
       artist: song.artist,
       householdIds: new Set<number>(),
@@ -86,15 +86,15 @@ export default async function InvitationsPage() {
       entry.artist = song.artist;
     }
     entry.householdIds.add(song.householdId);
-    bandList.set(key, entry);
+    playlist.set(key, entry);
   }
-  const bandRows = [...bandList.values()].sort(
+  const playlistRows = [...playlist.values()].sort(
     (a, b) =>
       b.householdIds.size - a.householdIds.size ||
       a.title.localeCompare(b.title),
   );
   const askedElsewhere = (song: { title: string; artist: string | null }) =>
-    (bandList.get(songKey(song.title, song.artist))?.householdIds.size ?? 1) - 1;
+    (playlist.get(songKey(song.title, song.artist))?.householdIds.size ?? 1) - 1;
 
   const enriched: RsvpHousehold[] = householdRows.map((household) => ({
     id: household.id,
@@ -301,15 +301,15 @@ export default async function InvitationsPage() {
       </section>
 
       {/* ------------------------------------------------------------- *
-       * What the band is asked to play.
+       * Every song asked for, as one playlist.
        * ------------------------------------------------------------- */}
       <section className="mt-10">
-        <h2 className="font-display text-xl text-ink">For the band</h2>
+        <h2 className="font-display text-xl text-ink">The playlist</h2>
         <p className="mt-1 text-sm text-ink-soft">
           Every song asked for on a reply card, the most requested first.
           A song two households both picked is listed once.
         </p>
-        {bandRows.length === 0 ? (
+        {playlistRows.length === 0 ? (
           <div className="mt-4">
             <EmptyState
               title="No requests yet"
@@ -318,7 +318,7 @@ export default async function InvitationsPage() {
           </div>
         ) : (
           <ul className="mt-4 rounded-lg border border-hairline bg-card px-5 shadow-card">
-            {bandRows.map((song) => (
+            {playlistRows.map((song) => (
               <li
                 key={`${song.title}|${song.artist ?? ""}`}
                 className="flex items-center justify-between gap-3 border-t border-hairline py-3 first:border-t-0"

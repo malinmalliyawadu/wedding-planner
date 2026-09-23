@@ -92,7 +92,7 @@ export async function submitRsvp(
       .where(eq(households.id, householdId));
 
     // The card is sent whole, so the list is replaced whole: a song
-    // taken off the card comes off the band's list too.
+    // taken off the card comes off the playlist too.
     await tx.delete(songRequests).where(eq(songRequests.householdId, householdId));
     const songs = normaliseSongRequests(submission.songRequests);
     if (songs.length > 0) {

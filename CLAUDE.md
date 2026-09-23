@@ -399,9 +399,9 @@ household, replaced whole with every reply; the old one-line
 - **Typing is always a way in**, offered as the last row of every list,
   so an obscure song or a catalogue outage never blocks a reply. A
   typed request with no artist keys on the title alone and does not
-  match a picked one - "Hallelujah" is not a song the band can be sure of.
-- `/admin/invitations` shows each household's songs and, under "For the
-  band", the whole list with a count where households agree.
+  match a picked one - "Hallelujah" is not a song anyone can be sure of.
+- `/admin/invitations` shows each household's songs and, under "The
+  playlist", the whole list with a count where households agree.
 
 ### The card as a whole (the second pass)
 

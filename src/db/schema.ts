@@ -110,8 +110,8 @@ export const households = pgTable("households", {
 });
 
 /**
- * The songs a household asked for on the reply card, handed to the band
- * as a list. Up to three per household (`MAX_SONG_REQUESTS` in
+ * The songs a household asked for on the reply card, collected into
+ * one playlist. Up to three per household (`MAX_SONG_REQUESTS` in
  * `src/lib/songs.ts`), replaced whole every time the card is sent, and
  * kept in the order they were entered - the first one is the one they
  * thought of first.
@@ -120,7 +120,7 @@ export const households = pgTable("households", {
  * picked from the autocomplete, and null when it was typed. It is what
  * lets two households' picks be recognised as the same song without
  * comparing spellings; the title and artist are stored as well because
- * the band's list must not depend on a third party still answering.
+ * the playlist must not depend on a third party still answering.
  */
 export const songRequests = pgTable("song_requests", {
   id: serial("id").primaryKey(),

@@ -1,7 +1,7 @@
 /**
  * Song requests, the pure half.
  *
- * A household may ask the band for up to three songs on the reply card.
+ * A household may ask for up to three songs on the reply card.
  * Most are picked from an autocomplete over a music catalogue, some are
  * typed because the catalogue did not have them or was not answering,
  * and the couple want to know when two households asked for the same
@@ -36,7 +36,7 @@ export type SongMatch = {
 /**
  * Version tags a catalogue hangs off a title: "(Remastered 2011)",
  * "[Live]", "- Radio Edit". Two households asking for the single and the
- * remaster asked for the same song, and the band plays it once.
+ * remaster asked for the same song, and it goes on the playlist once.
  *
  * A bracketed suffix is always a tag. A dashed one is only a tag when it
  * says so - "ABBA - Dancing Queen" typed on the card is an artist and a
@@ -81,7 +81,7 @@ function words(text: string): string[] {
  * Queen" typed by one household and "Dancing Queen" by ABBA picked by
  * another come out equal. A typed request with no artist keys on the
  * title alone, and so does not match a picked one - "Hallelujah" on its
- * own is not a song the band can be sure of, and it is right not to
+ * own is not a song anyone can be sure of, and it is right not to
  * pretend otherwise.
  */
 export function songKey(title: string, artist: string | null): string {
@@ -97,7 +97,7 @@ export function sameSong(
   return songKey(a.title, a.artist) === songKey(b.title, b.artist);
 }
 
-/** The band's line for a request: the title, and the artist if known. */
+/** The playlist's line for a request: the title, and the artist if known. */
 export function describeSong(song: { title: string; artist: string | null }): string {
   return song.artist ? `${song.title} - ${song.artist}` : song.title;
 }

@@ -202,7 +202,7 @@ export function SongPicker({
         Songs that will get you dancing
       </p>
       <p className="mt-1 text-xs text-ink-faint">
-        Up to three. The list goes straight to the band.
+        Up to three.
       </p>
 
       {picked.length > 0 && (
