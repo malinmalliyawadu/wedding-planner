@@ -78,7 +78,7 @@ describe("normaliseSongRequests", () => {
 });
 
 describe("describeSong", () => {
-  it("writes the band's line", () => {
+  it("writes the playlist's line", () => {
     expect(describeSong({ title: "Waterloo", artist: "ABBA" })).toBe("Waterloo - ABBA");
     expect(describeSong({ title: "Waterloo", artist: null })).toBe("Waterloo");
   });

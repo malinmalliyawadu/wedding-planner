@@ -235,7 +235,7 @@ export const getHouseholdIdForToken = cache(
 /**
  * The songs every *other* household has asked for, as matching keys
  * (`songKey`). A guest learns from this that a song is already on the
- * band's list, and nothing else: not whose it is, not how many, and
+ * playlist, and nothing else: not whose it is, not how many, and
  * only ever for songs they searched for themselves.
  */
 export const getSongsRequestedElsewhere = cache(
