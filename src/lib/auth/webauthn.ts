@@ -1,4 +1,3 @@
-import { headers } from "next/headers";
 import { and, asc, eq, gt, lte } from "drizzle-orm";
 import {
   generateAuthenticationOptions,
@@ -15,6 +14,7 @@ import type {
 } from "@simplewebauthn/server";
 import { db } from "@/db";
 import { adminChallenges, adminCredentials } from "@/db/schema";
+import { requestOrigin } from "@/lib/request-origin";
 
 /**
  * Passkeys for the planner.
@@ -59,10 +59,8 @@ export type Passkey = {
 /**
  * Which domain we are claiming to be.
  *
- * Derived from the request rather than configured, so the same image works
- * on localhost and on the real domain with no extra variable to get wrong.
- * Behind Traefik the forwarded headers are what carry the truth; `host`
- * alone would be the container.
+ * Read off the request (`requestOrigin`), so the same image works on
+ * localhost and on the real domain with no extra variable to get wrong.
  *
  * A forged `Host` cannot be used to get in. The browser signs over the
  * origin it is *actually* on, so a mismatch fails verification - the worst
@@ -74,22 +72,9 @@ export async function relyingParty(): Promise<{
   rpID: string;
   origin: string;
 }> {
-  const configured = process.env.APP_ORIGIN;
-  if (configured) {
-    const url = new URL(configured);
-    return { rpID: url.hostname, origin: url.origin };
-  }
-
-  const store = await headers();
-  const host = store.get("x-forwarded-host") ?? store.get("host") ?? "localhost:3000";
-  const proto =
-    store.get("x-forwarded-proto")?.split(",")[0].trim() ??
-    (host.startsWith("localhost") || host.startsWith("127.0.0.1")
-      ? "http"
-      : "https");
-
+  const origin = await requestOrigin();
   // rpID is the bare domain: no scheme, no port. The origin keeps both.
-  return { rpID: host.split(":")[0], origin: `${proto}://${host}` };
+  return { rpID: new URL(origin).hostname, origin };
 }
 
 async function issueChallenge(challenge: string): Promise<void> {

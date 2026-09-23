@@ -81,9 +81,14 @@ function blotPath(scale = 1): string {
 const LETTER_SPACING = -9;
 const MONOGRAM_X = CENTRE - LETTER_SPACING / 2;
 
-const BLOT = blotPath();
+/**
+ * Exported for the Open Graph image, which draws the same blot with its
+ * own lighting: the preview and the envelope must be visibly one seal.
+ */
+export const SEAL_SIZE = SIZE;
+export const BLOT = blotPath();
 /** The die's footprint: smaller than the blot, and not concentric with it. */
-const DIE = blotPath(0.76);
+export const DIE = blotPath(0.76);
 const CRACK_LINE = CRACK.map(([x, y]) => `${x} ${y}`).join(" L ");
 
 export function WaxSeal({

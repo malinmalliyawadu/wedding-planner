@@ -197,6 +197,7 @@ What guests may reach, and nothing else:
 | `/i/<token>/photos` | guests | the shared album |
 | `/i/<token>/wedding.ics` | guests | the calendar file |
 | `/i/photo/<id>` | guests | one photograph (`photo` can never be a token - tokens are 20 characters) |
+| `/opengraph-image-<hash>` | anyone | the link preview: a picture of the stationery, no data |
 | `/admin/...` | the two of you | the guest list, addresses, budget, savings, seating |
 | `/wall` | the two of you | the projector view for the night |
 
@@ -261,7 +262,7 @@ router untouched:
 
 ```
 traefik.http.middlewares.wedding-public-mark.headers.customrequestheaders.X-Wedding-Public=1
-traefik.http.routers.wedding-public.rule=Host(`wedding.yourdomain.nz`) && (Path(`/`) || Path(`/login`) || PathPrefix(`/i`) || PathPrefix(`/_next/static`) || Path(`/favicon.ico`) || Path(`/icon.svg`) || Path(`/apple-icon.png`))
+traefik.http.routers.wedding-public.rule=Host(`wedding.yourdomain.nz`) && (Path(`/`) || Path(`/login`) || PathPrefix(`/i`) || PathPrefix(`/_next/static`) || Path(`/favicon.ico`) || Path(`/icon.svg`) || Path(`/apple-icon.png`) || PathPrefix(`/opengraph-image`))
 traefik.http.routers.wedding-public.entrypoints=https
 traefik.http.routers.wedding-public.tls=true
 traefik.http.routers.wedding-public.tls.certresolver=letsencrypt
@@ -282,6 +283,13 @@ Six things here are load-bearing:
   the invitation loads as unstyled HTML - its JavaScript, CSS and fonts
   all live under that path. Without the icons every public page shows a
   broken favicon. All of it is build output and carries no data.
+- **`/opengraph-image` is in the rule, as a prefix.** It is the picture
+  a messaging app shows next to a pasted link, fetched by that app with
+  no password and no cookie. Next serves it with a short hash on the
+  name (`/opengraph-image-1c1a04`), which is why it is a prefix and not
+  an exact path; the app itself accepts only the name plus that hash.
+  It is generated at build from the artwork alone and carries no data.
+  Left out, every link to the site previews as a blank card.
 - **`/_next/image` is *not* in the rule, and must never be added.** Next's
   image optimiser fetches whatever same-origin path it is handed, so
   opening it would give an unauthenticated guest a way to read any
@@ -325,7 +333,7 @@ link copied from the Invitations page.
 **What guests must be able to reach — each of these should be `200`:**
 
 ```bash
-for path in / /login "/i/<token>" "/i/<token>/photos"; do
+for path in / /login "/i/<token>" "/i/<token>/photos" "$(curl -s https://wedding.yourdomain.nz/ | grep -o '/opengraph-image[^"?]*')"; do
   printf '%-28s ' "$path"
   curl -s -o /dev/null -w '%{http_code}\n' "https://wedding.yourdomain.nz$path"
 done
@@ -333,6 +341,10 @@ done
 
 - `401` — the public router is not matching, so basicauth is still in
   front of these. Check the host in the rule.
+- The last path is the link preview, read off the front door's own
+  `og:image` tag because its name carries a hash. A `401` there alone
+  means the `/opengraph-image` prefix is missing from the rule, and
+  links to the site will preview as blank cards.
 - `404` — the router works but the site is not live yet; do step 6c.
 
 **What must stay shut.** With two locks these are `401`; with one lock
