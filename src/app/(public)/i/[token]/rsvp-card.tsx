@@ -78,11 +78,14 @@ export function RsvpCard({
         <form action={formAction} className="space-y-10">
           <input type="hidden" name="token" value={token} />
 
-          <div className="space-y-8">
+          {/* Guests are parted by space, not rules. The dietary answer is
+              written on a ruled line, and a hairline under it reads as a
+              second line to write on rather than as the end of a name. */}
+          <div className="space-y-10">
             {guests.map((guest) => {
               const isComing = attending[guest.id];
               return (
-                <fieldset key={guest.id} className="border-t border-hairline pt-6 first:border-t-0 first:pt-0">
+                <fieldset key={guest.id}>
                   <legend className="sr-only">
                     Will {guest.firstName} {guest.lastName} be coming?
                   </legend>
@@ -146,7 +149,13 @@ export function RsvpCard({
             })}
           </div>
 
-          <div className="grid grid-cols-1 gap-8 border-t border-hairline pt-8 sm:grid-cols-2 sm:gap-10">
+          {/* A lozenge, as at the frame's corners, rather than a rule:
+              the last guest's dietary line may sit just above it. */}
+          <div aria-hidden className="flex justify-center">
+            <span className="size-1.5 rotate-45 bg-brass-bright" />
+          </div>
+
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 sm:gap-10">
             <label className="block">
               <span className="eyebrow block text-ink-faint">
                 A song that will get you dancing
