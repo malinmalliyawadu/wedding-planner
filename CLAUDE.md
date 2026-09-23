@@ -371,6 +371,38 @@ shaped by that.
   sidebar. It is still private: the laptop driving the marquee screen
   signs in once and the session outlasts the night.
 
+### Song requests
+
+The reply card asks for up to three songs (`MAX_SONG_REQUESTS`), picked
+from a music catalogue through an autocomplete or typed in when the
+catalogue does not have them. `song_requests` is one row per song per
+household, replaced whole with every reply; the old one-line
+`households.song_request` was carried across as typed requests.
+
+- **The catalogue is Deezer's public track search** (`src/lib/song-search.ts`),
+  and that file is the only one that knows it. Discogs was the first
+  thought and was set aside: it catalogues *records*, so a title search
+  returns pressings, and an album track that was never a single does
+  not come up at all. Deezer needs no key. The browser never calls it:
+  `/i/[token]/songs` checks the token first, throttles per token,
+  caches answers in-process and annotates them with what other
+  households have asked for.
+- **"Already on the list" is a matching key, not an id.** `songKey` in
+  `src/lib/songs.ts` (pure, tested) drops case, punctuation, diacritics
+  and version tags - "(Live)", "[Remastered]", "- Radio Edit" - and
+  sorts the words of title and artist together, so a typed "ABBA -
+  Dancing Queen" and a picked one agree. A dashed suffix only counts as
+  a version tag when it says so, or the typed form would lose its
+  title. The catalogue's track id is stored for provenance and never
+  looked up. A guest is told a song is already asked for, never by
+  whom, and only for songs they searched for themselves.
+- **Typing is always a way in**, offered as the last row of every list,
+  so an obscure song or a catalogue outage never blocks a reply. A
+  typed request with no artist keys on the title alone and does not
+  match a picked one - "Hallelujah" is not a song the band can be sure of.
+- `/admin/invitations` shows each household's songs and, under "For the
+  band", the whole list with a count where households agree.
+
 ### The card as a whole (the second pass)
 
 The first pass made the invitation a page of type with an envelope in

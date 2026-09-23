@@ -219,6 +219,7 @@ describe("every route the app serves", () => {
     ["/", "the guests' landing page"],
     ["/i/:token", "the invitation - the link is the credential"],
     ["/i/:token/photos", "the shared album"],
+    ["/i/:token/songs", "the song picker's search - checks the token itself"],
     ["/i/:token/wedding.ics", "the calendar file for guests"],
     ["/i/photo/:id", "one guest photograph, hidden ones refused"],
     ["/i/photo/:id/thumb", "its thumbnail"],

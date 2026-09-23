@@ -10,6 +10,7 @@ import {
   faqItems,
   guests,
   households,
+  songRequests,
   itemOptions,
   payments,
   publicSite,
@@ -198,6 +199,35 @@ const TABLE_NAMES: Array<[string, number]> = [
   ["Rātā", 8],
 ];
 
+/**
+ * What the replied households asked the band for. Two of them picked
+ * Dancing Queen, which is what "already on the list" looks like from a
+ * guest's side, and one household typed a song another picked - the
+ * two are matched by title and artist, not by the catalogue id, so the
+ * planner lists it once. Ids are the catalogue's (Deezer) at seed time.
+ */
+const SONG_REQUESTS: Record<string, [title: string, artist: string | null, externalId: string | null][]> = {
+  "Ngata Whānau": [
+    ["Poi E", "Patea Maori Club", "3056348831"],
+    ["September", "Earth, Wind & Fire", "487484142"],
+    ["Dancing Queen", "ABBA", "884025"],
+  ],
+  "Tom & Jess Whitford": [
+    ["Dancing Queen", "ABBA", "884025"],
+    ["Don't Stop Me Now", "Queen", "4092329741"],
+  ],
+  "Priya & Dev Sharma": [
+    ["Sway", "Bic Runga", "15636834"],
+    ["Hey Ya!", "OutKast", "628266"],
+  ],
+  "Mia & Kate Thornton-Reid": [
+    ["Murder On The Dancefloor", "Sophie Ellis-Bextor", "4181750"],
+  ],
+  // Typed straight in, the way a guest does when the search is not
+  // answering. Same song as the Thornton-Reids' pick.
+  "Sophie Laurent": [["Murder on the Dancefloor - Sophie Ellis-Bextor", null, null]],
+};
+
 const VENUES: Array<typeof venues.$inferInsert> = [
   {
     name: "Kōwhai Barn",
@@ -342,6 +372,18 @@ async function main() {
         rsvpStatus: m.rsvp ?? "pending",
       })),
     );
+
+    const songs = SONG_REQUESTS[hh.name];
+    if (songs) {
+      await db.insert(songRequests).values(
+        songs.map(([title, artist, externalId]) => ({
+          householdId: household.id,
+          title,
+          artist,
+          externalId,
+        })),
+      );
+    }
   }
 
   // Seat a handful of confirmed guests so the tables page shows occupancy.

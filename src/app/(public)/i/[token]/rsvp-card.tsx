@@ -2,8 +2,9 @@
 
 import { useActionState, useState } from "react";
 import { idleResult } from "@/lib/action-result";
-import type { PublicGuest } from "@/lib/public/queries";
+import type { PublicGuest, PublicSongRequest } from "@/lib/public/queries";
 import { respondToInvitation } from "./actions";
+import { SongPicker } from "./song-picker";
 import { WaxSeal } from "./wax-seal";
 import { Frame, FrameCorners } from "../../sections";
 
@@ -29,7 +30,7 @@ export function RsvpCard({
   householdName,
   guests,
   message,
-  songRequest,
+  songRequests,
   respondedAt,
   initialA,
   initialB,
@@ -38,7 +39,7 @@ export function RsvpCard({
   householdName: string;
   guests: PublicGuest[];
   message: string | null;
-  songRequest: string | null;
+  songRequests: PublicSongRequest[];
   respondedAt: string | null;
   initialA: string;
   initialB: string;
@@ -155,23 +156,10 @@ export function RsvpCard({
             <span className="size-1.5 rotate-45 bg-brass-bright" />
           </div>
 
-          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 sm:gap-10">
-            <label className="block">
-              <span className="eyebrow block text-ink-faint">
-                A song that will get you dancing
-              </span>
-              <input
-                type="text"
-                name="songRequest"
-                defaultValue={songRequest ?? ""}
-                maxLength={200}
-                placeholder="Artist - title"
-                className="field-line"
-              />
-              <span className="mt-2 block text-xs text-ink-faint">
-                The list goes straight to the band.
-              </span>
-            </label>
+          {/* Stacked, not side by side: the picker grows to three songs
+              and a two-row note beside a list that tall reads as lost. */}
+          <div className="space-y-8">
+            <SongPicker token={token} initial={songRequests} />
 
             <label className="block">
               <span className="eyebrow block text-ink-faint">A note for us</span>
