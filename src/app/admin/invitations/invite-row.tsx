@@ -54,8 +54,17 @@ export function InviteRow({
             <p className="mt-0.5 truncate text-xs text-ink-faint">{address}</p>
           )}
           {url ? (
-            <p className="figures mt-1.5 text-xs break-all text-ink-soft">
-              {url}
+            <p className="figures mt-1.5 text-xs break-all">
+              {/* A new tab, so checking a household's card never loses
+                  your place in a list of thirty. */}
+              <a
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-ink-soft underline decoration-hairline-strong underline-offset-2 transition-colors duration-150 hover:text-ink hover:decoration-brass"
+              >
+                {url}
+              </a>
             </p>
           ) : (
             <p className="mt-1.5 text-xs text-ink-faint">

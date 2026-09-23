@@ -365,11 +365,21 @@ function Rule({
  * The lozenges at a frame's corners. An HTML sibling of the SVG rather
  * than a child, because `preserveAspectRatio="none"` would squash a
  * square drawn inside it into whatever shape the box is.
+ *
+ * Every corner is placed by `left` and `top`, never `right` or `bottom`:
+ * the half-size translate centres a box on the point its top-left is
+ * anchored to, so a lozenge anchored by its right edge lands a half-width
+ * inside the rule's corner instead of on it.
  */
 export function FrameCorners() {
   return (
     <div className="frame-draw pointer-events-none absolute inset-0" aria-hidden>
-      {["top-[7px] left-[7px]", "top-[7px] right-[7px]", "bottom-[7px] left-[7px]", "bottom-[7px] right-[7px]"].map(
+      {[
+        "top-[7px] left-[7px]",
+        "top-[7px] left-[calc(100%-7px)]",
+        "top-[calc(100%-7px)] left-[7px]",
+        "top-[calc(100%-7px)] left-[calc(100%-7px)]",
+      ].map(
         (place) => (
           <span
             key={place}
