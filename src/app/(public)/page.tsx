@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { dateInWords } from "@/lib/date-words";
-import { daysUntilNZ } from "@/lib/dates";
+import { daysUntilNZ, formatDateFull } from "@/lib/dates";
 import { getSiteContent } from "@/lib/public/queries";
 import { WaxSeal } from "./i/[token]/wax-seal";
 import { isVenueDrawn, Lodge } from "./lodge";
@@ -18,8 +17,8 @@ import { FloralCorner, Frame, FrameCorners, Ornament, Sketch } from "./sections"
  *
  * The one job it does is stop a guest who has mislaid their link from
  * being met with a 404 and assuming the whole thing has been called off.
- * It is set as a calling card: the couple's seal, their names, the date
- * in words, and a line saying where the invitation itself is.
+ * It is set as a calling card: the couple's seal, their names, the date,
+ * and a line saying where the invitation itself is.
  */
 export const dynamic = "force-dynamic";
 
@@ -36,7 +35,6 @@ export default async function LandingPage() {
   const initialA = (site.partnerAName[0] ?? "A").toUpperCase();
   const initialB = (site.partnerBName[0] ?? "B").toUpperCase();
   const daysAway = site.weddingDate ? daysUntilNZ(site.weddingDate) : null;
-  const words = site.weddingDate ? dateInWords(site.weddingDate) : null;
   const lodge = isVenueDrawn(site.venueName);
 
   return (
@@ -82,15 +80,10 @@ export default async function LandingPage() {
 
         <Ornament className="mt-8" />
 
-        {words && (
-          <div className="rise-now mt-7 [--rise-delay:420ms]">
-            <p className="font-display text-[clamp(1.15rem,4.2vw,1.5rem)] leading-tight text-ink">
-              {words.weekday}, {words.day}
-            </p>
-            <p className="mt-1 font-display text-[clamp(1rem,3.4vw,1.2rem)] text-ink-soft">
-              {words.year}
-            </p>
-          </div>
+        {site.weddingDate && (
+          <p className="rise-now mt-7 font-display text-[clamp(1.15rem,4.2vw,1.5rem)] leading-tight text-ink [--rise-delay:420ms]">
+            {formatDateFull(site.weddingDate)}
+          </p>
         )}
 
         {/*

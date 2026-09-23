@@ -377,15 +377,16 @@ The first pass made the invitation a page of type with an envelope in
 front of it. The second pass made it one object - a card you can hold -
 and gave the long page a way to be *used* as well as read.
 
-- **Dates and times are set in words** (`src/lib/date-words.ts`, pure
-  and tested): "Saturday, the twentieth of March, two thousand and
-  twenty-seven, at two o'clock in the afternoon". That wording is most
-  of what separates a card from a calendar entry. Figures still appear
-  alongside - the at-a-glance strip, the calendar button - so a guest
-  skimming for the date is never made to parse prose. `timeInWords`
-  returns null for anything that is not a quarter hour rather than
-  inventing "two twenty in the afternoon", and the page falls back to
-  figures.
+- **The time is set in words, the date in figures**
+  (`src/lib/time-words.ts`, pure and tested): "Saturday 20 March 2027"
+  over "at half past two in the afternoon". The date was once spelled
+  out in full ("the twentieth of March, two thousand and twenty-seven")
+  and was cut: the year in words read as stiff rather than formal, and
+  a guest should never have to parse prose to find the date. The time
+  in words is the phrase a card is known by and reads naturally, so it
+  stays. `timeInWords` returns null for anything that is not a quarter
+  hour rather than inventing "two twenty in the afternoon", and the
+  page falls back to figures.
 - **The card is addressed** ("An invitation for Ngata Whānau") and the
   couple's welcome is set as a letter to that household. The envelope
   carried the name; a guest who skipped the seal still knows this one
@@ -432,7 +433,7 @@ and gave the long page a way to be *used* as well as read.
   the three latest fanned on the table. The uploader takes a drop as
   well as a tap.
 - **The front door is a calling card**: the unbroken seal at the head,
-  names, the date in words, the town - and nothing more than before.
+  names, the date, the town - and nothing more than before.
 - **The venue is drawn** (`lodge.tsx`): Pencarrow Lodge from the
   ceremony lawn, in the sprig's brass line, sitting above the venue's
   name on the card's face and above the town on the front door - the
