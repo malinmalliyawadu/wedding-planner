@@ -1,11 +1,13 @@
 /**
  * What to wear, shown rather than only said.
  *
- * "Garden formal" is two words a guest has to interpret, and the card
- * can do some of the interpreting for them: four garments and a row of
+ * "Cocktail" is one word a guest has to interpret, and the card can do
+ * some of the interpreting for them: four garments and a row of
  * colours, under the phrase. They are examples, not a uniform - which is
  * why there are four of them and not an outfit each, and why the colours
- * are a spread rather than a pair.
+ * are a spread rather than a pair. The wedding is on an exposed stretch
+ * of coast, so the four are chosen for that: a coat hangs where a sun
+ * hat would on a lawn, and the shoes are for uneven paths.
  *
  * Drawn, like the emblems and the lodge, in the sprig's line. Found
  * artwork was the first thought and was set aside: what is free to use
@@ -15,67 +17,67 @@
  * drawing in this hand costs nothing, recolours with the brass, and
  * sits beside the hanger emblem at the head of the block as one set.
  *
- * Like the lodge, this is a drawing of one dress code, so `isGardenFormal`
+ * Like the lodge, this is a drawing of one dress code, so `isCocktail`
  * shows it only while the dress code in settings says so. Change it to
- * black tie and the sun hat goes, rather than standing in for a dress
- * code it does not illustrate.
+ * black tie and the coat goes, rather than standing in for a dress code
+ * it does not illustrate.
  */
 
 import type { ReactNode } from "react";
 
-export function isGardenFormal(dressCode: string | null | undefined): boolean {
-  return /garden/i.test(dressCode ?? "");
+export function isCocktail(dressCode: string | null | undefined): boolean {
+  return /cocktail/i.test(dressCode ?? "");
 }
 
 /*
  * Colours a guest might wear. Named the way a swatch book names them,
  * not the way the design tokens do, because a guest is picking a dress
  * and not a hex value. The greens and pinks are the card's own sage and
- * rose; the rest are the garden around them.
+ * rose, the wine is the seal's wax; the rest are the coast in the late
+ * afternoon. Deeper than a garden palette, because cocktail is.
  */
 const PALETTE: ReadonlyArray<{ name: string; hex: string }> = [
+  { name: "Evergreen", hex: "#43604f" },
   { name: "Sage", hex: "#6d8877" },
-  { name: "Eucalyptus", hex: "#a9c2ae" },
   { name: "Dusty rose", hex: "#a8737d" },
-  { name: "Blush", hex: "#e3bfc2" },
-  { name: "Cream", hex: "#efe5cf" },
-  { name: "Terracotta", hex: "#b8684b" },
+  { name: "Wine", hex: "#6f3742" },
+  { name: "Navy", hex: "#2f3d55" },
   { name: "Slate blue", hex: "#6f7f96" },
+  { name: "Rust", hex: "#a4593f" },
   { name: "Ochre", hex: "#c8a24a" },
 ];
 
 /*
  * Each garment is drawn into a box 96 units tall, so that four of them
- * set at one height share a floor: the hat, which is short, is pushed
- * to the bottom of its box rather than floating at the top. No stroke
- * width is set on the paths, as in `motifs.tsx` - the block picks the
- * weight and the colour once.
+ * set at one height hang from one rail. No stroke width is set on the
+ * paths, as in `motifs.tsx` - the block picks the weight and the colour
+ * once.
  */
 
 /** The hook every hanging garment is on. */
 const HOOK = "M 32 25 V 12.6 C 29.4 11.8 29.4 8.2 32 8.2 C 34.6 8.2 34.6 11 32.6 11.8";
 
-/** A dress on a hanger: fitted to the waist, a sash, a skirt to mid-calf. */
+/** A dress on a hanger: fitted to the waist, a sash, a skirt to the knee. */
 function Dress() {
   return (
     <>
       <path d="M 32 15 V 12.6 C 29.4 11.8 29.4 8.2 32 8.2 C 34.6 8.2 34.6 11 32.6 11.8" />
       <path d="M 32 15 L 15.5 24.5 M 32 15 L 48.5 24.5" />
       {/* Straps, up to the hanger's arms. */}
-      <path d="M 19 30.5 L 16.8 24 M 45 30.5 L 47.2 24" />
-      <path d="M 19 30.5 Q 32 36 45 30.5" />
-      <path d="M 19 30.5 L 23.5 48.5 M 45 30.5 L 40.5 48.5" />
-      <path d="M 23.5 48.5 Q 32 50.5 40.5 48.5 M 23.8 51 Q 32 53 40.2 51" />
-      <path d="M 23.8 51 L 11.5 89.5 M 40.2 51 L 52.5 89.5" />
-      <path d="M 11.5 89.5 Q 22 92.5 32 89.8 Q 42 87 52.5 89.5" />
+      <path d="M 19.5 30.5 L 17 24 M 44.5 30.5 L 47 24" />
+      <path d="M 19.5 30.5 Q 32 37 44.5 30.5" />
+      <path d="M 19.5 30.5 L 23 48.5 M 44.5 30.5 L 41 48.5" />
+      <path d="M 23 48.5 Q 32 50.5 41 48.5 M 23.3 51 Q 32 53 40.7 51" />
+      <path d="M 23.3 51 L 16 80 M 40.7 51 L 48 80" />
+      <path d="M 16 80 Q 24 82.5 32 80.3 Q 40 78 48 80" />
       {/* Two folds, lighter: the skirt has some weight to it. */}
-      <path d="M 29.5 52.5 Q 26.5 70 25.5 89.5 M 35.5 52.5 Q 38.5 70 39.5 88" strokeOpacity="0.5" />
+      <path d="M 30 52.5 Q 28 66 27.5 79.5 M 34.5 52.5 Q 36.5 66 37 79" strokeOpacity="0.5" />
     </>
   );
 }
 
-/** An unlined jacket on a hanger: notched lapels, two buttons, a patch pocket. */
-function Jacket() {
+/** A suit jacket on a hanger, tie knotted under the collar. */
+function Suit() {
   return (
     <>
       <path d={HOOK} />
@@ -85,6 +87,9 @@ function Jacket() {
       <path d="M 25.5 27.2 L 33 50 L 34 90" />
       <path d="M 38.5 27.2 L 31 50" />
       <path d="M 27 31 Q 31 40 32.5 48" strokeOpacity="0.45" />
+      {/* The knot, and the blade down to the first button. */}
+      <path d="M 30.2 27.6 L 33.8 27.6 L 33.2 30.8 L 30.8 30.8 Z" />
+      <path d="M 30.8 30.8 L 29.6 44 L 32 48.5 L 34.4 44 L 33.2 30.8" />
       <path d="M 17 28.5 L 25.5 27.2 M 38.5 27.2 L 47 28.5" />
       <path d="M 17 28.5 L 9.5 34 L 11.5 77 L 19 77.5 L 19.8 47" />
       <path d="M 47 28.5 L 54.5 34 L 52.5 77 L 45 77.5 L 44.2 47" />
@@ -92,34 +97,36 @@ function Jacket() {
       <path d="M 44.2 47 L 44.6 89.5 Q 39 90 34 90" />
       <circle cx="33.2" cy="54" r="1.1" />
       <circle cx="33.4" cy="63" r="1.1" />
-      <path d="M 22.5 67 V 80.5 H 30.5 V 67" />
       <path d="M 38.5 47.5 H 43.5 V 52.5" />
     </>
   );
 }
 
-/**
- * A sun hat: a wide brim, a low crown, a band with its ribbon trailing.
- * Drawn 80 wide and scaled into the 64 box, on the floor of it.
- */
-function Hat() {
+/** A coat on a hanger: collar up, double-breasted, belted - it is the coast. */
+function Coat() {
   return (
-    <g transform="translate(1.5 50) scale(0.82)">
-      {/* The brim is two arcs, front and back, leaving out the stretch
-          that would pass behind the crown - nothing here is filled, so
-          the line has to stop rather than be painted over. */}
-      <path d="M 3 34 C 3 47 77 47 77 34" />
-      <path d="M 3 34 C 3 28 12 25 21 24.5 M 77 34 C 77 28 68 25 59 24.5" />
-      <path d="M 22 31 C 22 8 58 8 58 31" />
-      <path d="M 22 31 Q 40 37 58 31" />
-      <path d="M 22.6 27 Q 40 33 57.4 27" />
-      <path d="M 21 24.5 Q 40 38 59 24.5" strokeOpacity="0.5" />
-      <path d="M 57 29.5 Q 66 31 70 40 M 57.5 30.5 Q 62 36 63 43" strokeOpacity="0.8" />
-    </g>
+    <>
+      <path d="M 32 22 V 12.6 C 29.4 11.8 29.4 8.2 32 8.2 C 34.6 8.2 34.6 11 32.6 11.8" />
+      <path d="M 22 30 L 24.5 21.5 Q 32 18.5 39.5 21.5 L 42 30" />
+      <path d="M 24.5 21.5 L 28 32 M 39.5 21.5 L 36 32" />
+      {/* The fronts overlap wide, which is what double-breasted means. */}
+      <path d="M 28 32 L 27 92 M 36 32 L 37 92" />
+      <path d="M 15 29 L 22 30 M 42 30 L 49 29" />
+      <path d="M 15 29 L 7.5 35 L 10 74 L 17.5 74.5 L 18.2 47" />
+      <path d="M 49 29 L 56.5 35 L 54 74 L 46.5 74.5 L 45.8 47" />
+      <path d="M 18.2 47 L 17.4 92 L 46.6 92 L 45.8 47" />
+      <path d="M 18 58 L 46 58 M 18 62 L 46 62 M 30 57 H 35 V 63 H 30 Z" />
+      <circle cx="24.5" cy="40" r="1" />
+      <circle cx="39.5" cy="40" r="1" />
+      <circle cx="24.5" cy="50" r="1" />
+      <circle cx="39.5" cy="50" r="1" />
+      <circle cx="24.5" cy="72" r="1" />
+      <circle cx="39.5" cy="72" r="1" />
+    </>
   );
 }
 
-/** A pair of flats, from above, toes apart - the lawn is real grass. */
+/** A pair of flats, from above, toes apart - the paths are uneven. */
 function Flats() {
   const shoe = (cx: number) => (
     <>
@@ -147,13 +154,13 @@ function Flats() {
 const GARMENTS: ReadonlyArray<{
   caption: string;
   Shape: () => ReactNode;
-  /** The ones on a hanger sway from the hook; a hat and shoes lie still. */
+  /** The ones on a hanger sway from the hook; the shoes lie still. */
   hangs: boolean;
 }> = [
-  { caption: "Midi dress", Shape: Dress, hangs: true },
-  { caption: "Linen jacket", Shape: Jacket, hangs: true },
-  { caption: "Sun hat", Shape: Hat, hangs: false },
-  { caption: "Flat shoes", Shape: Flats, hangs: false },
+  { caption: "A dress", Shape: Dress, hangs: true },
+  { caption: "A suit", Shape: Suit, hangs: true },
+  { caption: "A coat", Shape: Coat, hangs: true },
+  { caption: "Low shoes", Shape: Flats, hangs: false },
 ];
 
 /**

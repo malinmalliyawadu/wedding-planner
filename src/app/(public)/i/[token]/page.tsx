@@ -15,7 +15,7 @@ import { formatTime, formatTimeRange } from "@/lib/run-sheet";
 import { Envelope } from "./envelope";
 import { RsvpCard } from "./rsvp-card";
 import { sealCookieName } from "./seal-cookie";
-import { isGardenFormal, Wardrobe } from "../../attire";
+import { isCocktail, Wardrobe } from "../../attire";
 import { isVenueDrawn, Lodge } from "../../lodge";
 import { Motif, type MotifName } from "../../motifs";
 import { Ribbon, type RibbonLink } from "../../ribbon";
@@ -474,7 +474,7 @@ export default async function InvitationPage({
             )}
             {/* The phrase, illustrated: four garments and the colours.
                 Only for the dress code it draws - see `attire.tsx`. */}
-            {isGardenFormal(site.dressCode) && (
+            {isCocktail(site.dressCode) && (
               <div className="mb-14 sm:mb-16">
                 <Wardrobe />
               </div>
@@ -681,9 +681,9 @@ function Fact({
 }
 
 /**
- * The first clause of a dress code, for the strip. "Garden formal - and
- * flat shoes, the lawn is real grass" is the whole thing in the details;
- * up top it is "Garden formal".
+ * The first clause of a dress code, for the strip. "Cocktail - and bring
+ * a layer, it turns cold once the sun goes" is the whole thing in the
+ * details; up top it is "Cocktail".
  */
 function headline(text: string): string {
   return text.split(/\s[-–—]\s|[.,;:(]/)[0].trim() || text;

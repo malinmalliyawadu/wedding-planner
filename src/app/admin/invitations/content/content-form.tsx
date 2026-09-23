@@ -75,7 +75,7 @@ export function ContentForm({ values }: { values: SiteContentValues }) {
               name="dressCode"
               defaultValue={values.dressCode ?? ""}
               className={inputClass}
-              placeholder="Garden formal"
+              placeholder="Cocktail"
             />
           </Field>
           <Field label="Guests arrive" hint="24-hour, like 13:30.">
