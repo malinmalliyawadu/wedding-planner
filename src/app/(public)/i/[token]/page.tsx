@@ -305,12 +305,14 @@ export default async function InvitationPage({
               <Fact
                 motif="clock"
                 label="When"
-                value={formatDateFull(site.weddingDate)}
+                value={holdDate(formatDateFull(site.weddingDate))}
                 note={
                   site.ceremonyTime
-                    ? site.arrivalTime
-                      ? `Ceremony at ${formatTime(site.ceremonyTime)}, arrive from ${formatTime(site.arrivalTime)}`
-                      : `Ceremony at ${formatTime(site.ceremonyTime)}`
+                    ? holdTimes(
+                        site.arrivalTime
+                          ? `Ceremony at ${formatTime(site.ceremonyTime)}, arrive from ${formatTime(site.arrivalTime)}`
+                          : `Ceremony at ${formatTime(site.ceremonyTime)}`,
+                      )
                     : undefined
                 }
                 href={schedule.length > 0 ? "#the-day" : undefined}
@@ -334,10 +336,17 @@ export default async function InvitationPage({
                 href="#details"
               />
             )}
+            {/* "By" belongs to the label, not the value: in a phone-width
+                column the date fills the line and a "By" of its own is an
+                orphan the same way the year was. */}
             <Fact
               motif="quill"
-              label="Reply"
-              value={site.rsvpDeadline ? `By ${formatDateLong(site.rsvpDeadline)}` : "Whenever you can"}
+              label={site.rsvpDeadline ? "Reply by" : "Reply"}
+              value={
+                site.rsvpDeadline
+                  ? holdDate(formatDateLong(site.rsvpDeadline))
+                  : "Whenever you can"
+              }
               note={invitation.respondedAt ? "Your reply is in" : "Everyone on one card"}
               href="#rsvp"
             />
@@ -654,10 +663,17 @@ function Fact({
       </svg>
       <dt className="eyebrow mt-3 text-brass">{label}</dt>
       <dd className="mt-2">
-        <span className="block font-display text-[1.05rem] leading-snug text-ink">
+        {/* Balanced, so a value that has to wrap breaks in the middle
+            rather than dropping its last word - "Saturday," over the
+            date, never the year on a line of its own. */}
+        <span className="block font-display text-[1.05rem] leading-snug text-balance text-ink">
           {value}
         </span>
-        {note && <span className="mt-1 block text-xs leading-snug text-ink-faint">{note}</span>}
+        {note && (
+          <span className="mt-1 block text-xs leading-snug text-balance text-ink-faint">
+            {note}
+          </span>
+        )}
       </dd>
     </>
   );
@@ -685,6 +701,19 @@ function Fact({
  */
 function headline(text: string): string {
   return text.split(/\s[-–—]\s|[.,;:(]/)[0].trim() || text;
+}
+
+/**
+ * "Saturday, 20 March 2027" with the calendar date held together. The
+ * weekday may drop to its own line in a narrow column; "2027" may not.
+ */
+function holdDate(text: string): string {
+  return text.replace(/(\d{1,2}) (\p{L}+) (\d{4})/u, "$1\u00a0$2\u00a0$3");
+}
+
+/** "2:30 pm" never breaks between the figure and its suffix. */
+function holdTimes(text: string): string {
+  return text.replace(/(\d) (am|pm)\b/g, "$1\u00a0$2");
 }
 
 /**
