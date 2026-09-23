@@ -1,12 +1,13 @@
 "use client";
 
-import { Pencil, Plus } from "lucide-react";
-import { useState } from "react";
+import { ArrowDown, ArrowUp, Pencil, Plus } from "lucide-react";
+import { useOptimistic, useState, useTransition } from "react";
 import { ActionForm } from "@/components/action-form";
 import { DeleteButton } from "@/components/delete-button";
 import { Dialog } from "@/components/dialog";
 import { Button, EmptyState, Field, IconButton, inputClass } from "@/components/ui";
-import { deleteFaq, saveFaq } from "../actions";
+import { type Direction, moveOne } from "@/lib/reorder";
+import { deleteFaq, moveFaq, saveFaq } from "../actions";
 
 export type FaqRow = {
   id: number;
@@ -25,9 +26,21 @@ export type FaqRow = {
 export function FaqEditor({ items }: { items: FaqRow[] }) {
   const [editing, setEditing] = useState<FaqRow | null>(null);
   const [open, setOpen] = useState(false);
-  // A new question goes on the end. Plain arithmetic on the props - it
-  // is derived from what is on screen, so there is nothing to store.
-  const nextOrder = items.length === 0 ? 0 : items.at(-1)!.sortOrder + 1;
+  // The move shows at once and the server catches up; if it refuses, the
+  // list falls back to what was saved when the transition ends.
+  const [shown, move] = useOptimistic(
+    items,
+    (current, { id, direction }: { id: number; direction: Direction }) =>
+      moveOne(current, id, direction),
+  );
+  const [, startTransition] = useTransition();
+
+  function reorder(id: number, direction: Direction) {
+    startTransition(async () => {
+      move({ id, direction });
+      await moveFaq(id, direction);
+    });
+  }
 
   function start(item: FaqRow | null) {
     setEditing(item);
@@ -59,10 +72,12 @@ export function FaqEditor({ items }: { items: FaqRow[] }) {
         </div>
       ) : (
         <ul className="mt-4 rounded-lg border border-hairline bg-card px-5 shadow-card">
-          {items.map((item) => (
+          {shown.map((item, index) => (
             <li
               key={item.id}
-              className="group flex items-start justify-between gap-3 border-t border-hairline py-4 first:border-t-0"
+              // On a phone four buttons beside the answer would squeeze it
+              // into half the row, so they drop underneath it instead.
+              className="group flex flex-col gap-2 border-t border-hairline py-4 first:border-t-0 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
             >
               <div className="min-w-0">
                 <p className="text-sm font-medium text-ink">{item.question}</p>
@@ -70,7 +85,26 @@ export function FaqEditor({ items }: { items: FaqRow[] }) {
                   {item.answer}
                 </p>
               </div>
-              <div className="row-actions flex shrink-0 gap-1">
+              <div className="row-actions -mr-2 flex shrink-0 gap-1 self-end sm:mr-0 sm:self-auto">
+                {/* aria-disabled rather than disabled: a disabled button
+                    drops focus, so pressing "up" until it reached the top
+                    would leave a keyboard user nowhere. */}
+                <IconButton
+                  label={`Move "${item.question}" up`}
+                  aria-disabled={index === 0}
+                  onClick={() => index > 0 && reorder(item.id, "up")}
+                  className="aria-disabled:cursor-default aria-disabled:opacity-35 aria-disabled:hover:bg-transparent aria-disabled:hover:text-ink-faint"
+                >
+                  <ArrowUp size={15} aria-hidden />
+                </IconButton>
+                <IconButton
+                  label={`Move "${item.question}" down`}
+                  aria-disabled={index === shown.length - 1}
+                  onClick={() => index < shown.length - 1 && reorder(item.id, "down")}
+                  className="aria-disabled:cursor-default aria-disabled:opacity-35 aria-disabled:hover:bg-transparent aria-disabled:hover:text-ink-faint"
+                >
+                  <ArrowDown size={15} aria-hidden />
+                </IconButton>
                 <IconButton label="Edit" onClick={() => start(item)}>
                   <Pencil size={15} aria-hidden />
                 </IconButton>
@@ -97,11 +131,6 @@ export function FaqEditor({ items }: { items: FaqRow[] }) {
           submitLabel="Save"
         >
           {editing && <input type="hidden" name="id" value={editing.id} />}
-          <input
-            type="hidden"
-            name="sortOrder"
-            value={editing?.sortOrder ?? nextOrder}
-          />
           <Field label="Question">
             <input
               name="question"
