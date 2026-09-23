@@ -433,6 +433,19 @@ and gave the long page a way to be *used* as well as read.
   well as a tap.
 - **The front door is a calling card**: the unbroken seal at the head,
   names, the date in words, the town - and nothing more than before.
+- **The venue is drawn** (`lodge.tsx`): Pencarrow Lodge from the
+  ceremony lawn, in the sprig's brass line, sitting above the venue's
+  name on the card's face and above the town on the front door - the
+  vignette an engraved letterhead carries. Tone is hatching computed
+  per face (`hatch`), nothing is filled, and the hills behind are
+  *clipped out of* the house's silhouette rather than painted over
+  with paper: a paper-coloured fill would show as a lighter patch on
+  the wash. It does not draw itself on - it is far more line than the
+  ornament and `stroke-dashoffset` over it would be the repaint the
+  note in `globals.css` warns against - so it rises with the type. It
+  is a drawing of one building, so `isVenueDrawn` shows it only while
+  the venue name in settings says the wedding is there; the seed's
+  fake wedding is elsewhere and does not show it.
 
 ### The invitation's design
 
