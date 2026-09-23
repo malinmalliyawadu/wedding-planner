@@ -5,7 +5,8 @@ import { daysUntilNZ, formatDateFull } from "@/lib/dates";
 import { getSiteContent } from "@/lib/public/queries";
 import { WaxSeal } from "./i/[token]/wax-seal";
 import { isVenueDrawn, Lodge } from "./lodge";
-import { FloralCorner, Frame, FrameCorners, Ornament, Sketch } from "./sections";
+import { DaysToGo, FloralCorner, Frame, FrameCorners, Ornament, Sketch } from "./sections";
+import { Tilt } from "./tilt";
 
 /**
  * The front door.
@@ -55,13 +56,17 @@ export default async function LandingPage() {
         className="top-[10%] right-[5%] w-[16vw] max-w-[6rem] [--sketch-opacity:0.35]"
       />
 
-      <div className="relative isolate mx-auto w-full max-w-xl px-6 py-12 sm:px-12 sm:py-14">
+      {/* A calling card is a thing you hold, so it leans a little towards
+          the pointer - the one movement on this page that answers the
+          guest rather than the clock. */}
+      <Tilt max={3} className="card-in-hand relative isolate mx-auto w-full max-w-xl px-6 py-12 sm:px-12 sm:py-14">
         <Frame />
         <FrameCorners />
 
         {/* The couple's mark, at the head of the card. The same seal that
-            holds every envelope shut, unbroken here. */}
-        <div className="rise-now mx-auto size-24 [--rise-delay:80ms] sm:size-28">
+            holds every envelope shut, unbroken here - and it wobbles when
+            it is poked, because everyone pokes it. */}
+        <div className="rise-now wobble-on-hover mx-auto size-24 [--rise-delay:80ms] sm:size-28">
           <WaxSeal initialA={initialA} initialB={initialB} idPrefix="door" />
         </div>
 
@@ -115,15 +120,8 @@ export default async function LandingPage() {
           </p>
         )}
 
-        {daysAway !== null && daysAway >= 0 && (
-          <p className="rise-now mt-7 text-ink-faint [--rise-delay:680ms]">
-            <span className="font-display text-[1.5rem] text-ink">{daysAway}</span>
-            <span className="eyebrow ml-2">
-              {daysAway === 1 ? "day to go" : "days to go"}
-            </span>
-          </p>
-        )}
-      </div>
+        {daysAway !== null && <DaysToGo days={daysAway} delay={680} className="mt-7" />}
+      </Tilt>
 
       <div className="rise-now mx-auto mt-10 w-full max-w-md [--rise-delay:840ms]">
         <p className="formula text-[1.2rem] leading-relaxed text-ink-soft sm:text-[1.3rem]">

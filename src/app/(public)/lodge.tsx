@@ -20,10 +20,9 @@
  *
  * Deterministic, like `sprig.tsx` and `wax-seal.tsx`: the hatching is
  * computed but nothing is random, so the server and client agree. It
- * does **not** draw itself on like the ornament - this is far more line
- * than 170px of sprig, and animating `stroke-dashoffset` over it would
- * be the repaint the note in `globals.css` warns against. It rises with
- * the type instead.
+ * rises with the type rather than drawing itself on: animating
+ * `stroke-dashoffset` is a paint-level repaint, and this is far too much
+ * line for one.
  *
  * It is a drawing of one particular building, so it only appears when
  * the settings say the wedding is there (`isVenueDrawn`). Change the

@@ -480,6 +480,57 @@ and gave the long page a way to be *used* as well as read.
   the venue name in settings says the wedding is there; the seed's
   fake wedding is elsewhere and does not show it.
 
+### The third pass: the card answering back
+
+The first two passes moved on the clock and the scrollbar. This one adds
+the few things that move because the guest did something, and takes
+one thing away.
+
+- **Tapping the envelope is handled by the stage, not the seal**, and
+  that is a bug fix before it is a flourish. The seal lives in the
+  subtree the camera drifts in Z, and while the drift has it more than
+  a pixel behind the camera's own plane, Chrome hands hits at the wax
+  to the wrapper instead: the seal was dead for the first several
+  seconds of every visit and then quietly started working. Every tap
+  lands somewhere inside the stage whatever the compositor decides, so
+  the stage listens; the wrappers are `pointer-events: none` as belt
+  and braces; the seal stays a `<button>` for the keyboard and the
+  screen reader, and Skip stops propagation so it is not read as the
+  tap. The whole envelope is the target, which on a phone is simply
+  right.
+- **The seal beckons** - two small nudges every five seconds, on the
+  drawing rather than the button so the hover scale still composes.
+- **Things lean towards the pointer** (`Tilt`, `tilt.tsx`): the
+  envelope while it is sealed, and the front door's calling card. It
+  only writes `--tilt-x` and `--tilt-y`; the class decides what they
+  do, which is what lets the same component sit inside the stage's 3D
+  context without adding a perspective of its own. Pointer-only and
+  reduced-motion-aware at the listener, so a phone never pays for it.
+- **The countdown counts up to itself** (`Countdown`, `countdown.tsx`),
+  server-rendered as the true figure and written straight into the
+  text node. It waits for the envelope, like everything else above the
+  fold, and on the day it says "Today" instead of counting to nothing.
+- **The reply is stamped, and an acceptance gets petals.** The seal
+  comes in large and lands small and a few degrees off square, the way
+  a hand-pressed one does; the words underneath rise after it. If
+  anyone in the household is coming, `Petals` lets two dozen of the
+  sprig's own leaves fall in sage, rose and brass over the last lines
+  of the card. Not confetti - paper shapes in primary colours are the
+  wrong register - and laid out from a table, not a random source, like
+  everything else drawn here. The tick on each choice is a single
+  stroke drawn on with the same `pathLength` dash arithmetic.
+- **Small answers**: a fact's emblem nods when reached for; each moment
+  of the day sets its seed on the spine as it comes up; an answer rises
+  under its question; the fanned prints are links into the album that
+  straighten and lift in the hand. The prints' angle and lift are
+  registered properties (`@property`), which is what lets a hover move
+  a transform that belongs to a scroll-driven animation.
+- **The ornament no longer draws itself on.** The sprig under every
+  heading used to arrive stalk-then-leaves as you scrolled, and it was
+  cut: eight headings of the same drawing-on reads as a loading
+  indicator, and it was the one paint-level animation on the page. The
+  sprig is simply there; the sketches still arrive.
+
 ### The invitation's design
 
 Same paper, ink and brass as the planner in an entirely different
@@ -572,14 +623,6 @@ envelope. Generous, one idea per screen, mobile-first.
   still crowds on a laptop. Below the corners a gradient fades the card
   into the page, or a cluster sliced flat against the header's bottom
   edge reads as a mistake rather than as bleed.
-- **The ornament draws itself** as it comes into view, stalk then leaves
-  then seeds. Every stroked shape carries `pathLength="1"`, so one dash
-  pattern fits a stalk, a leaf and a tendril without the stylesheet
-  knowing how long any of them is - and it has to sit on each shape,
-  because `pathLength` is a geometry attribute and a `<g>` cannot hand
-  it down. This is the one place on these pages that animates a
-  paint-level property (`stroke-dashoffset`) rather than a composited
-  one; it is affordable at 170px across and would not be at 700.
 - **The ornament is drawn, not placed** (`sprig.tsx`). A botanical spray
   in brass line - stalk, five leaves, a curled tendril, three seeds -
   mirrored about the lozenge the ornament has always had, which is now

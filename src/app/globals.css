@@ -370,27 +370,6 @@
     }
   }
   /*
-   * The ornament draws itself. Every stroked path carries
-   * `pathLength="1"`, so one dash pattern fits the stalk, a leaf and a
-   * tendril alike without knowing how long any of them is.
-   *
-   * This animates `stroke-dashoffset`, which is a paint-level property
-   * and not a composited one - the only thing on these pages that is.
-   * It is affordable here and nowhere else: the ornament is around
-   * 170px across, so the repaint is a few thousand pixels over a short
-   * scroll range. Do not reach for this on anything larger.
-   */
-  @keyframes draw-on {
-    to {
-      stroke-dashoffset: 0;
-    }
-  }
-  @keyframes seed-set {
-    to {
-      opacity: 1;
-    }
-  }
-  /*
    * The idles. Each object moves the way that object would: a dove
    * rides, a candle gutters, a ribbon stirs, a heart beats, a hanging
    * bow swings. Nothing here is a generic pulse applied to everything,
@@ -790,28 +769,6 @@
   animation: idle-wash 24s ease-in-out infinite;
 }
 
-/* ------------------------------------------------------------------ *
- * The ornament, drawing itself.
- * ------------------------------------------------------------------ */
-
-@supports (animation-timeline: view()) {
-  .ornament-draw [data-draw] {
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    animation: draw-on linear both;
-    animation-timeline: view();
-    animation-range: entry 10% cover 40%;
-  }
-  /* The seeds are fruit on a drawn stem, so they cannot be there before
-     the stem is. They set after the line has passed them. */
-  .ornament-draw [data-seed] {
-    opacity: 0;
-    animation: seed-set linear both;
-    animation-timeline: view();
-    animation-range: cover 30% cover 46%;
-  }
-}
-
 /*
  * The same arrivals, for browsers with no scroll-driven animations -
  * which is still a real share of the phones this page is opened on. The
@@ -846,22 +803,6 @@
     opacity: var(--sketch-opacity);
     transform: translateX(var(--sketch-x));
   }
-
-  .ornament-draw[data-reveal] [data-draw] {
-    stroke-dasharray: 1;
-    stroke-dashoffset: 1;
-    transition: stroke-dashoffset 1200ms cubic-bezier(0.32, 0.72, 0.3, 1);
-  }
-  .ornament-draw[data-reveal][data-shown] [data-draw] {
-    stroke-dashoffset: 0;
-  }
-  .ornament-draw[data-reveal] [data-seed] {
-    opacity: 0;
-    transition: opacity 420ms ease-out 780ms;
-  }
-  .ornament-draw[data-reveal][data-shown] [data-seed] {
-    opacity: 1;
-  }
 }
 
 /*
@@ -882,15 +823,12 @@
   .idle-swing,
   .idle-breathe,
   .idle-wash,
-  [data-reveal],
-  .ornament-draw [data-draw],
-  .ornament-draw [data-seed] {
+  [data-reveal] {
     /* No `transform: none` here: that would take the margin offset with
        it. Switching the animation off leaves the resting transform on
        `.sketch`, which is exactly where these are meant to end up. */
     animation: none !important;
     transition: none !important;
-    stroke-dashoffset: 0 !important;
   }
 }
 
@@ -988,6 +926,11 @@
      owns the perspective. Tighter than a typical UI value: a short focal
      length is what gives a close subject its bulge. */
   perspective: 1100px;
+  /* The whole stage is the tap that opens it. */
+  cursor: pointer;
+}
+[data-seal="broken"].envelope-stage {
+  cursor: default;
 }
 
 /*
@@ -1006,19 +949,46 @@
   transform: rotateX(6deg);
   transform-style: preserve-3d;
   will-change: transform;
+  /*
+   * None of the wrappers may be what a tap lands on. While the drift
+   * has the envelope behind the camera's own plane, Chrome hands hits
+   * at the seal to this box instead - so the box declines them, and
+   * whatever the tap does reach bubbles to the stage, which is what
+   * actually opens the envelope (see envelope.tsx).
+   */
+  pointer-events: none;
 }
 @utility envelope-drift {
   display: block;
   width: 100%;
   transform-style: preserve-3d;
+  pointer-events: none;
   /* Runs from the moment the curtain mounts, and is the one thing here
      that moves without being asked. Reduced motion collapses it to its
      end state along with everything else. */
   animation: envelope-drift 20s cubic-bezier(0.16, 0.6, 0.36, 1) forwards;
 }
 
+/*
+ * The hand holding it. Between the drift and the envelope so the lean
+ * composes with the ambient creep rather than replacing it. The two
+ * variables are written by `Tilt`; flat by default, and flat again as
+ * the wax goes, with the same easing so it settles rather than snaps.
+ */
+@utility envelope-hand {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  display: block;
+  width: 100%;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+
 @utility envelope {
   position: relative;
+  pointer-events: auto;
   /*
    * Centred by hand, and not with `justify-items: center` on the wrapper
    * above, because this box is deliberately wider than the track it sits
@@ -1326,6 +1296,18 @@
 [data-seal="broken"] .seal {
   pointer-events: none;
 }
+/*
+ * Waiting to be broken, the seal gives a small double nudge every few
+ * seconds - on the drawing, not the button, so the hover scale on the
+ * button still composes with it. It is the one hint that it is the
+ * thing to press, and it asks quietly: most of the loop is rest.
+ */
+.seal > svg {
+  animation: seal-beckon 5.2s ease-in-out 2.2s infinite;
+}
+[data-seal="broken"] .seal > svg {
+  animation: none;
+}
 
 /*
  * The other half of the handoff.
@@ -1360,6 +1342,17 @@ main[data-envelope="pending"] .sketch-wing-now {
 }
 main[data-envelope="opened"] {
   animation: content-reveal 720ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+/*
+ * The names take focus when the envelope goes, so a keyboard user is
+ * not dropped back at the top of the document. When it was a pointer
+ * that opened it, the envelope marks the title and the ring stays off:
+ * it can only ever be reached by script, so the ring says nothing to a
+ * mouse or a finger, and a brass box around the couple's names is not
+ * how the card should be met.
+ */
+#invitation-title[data-quiet-focus]:focus-visible {
+  outline: none;
 }
 
 /*
@@ -1477,7 +1470,7 @@ main[data-envelope="opened"] {
   }
   to {
     opacity: 1;
-    transform: translate(-50%, 0) rotate(var(--fan-angle, 0deg));
+    transform: translate(-50%, var(--fan-lift)) rotate(var(--fan-angle));
   }
 }
 
@@ -1526,9 +1519,40 @@ main[data-envelope="opened"] {
  * prints land when they are put down. The angle lives in a variable so
  * the arrival can end on it rather than on none.
  */
+/*
+ * The angle a print rests at is `--fan-rest`, set inline per print;
+ * `--fan-angle` and `--fan-lift` are what the transform actually reads,
+ * and they are *registered* so they can transition. That is what lets
+ * a print straighten and lift under the pointer even though its
+ * transform belongs to a scroll-driven animation: the animation's end
+ * keyframe reads the two variables, and the hover moves the variables.
+ */
+@property --fan-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@property --fan-lift {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
 @utility fan {
-  --fan-angle: 0deg;
-  transform: translate(-50%, 0) rotate(var(--fan-angle));
+  --fan-rest: 0deg;
+  --fan-angle: var(--fan-rest);
+  --fan-lift: 0px;
+  transform: translate(-50%, var(--fan-lift)) rotate(var(--fan-angle));
+  transition:
+    --fan-angle 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    --fan-lift 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 360ms ease-out;
+}
+@media (hover: hover) {
+  .fan:hover {
+    --fan-angle: 0deg;
+    --fan-lift: -0.75rem;
+    z-index: 30;
+  }
 }
 @supports (animation-timeline: view()) {
   .fan-in {
@@ -1547,7 +1571,7 @@ main[data-envelope="opened"] {
   }
   [data-reveal][data-shown].fan-in {
     opacity: 1;
-    transform: translate(-50%, 0) rotate(var(--fan-angle));
+    transform: translate(-50%, var(--fan-lift)) rotate(var(--fan-angle));
   }
 }
 
@@ -1561,11 +1585,30 @@ main[data-envelope="pending"] .rise-now {
   .frame-draw,
   .rise-in,
   .rise-now,
-  .fan-in {
+  .fan-in,
+  .fan,
+  .stamp,
+  .seal > svg,
+  .envelope-hand,
+  .card-in-hand,
+  .programme-seed,
+  .faq-answer,
+  .nod-on-hover svg,
+  .wobble-on-hover {
     animation: none !important;
     transition: none !important;
     stroke-dashoffset: 0 !important;
     opacity: 1;
+  }
+  /* The stamp keeps its angle; only the landing goes. */
+  .stamp {
+    transform: rotate(-6deg);
+  }
+  .programme-seed {
+    transform: none !important;
+  }
+  .petals {
+    display: none;
   }
   /* The fan keeps its angle; only the arrival goes. */
   [data-reveal].fan-in {
@@ -1631,22 +1674,35 @@ main[data-envelope="pending"] .rise-now {
     border-color 150ms ease-out,
     transform 150ms cubic-bezier(0.22, 1, 0.36, 1);
 }
-/* The tick, drawn in paper on the inked square. */
-.reply-choice .reply-box::after {
-  content: "";
+/*
+ * The tick, drawn in paper on the inked square - drawn, not switched
+ * on: a single stroke that runs on after the square has filled, the
+ * way a pen makes one. `pathLength` is 1 on the path, so the dash
+ * arithmetic is the same as the ornament's.
+ */
+.reply-choice .reply-box svg {
   position: absolute;
-  left: 0.3rem;
-  top: 0.08rem;
-  width: 0.32rem;
-  height: 0.6rem;
-  border-right: 1.5px solid var(--color-paper);
-  border-bottom: 1.5px solid var(--color-paper);
-  transform: rotate(45deg) scale(0);
-  transform-origin: center;
-  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.reply-choice .reply-box path {
+  fill: none;
+  stroke: var(--color-paper);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 220ms cubic-bezier(0.32, 0.72, 0.3, 1) 70ms;
 }
 .reply-choice:hover .reply-box {
   border-color: var(--color-ink-faint);
+}
+/* Pressed, while the finger is on it. */
+.reply-choice:active .reply-box {
+  transform: scale(0.84);
 }
 .peer:checked + .reply-choice {
   color: var(--color-ink);
@@ -1655,8 +1711,8 @@ main[data-envelope="pending"] .rise-now {
   background: var(--color-ink);
   border-color: var(--color-ink);
 }
-.peer:checked + .reply-choice .reply-box::after {
-  transform: rotate(45deg) scale(1);
+.peer:checked + .reply-choice .reply-box path {
+  stroke-dashoffset: 0;
 }
 .peer:focus-visible + .reply-choice .reply-box {
   outline: 2px solid var(--color-brass);
@@ -1799,4 +1855,224 @@ main[data-envelope="pending"] .rise-now {
 }
 .lightbox[open] {
   animation: fade 220ms ease-out;
+}
+
+/* ------------------------------------------------------------------ *
+ * The third pass: the card answering back.
+ *
+ * Everything before this moves on the clock or the scrollbar. These are
+ * the few things that move because the guest did something - leaned in,
+ * ticked a box, sent the reply - and one that asks them to. Same rules
+ * as the other two passes: transform and opacity only, the finished
+ * state is the default state, and every one of these is named in the
+ * reduced-motion list above.
+ * ------------------------------------------------------------------ */
+
+/*
+ * The calling card, held. `Tilt` writes the two angles; this is what
+ * they do. Its own perspective, because unlike the envelope it is not
+ * inside a stage that already has one.
+ */
+@utility card-in-hand {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  transform: perspective(1400px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transition: transform 600ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform-style: preserve-3d;
+}
+
+/* Poked. A wobble, once, and then it settles. */
+@utility wobble-on-hover {
+  transform-origin: center 60%;
+}
+@media (hover: hover) {
+  .wobble-on-hover:hover {
+    animation: wobble 800ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+/* A fact's emblem gives a nod when you reach for it. */
+@utility nod-on-hover {
+  display: block;
+}
+.nod-on-hover svg {
+  transform-origin: center 70%;
+}
+@media (hover: hover) {
+  .nod-on-hover:hover svg {
+    animation: nod 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+}
+
+/*
+ * The reply's seal, stamped down. It comes in large and lands small,
+ * with a beat of overshoot as the wax gives - and it lands a few
+ * degrees off square, because a seal pressed by hand does.
+ */
+@utility stamp {
+  transform: rotate(-6deg);
+  animation: stamp 560ms cubic-bezier(0.34, 1.3, 0.64, 1) both;
+}
+
+/*
+ * Petals. The box hangs above the seal and a little either side, so
+ * they fall in over the last lines of the card and come to rest around
+ * the wax. `overflow: hidden` on it is the floor: a petal leaves by
+ * fading, never by reaching the edge of the card.
+ */
+.petals {
+  position: absolute;
+  inset: -13rem -3rem -1.5rem;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+.petal {
+  position: absolute;
+  top: -1rem;
+  left: var(--petal-x);
+  width: 1rem;
+  height: auto;
+  opacity: 0;
+  transform: scale(var(--petal-scale));
+  animation: petal-fall var(--petal-fall) cubic-bezier(0.35, 0.05, 0.6, 1) var(--petal-delay) both;
+}
+.petal path {
+  fill: currentColor;
+  fill-opacity: 0.82;
+  stroke: currentColor;
+  stroke-width: 0.6;
+  stroke-opacity: 0.6;
+}
+.petal-sage {
+  color: var(--color-sage-bright);
+}
+.petal-rose {
+  color: var(--color-rose-bright);
+}
+.petal-brass {
+  color: var(--color-brass-bright);
+}
+
+/*
+ * Each moment of the day sets its seed on the spine as it comes up, a
+ * beat behind the line the seed marks: a brass dot that was simply
+ * already there is a bullet point, and one that lands is a moment.
+ * Scroll-driven where it can be, released by <Reveal> where it cannot,
+ * like the block it sits in.
+ */
+@supports (animation-timeline: view()) {
+  .programme-seed {
+    animation: seed-pop cubic-bezier(0.34, 1.4, 0.64, 1) both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 14%;
+  }
+}
+@supports not (animation-timeline: view()) {
+  [data-reveal] .programme-seed {
+    transform: scale(0);
+    transition: transform 520ms cubic-bezier(0.34, 1.4, 0.64, 1) 180ms;
+  }
+  [data-reveal][data-shown] .programme-seed {
+    transform: scale(1);
+  }
+}
+
+/* An answer comes up under its question rather than appearing whole. */
+details[open] > .faq-answer {
+  --rise-y: 0.5rem;
+  animation: rise-up 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes wobble {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  20% {
+    transform: rotate(-6deg) scale(1.04);
+  }
+  45% {
+    transform: rotate(5deg) scale(1.03);
+  }
+  70% {
+    transform: rotate(-2deg) scale(1.01);
+  }
+}
+@keyframes nod {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-13deg);
+  }
+  60% {
+    transform: rotate(9deg);
+  }
+}
+/* Two nudges, then rest for the other three quarters of the loop. */
+@keyframes seal-beckon {
+  0%,
+  26%,
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+  7% {
+    transform: scale(1.055) rotate(-2.2deg);
+  }
+  13% {
+    transform: scale(1) rotate(0deg);
+  }
+  20% {
+    transform: scale(1.04) rotate(1.6deg);
+  }
+}
+@keyframes stamp {
+  0% {
+    opacity: 0;
+    transform: scale(1.9) rotate(-18deg);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.95) rotate(-5deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(-6deg);
+  }
+}
+/* Down, with a sway either side of the fall and a slow turn. */
+@keyframes petal-fall {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg) scale(var(--petal-scale));
+  }
+  10% {
+    opacity: 1;
+  }
+  35% {
+    transform: translate(var(--petal-sway), 5rem) rotate(calc(var(--petal-spin) * 0.35))
+      scale(var(--petal-scale));
+  }
+  65% {
+    transform: translate(calc(var(--petal-sway) * -0.6), 10rem)
+      rotate(calc(var(--petal-spin) * 0.65)) scale(var(--petal-scale));
+  }
+  88% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(var(--petal-sway) * 0.4), 15rem) rotate(var(--petal-spin))
+      scale(var(--petal-scale));
+  }
+}
+@keyframes seed-pop {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
 }

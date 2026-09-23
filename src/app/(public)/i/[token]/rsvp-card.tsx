@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { idleResult } from "@/lib/action-result";
 import type { PublicGuest, PublicSongRequest } from "@/lib/public/queries";
 import { respondToInvitation } from "./actions";
+import { Petals } from "./petals";
 import { SongPicker } from "./song-picker";
 import { WaxSeal } from "./wax-seal";
 import { Frame, FrameCorners } from "../../sections";
@@ -122,7 +123,14 @@ export function RsvpCard({
                           htmlFor={`attending-${guest.id}-${choice.value}`}
                           className="reply-choice formula text-[1.15rem]"
                         >
-                          <span className="reply-box" aria-hidden />
+                          {/* The tick is drawn on, as a pen would, rather
+                              than switched on: one stroke, a little
+                              overshoot at the end. */}
+                          <span className="reply-box" aria-hidden>
+                            <svg viewBox="0 0 16 16">
+                              <path d="M 3.4 8.6 L 6.8 11.7 Q 9.4 6.6 13 4.2" pathLength={1} />
+                            </svg>
+                          </span>
                           {choice.label}
                         </label>
                       </div>
@@ -181,17 +189,22 @@ export function RsvpCard({
 
           <div className="flex flex-col items-center gap-4">
             {saved ? (
-              <div role="status" className="flex flex-col items-center text-center">
-                {/* The reply, sealed. The couple's mark on the card is
-                    what says it has been received; the words underneath
-                    only agree with it. */}
-                <div className="size-20 animate-rise">
+              <div role="status" className="relative flex flex-col items-center text-center">
+                {/* The reply, sealed. The couple's mark is stamped down
+                    onto the card - it lands, a little askew, the way a
+                    seal pressed by hand does - and that is what says the
+                    reply has been received; the words underneath only
+                    agree with it. An acceptance also gets a handful of
+                    petals, because that is the news the couple were
+                    hoping for. */}
+                {comingCount > 0 && <Petals />}
+                <div className="stamp size-20">
                   <WaxSeal initialA={initialA} initialB={initialB} idPrefix="reply" />
                 </div>
-                <p className="mt-3 font-display text-lg text-ink">
+                <p className="rise-now mt-3 font-display text-lg text-ink [--rise-delay:380ms]">
                   {comingCount > 0 ? "Wonderful. Your reply is in." : "Thank you for letting us know."}
                 </p>
-                <p className="mt-1 text-sm text-ink-faint">
+                <p className="rise-now mt-1 text-sm text-ink-faint [--rise-delay:520ms]">
                   {comingCount > 0
                     ? "Change it any time from this page."
                     : "You will be missed."}

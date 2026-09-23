@@ -8,6 +8,7 @@ import heart from "@/assets/sketches/heart.svg";
 import ribbon from "@/assets/sketches/ribbon.svg";
 import bottomRight from "@/assets/florals/corner-bottom-right.webp";
 import topLeft from "@/assets/florals/corner-top-left.webp";
+import { Countdown } from "./countdown";
 import { Motif, type MotifName } from "./motifs";
 import { Sprig } from "./sprig";
 
@@ -444,20 +445,43 @@ export function Leaf({
   );
 }
 
-/** A quiet card for a block of the couple's own words. */
-export function Panel({
-  children,
+/**
+ * The countdown, as one line of type and not four boxes of digits. The
+ * figure counts up to itself as it arrives (`Countdown`), and on the
+ * day itself there is no figure to count: it just says so.
+ */
+export function DaysToGo({
+  days,
+  delay,
   className = "",
 }: {
-  children: ReactNode;
+  days: number;
+  /** The rise delay, in ms, so the count starts as the line appears. */
+  delay: number;
   className?: string;
 }) {
+  if (days < 0) return null;
   return (
-    <div
-      className={`rounded-lg border border-hairline bg-card p-6 shadow-card sm:p-8 ${className}`}
+    <p
+      className={`rise-now text-ink-faint ${className}`}
+      style={{ "--rise-delay": `${delay}ms` } as React.CSSProperties}
     >
-      {children}
-    </div>
+      {days === 0 ? (
+        <>
+          <span className="font-display text-[1.5rem] text-ink">Today</span>
+          <span className="eyebrow ml-2">is the day</span>
+        </>
+      ) : (
+        <>
+          <Countdown
+            days={days}
+            delay={delay}
+            className="font-display text-[1.5rem] tabular-nums text-ink"
+          />
+          <span className="eyebrow ml-2">{days === 1 ? "day to go" : "days to go"}</span>
+        </>
+      )}
+    </p>
   );
 }
 
