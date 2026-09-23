@@ -2,7 +2,6 @@ import { CalendarPlus, Camera, MapPin } from "lucide-react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { timeInWords } from "@/lib/time-words";
 import { daysUntilNZ, formatDateFull, formatDateLong } from "@/lib/dates";
 import {
   getFaq,
@@ -73,7 +72,6 @@ export default async function InvitationPage({
   const initialA = (site.partnerAName[0] ?? "A").toUpperCase();
   const initialB = (site.partnerBName[0] ?? "B").toUpperCase();
   const daysAway = site.weddingDate ? daysUntilNZ(site.weddingDate) : null;
-  const ceremonyWords = site.ceremonyTime ? timeInWords(site.ceremonyTime) : null;
   const town = site.venueAddress ? townFrom(site.venueAddress) : null;
   const lodge = isVenueDrawn(site.venueName);
 
@@ -222,7 +220,7 @@ export default async function InvitationPage({
                   </p>
                   {site.ceremonyTime && (
                     <p className="formula mt-3 text-[clamp(1.1rem,3.6vw,1.4rem)] text-ink-soft">
-                      at {ceremonyWords ?? formatTime(site.ceremonyTime)}
+                      at {formatTime(site.ceremonyTime)}
                     </p>
                   )}
                 </div>

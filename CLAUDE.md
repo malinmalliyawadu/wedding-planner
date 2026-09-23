@@ -409,16 +409,14 @@ The first pass made the invitation a page of type with an envelope in
 front of it. The second pass made it one object - a card you can hold -
 and gave the long page a way to be *used* as well as read.
 
-- **The time is set in words, the date in figures**
-  (`src/lib/time-words.ts`, pure and tested): "Saturday 20 March 2027"
-  over "at half past two in the afternoon". The date was once spelled
-  out in full ("the twentieth of March, two thousand and twenty-seven")
-  and was cut: the year in words read as stiff rather than formal, and
-  a guest should never have to parse prose to find the date. The time
-  in words is the phrase a card is known by and reads naturally, so it
-  stays. `timeInWords` returns null for anything that is not a quarter
-  hour rather than inventing "two twenty in the afternoon", and the
-  page falls back to figures.
+- **The date and the time are both set in figures**: "Saturday 20
+  March 2027" over "at 2:30 pm", through the same `formatTime` the run
+  sheet uses. Both were once spelled out - "the twentieth of March, two
+  thousand and twenty-seven", then "at half past two in the afternoon" -
+  and both were cut: the words read as stiff rather than formal, and a
+  guest should never have to parse prose to find when to turn up. The
+  figure on the card is the same figure the at-a-glance strip and the
+  programme show, so the three can never disagree.
 - **The card is addressed** ("An invitation for Ngata Whānau") and the
   couple's welcome is set as a letter to that household. The envelope
   carried the name; a guest who skipped the seal still knows this one
@@ -731,7 +729,7 @@ envelope. Generous, one idea per screen, mobile-first.
   italic sets the ampersand between the two names, the way an engraver
   has always taken the ampersand from a different fount, and - since the
   second pass - the card's *formula* lines too (`formula` utility):
-  "request the pleasure of your company", the time in words, the letter
+  "request the pleasure of your company", the line giving the time, the letter
   to the household, the reply card's two choices. On an engraved card the
   names are in caps and the sentences holding them together are in a
   lighter italic; Marcellus is lapidary and has no italic to give, so the
