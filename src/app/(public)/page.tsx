@@ -5,6 +5,7 @@ import { dateInWords } from "@/lib/date-words";
 import { daysUntilNZ } from "@/lib/dates";
 import { getSiteContent } from "@/lib/public/queries";
 import { WaxSeal } from "./i/[token]/wax-seal";
+import { isVenueDrawn, Lodge } from "./lodge";
 import { FloralCorner, Frame, FrameCorners, Ornament, Sketch } from "./sections";
 
 /**
@@ -36,6 +37,7 @@ export default async function LandingPage() {
   const initialB = (site.partnerBName[0] ?? "B").toUpperCase();
   const daysAway = site.weddingDate ? daysUntilNZ(site.weddingDate) : null;
   const words = site.weddingDate ? dateInWords(site.weddingDate) : null;
+  const lodge = isVenueDrawn(site.venueName);
 
   return (
     <main
@@ -92,18 +94,36 @@ export default async function LandingPage() {
         )}
 
         {/*
+         * The house, drawn, over the name of the town. A line drawing of
+         * a building on a hill names nothing a stranger could use, and it
+         * is what makes this a card for *this* wedding rather than a
+         * card. Nothing about the venue is written here that was not
+         * written before.
+         */}
+        {lodge && (
+          <div className="rise-now mt-7 [--rise-delay:480ms]">
+            <Lodge
+              idPrefix="door"
+              className="mx-auto w-[min(100%,17rem)] text-brass sm:w-[20rem]"
+            />
+          </div>
+        )}
+
+        {/*
          * The town, not the address. Guests who are coming have the full
          * details on their own invitation; everyone else has no business
          * with them.
          */}
         {site.venueAddress && (
-          <p className="eyebrow rise-now mt-5 text-ink-soft [--rise-delay:520ms]">
+          <p
+            className={`eyebrow rise-now text-ink-soft [--rise-delay:560ms] ${lodge ? "mt-3" : "mt-5"}`}
+          >
             {townFrom(site.venueAddress)}
           </p>
         )}
 
         {daysAway !== null && daysAway >= 0 && (
-          <p className="rise-now mt-7 text-ink-faint [--rise-delay:640ms]">
+          <p className="rise-now mt-7 text-ink-faint [--rise-delay:680ms]">
             <span className="font-display text-[1.5rem] text-ink">{daysAway}</span>
             <span className="eyebrow ml-2">
               {daysAway === 1 ? "day to go" : "days to go"}
@@ -112,7 +132,7 @@ export default async function LandingPage() {
         )}
       </div>
 
-      <div className="rise-now mx-auto mt-10 w-full max-w-md [--rise-delay:800ms]">
+      <div className="rise-now mx-auto mt-10 w-full max-w-md [--rise-delay:840ms]">
         <p className="formula text-[1.2rem] leading-relaxed text-ink-soft sm:text-[1.3rem]">
           If you are joining us, we sent you a link of your own. Open that
           and you will find your invitation, the plan for the day, and

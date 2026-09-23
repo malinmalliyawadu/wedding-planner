@@ -15,6 +15,7 @@ import { formatTime, formatTimeRange } from "@/lib/run-sheet";
 import { Envelope } from "./envelope";
 import { RsvpCard } from "./rsvp-card";
 import { sealCookieName } from "./seal-cookie";
+import { isVenueDrawn, Lodge } from "../../lodge";
 import { Motif, type MotifName } from "../../motifs";
 import { Ribbon, type RibbonLink } from "../../ribbon";
 import {
@@ -73,6 +74,7 @@ export default async function InvitationPage({
   const words = site.weddingDate ? dateInWords(site.weddingDate) : null;
   const ceremonyWords = site.ceremonyTime ? timeInWords(site.ceremonyTime) : null;
   const town = site.venueAddress ? townFrom(site.venueAddress) : null;
+  const lodge = isVenueDrawn(site.venueName);
 
   const hasTravel = Boolean(site.travelNotes || site.accommodationNotes || site.venueMapUrl);
   const hasDetails = Boolean(site.dressCode || faq.length > 0);
@@ -228,8 +230,22 @@ export default async function InvitationPage({
                 </div>
               )}
 
+              {/* The venue, engraved above its name - the vignette a
+                  letterhead carries. Only when the settings say it is
+                  that house; see lodge.tsx. */}
+              {lodge && (
+                <div className="rise-now mt-8 [--rise-delay:640ms]">
+                  <Lodge
+                    idPrefix="card"
+                    className="mx-auto w-[min(100%,19rem)] text-brass sm:w-[23rem]"
+                  />
+                </div>
+              )}
+
               {site.venueName && (
-                <p className="eyebrow rise-now mt-7 text-ink-soft [--rise-delay:680ms]">
+                <p
+                  className={`eyebrow rise-now text-ink-soft [--rise-delay:760ms] ${lodge ? "mt-4" : "mt-7"}`}
+                >
                   {site.venueName}
                   {town && (
                     <>
@@ -243,7 +259,7 @@ export default async function InvitationPage({
               )}
             </div>
 
-            <div className="rise-now mt-9 flex flex-wrap items-center justify-center gap-3 [--rise-delay:800ms]">
+            <div className="rise-now mt-9 flex flex-wrap items-center justify-center gap-3 [--rise-delay:880ms]">
               <a
                 href="#rsvp"
                 className="inline-flex min-h-12 items-center justify-center rounded-full bg-ink px-8 text-[0.8125rem] font-semibold tracking-caps text-paper uppercase transition-colors hover:bg-spine-raised"
@@ -263,7 +279,7 @@ export default async function InvitationPage({
 
             {/* A countdown as one line of type, not four boxes of digits. */}
             {daysAway !== null && daysAway >= 0 && (
-              <p className="rise-now mt-9 text-ink-faint [--rise-delay:920ms]">
+              <p className="rise-now mt-9 text-ink-faint [--rise-delay:1000ms]">
                 <span className="font-display text-[1.6rem] text-ink">
                   {daysAway}
                 </span>
