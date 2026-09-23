@@ -244,10 +244,10 @@
    */
   @keyframes flap-open {
     from {
-      transform: translateZ(1px) rotateX(0deg);
+      transform: translateZ(2px) rotateX(0deg);
     }
     to {
-      transform: translateZ(1px) rotateX(-138deg);
+      transform: translateZ(2px) rotateX(-138deg);
     }
   }
   /*
@@ -1059,6 +1059,17 @@
   background:
     linear-gradient(to bottom, #cfc6b0 0%, #e2dac6 26%, #efe9dc 62%);
   box-shadow: var(--shadow-overlay);
+  /*
+   * Behind the front by a whole pixel, not merely under it. Every
+   * surface of the envelope is a separate plane in one 3D context, and
+   * two planes at exactly the same depth are left to the compositor to
+   * order - Chrome goes by paint order, but a depth-buffered compositor
+   * (Safari) fights it out per pixel, and the fight is re-run on every
+   * frame the envelope tilts under the pointer: jagged triangles of the
+   * inside flash through the front. So nothing here shares a depth:
+   * back -2, front 0, lining 1, flap 2, seal 4.
+   */
+  transform: translateZ(-2px);
 }
 
 /*
@@ -1132,7 +1143,7 @@
 }
 
 /*
- * The flap, and the reason it is three elements rather than one.
+ * The flap, and the reason it is two elements rather than one.
  *
  * It swings past vertical, so for the second half of the movement you
  * are looking at its underside - and on a lined envelope that is not the
@@ -1141,20 +1152,28 @@
  * while the flap stays in a 3D context, which is why the fold is drawn
  * as a gradient here and not as the drop-shadow it used to be: a filter
  * would flatten the context and take both faces with it.
+ *
+ * Back to back, but not in the same plane: the lining sits a pixel
+ * behind the paper (see .envelope-back for why). Closed, that puts it
+ * behind the face it is hidden by anyway; past vertical the flap's own
+ * rotation carries it round to the front, which is exactly when it is
+ * meant to show. The shading that darkens the paper as it turns away
+ * from the light is the face's own ::after rather than a third sibling
+ * at the same depth - it clips with the face and is culled with it.
  */
 .envelope-flap {
   position: absolute;
   inset: 0 0 auto 0;
   z-index: 3;
   height: 52%;
-  transform: translateZ(1px);
+  /* Two pixels off the front rather than one: see .envelope-back. */
+  transform: translateZ(2px);
   transform-origin: top center;
   transform-style: preserve-3d;
   will-change: transform;
 }
 .envelope-flap-face,
-.envelope-flap-lining,
-.envelope-flap-shade {
+.envelope-flap-lining {
   position: absolute;
   inset: 0;
   clip-path: polygon(0 0, 100% 0, 50% 100%);
@@ -1189,7 +1208,7 @@
     );
 }
 .envelope-flap-lining {
-  transform: rotateY(180deg);
+  transform: translateZ(-1px) rotateY(180deg);
   /*
    * Written back to front: rotateY(180deg) mirrors this face, so the
    * colour put on the right is the one that appears on the left, and it
@@ -1198,7 +1217,7 @@
    * No shading gradient on this one either. The flap's rotation turns
    * its top edge into the one that meets the throat, so a gradient dark
    * at the top lands as a bar straight across the fold - and the flap's
-   * light is already handled by .envelope-flap-shade, which is the layer
+   * light is already handled by the face's ::after, which is the layer
    * that knows what angle it is at.
    */
   background: linear-gradient(
@@ -1224,7 +1243,10 @@
   opacity: 0;
 }
 /* Paper turning away from the light. Opacity only - see flap-shade. */
-.envelope-flap-shade {
+.envelope-flap-face::after {
+  content: "";
+  position: absolute;
+  inset: 0;
   background-color: #2a3229;
   opacity: 0;
 }
@@ -1240,7 +1262,7 @@
   border-radius: 9999px;
   background: transparent;
   /*
-   * In front of the flap, which is itself a pixel in front of the
+   * In front of the flap, which is itself two pixels in front of the
    * envelope. The z-index above is not what decides this: once the
    * children are in a 3D context, depth arbitrates and a seal at z 0
    * has its top half swallowed by the flap it is supposed to be holding
@@ -1252,16 +1274,16 @@
    * two do compose, but a base `transform` here and a `translate` there
    * is an invitation to write the hover state without one of them.
    */
-  transform: translate(-50%, -50%) translateZ(2px);
+  transform: translate(-50%, -50%) translateZ(4px);
   /* Comfortably past 44px at every width the envelope is allowed. */
   transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .seal:hover:not(:disabled),
 .seal:focus-visible {
-  transform: translate(-50%, -50%) translateZ(2px) scale(1.04);
+  transform: translate(-50%, -50%) translateZ(4px) scale(1.04);
 }
 .seal:active:not(:disabled) {
-  transform: translate(-50%, -50%) translateZ(2px) scale(0.97);
+  transform: translate(-50%, -50%) translateZ(4px) scale(0.97);
 }
 
 /*
@@ -1304,7 +1326,7 @@
 [data-seal="broken"] .envelope-throat {
   animation: throat-open 460ms ease-out 300ms forwards;
 }
-[data-seal="broken"] .envelope-flap-shade {
+[data-seal="broken"] .envelope-flap-face::after {
   animation: flap-shade 760ms cubic-bezier(0.32, 0.72, 0.3, 1) 240ms forwards;
 }
 [data-seal="broken"] {
@@ -1509,11 +1531,21 @@ main[data-envelope="opened"] {
 @utility rise-now {
   animation: rise-up 900ms cubic-bezier(0.22, 1, 0.36, 1) var(--rise-delay, 0ms) both;
 }
+/*
+ * The range is a length, not a share of the block: the rise runs from
+ * the moment the block's top edge shows at the bottom of the screen
+ * until it has scrolled 30vh into view, whatever its height. Written as
+ * `entry 55%` it was over in about half the block's own height, which
+ * for a section heading is under one turn of a mouse wheel - the tall
+ * leaves visibly rose and the headings simply appeared, and the reply
+ * card, the tallest block on the page, stayed translucent for most of a
+ * screen. A fixed distance gives every block the same arrival.
+ */
 @supports (animation-timeline: view()) {
   .rise-in {
     animation: rise-up cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-timeline: view();
-    animation-range: entry 0% entry 55%;
+    animation-range: entry 0% entry 30vh;
   }
 }
 @supports not (animation-timeline: view()) {
@@ -1575,7 +1607,8 @@ main[data-envelope="opened"] {
   .fan-in {
     animation: fan-in cubic-bezier(0.22, 1, 0.36, 1) both;
     animation-timeline: view();
-    animation-range: entry 0% entry 70%;
+    /* A length for the same reason as .rise-in: a print is short. */
+    animation-range: entry 0% entry 30vh;
   }
 }
 @supports not (animation-timeline: view()) {

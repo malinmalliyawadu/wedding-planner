@@ -214,12 +214,12 @@ export function Envelope({
               </div>
             </div>
 
-            {/* Outer paper, the lining behind it, and a shading layer that
-                darkens the pair as they turn away from the light. */}
+            {/* Outer paper and the lining behind it. The shading that
+                darkens the paper as it turns away from the light is the
+                face's own ::after - see the flap's note in globals.css. */}
             <div className="envelope-flap">
               <div className="envelope-flap-face grain-stock" />
               <div className="envelope-flap-lining grain-stock" />
-              <div className="envelope-flap-shade" />
             </div>
 
             <button
