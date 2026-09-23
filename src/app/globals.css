@@ -476,6 +476,17 @@
       transform: rotate(2.4deg);
     }
   }
+  /* Hung from its hook: the same swing at a fraction of the amplitude,
+     because cloth settles where a ribbon keeps going. */
+  @keyframes idle-sway {
+    0%,
+    100% {
+      transform: rotate(-0.9deg);
+    }
+    50% {
+      transform: rotate(0.9deg);
+    }
+  }
 }
 
 @layer base {
@@ -765,6 +776,11 @@
 @utility idle-breathe {
   animation: idle-breathe 8.5s ease-in-out infinite;
 }
+/* A garment on a hanger. The origin is the hook, near the top of the box. */
+@utility idle-sway {
+  animation: idle-sway 9s ease-in-out infinite;
+  transform-origin: 50% 10%;
+}
 @utility idle-wash {
   animation: idle-wash 24s ease-in-out infinite;
 }
@@ -821,6 +837,7 @@
   .idle-stir,
   .idle-beat,
   .idle-swing,
+  .idle-sway,
   .idle-breathe,
   .idle-wash,
   [data-reveal] {
