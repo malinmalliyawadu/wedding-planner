@@ -31,6 +31,7 @@ describe("isPublicPath", () => {
     "/favicon.ico",
     "/icon.svg",
     "/apple-icon.png",
+    "/opengraph-image-1c1a04",
   ])("lets guests reach %s", (path) => {
     expect(isPublicPath(path)).toBe(true);
   });
@@ -78,6 +79,20 @@ describe("isPublicPath", () => {
     // a way past the sign-in into every private route serving an image.
     // The album ships its own thumbnails so this can stay shut.
     expect(isPublicPath("/_next/image")).toBe(false);
+  });
+
+  it("opens the link preview and nothing beside it", () => {
+    // Messaging apps fetch the preview image with no cookie, so it has to
+    // be public - but it is one generated file, not a tree. Next hangs a
+    // six-character hash of the route off the name, and only that.
+    expect(isPublicPath("/opengraph-image")).toBe(true);
+    expect(isPublicPath("/opengraph-image-1c1a04")).toBe(true);
+    expect(isPublicPath("/opengraph-image-1c1a04/anything")).toBe(false);
+    expect(isPublicPath("/opengraph-image/anything")).toBe(false);
+    expect(isPublicPath("/opengraph-image-")).toBe(false);
+    expect(isPublicPath("/opengraph-image-1c1a04x")).toBe(false);
+    expect(isPublicPath("/opengraph-images")).toBe(false);
+    expect(isPublicPath("/twitter-image")).toBe(false);
   });
 
   it("is not fooled by a path that merely starts with the letter i", () => {

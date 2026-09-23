@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { EB_Garamond } from "next/font/google";
+import { requestOrigin } from "@/lib/request-origin";
 import { Reveal } from "./reveal";
 
 /** Loaded here and nowhere else: the planner never sets an ampersand. */
@@ -10,15 +11,29 @@ const ebGaramond = EB_Garamond({
   variable: "--font-eb-garamond",
 });
 
-export const metadata: Metadata = {
-  /*
-   * Nothing under here is indexed. A link to a wedding gets forwarded,
-   * pasted into group chats and previewed by every messaging app on the
-   * way, and none of those previews - or search results - should carry
-   * the couple's names, the date or the address.
-   */
-  robots: { index: false, follow: false, nocache: true },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  return {
+    /*
+     * Nothing under here is indexed. A link to a wedding gets forwarded,
+     * pasted into group chats and previewed by every messaging app on the
+     * way, and none of those previews - or search results - should carry
+     * the couple's names, the date or the address.
+     */
+    robots: { index: false, follow: false, nocache: true },
+    /*
+     * What those previews do carry: a picture of the stationery
+     * (`opengraph-image.tsx`, generated from the artwork and nothing
+     * else) and the site's own one-line description of itself. A
+     * messaging app needs the image's absolute URL, and the app only
+     * knows its own domain from the request it is answering - so the
+     * base is read off the request, the same way the passkeys learn
+     * which domain they belong to. Without it Next would print
+     * localhost, and every preview would be blank.
+     */
+    metadataBase: new URL(await requestOrigin()),
+    description: "An invitation, the plan for the day, and somewhere to reply.",
+  };
+}
 
 /**
  * Everything a stranger can load lives under this one folder.

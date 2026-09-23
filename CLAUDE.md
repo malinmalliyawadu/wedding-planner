@@ -371,6 +371,47 @@ shaped by that.
   sidebar. It is still private: the laptop driving the marquee screen
   signs in once and the session outlasts the night.
 
+### The link preview
+
+`src/app/(public)/opengraph-image.tsx` is the picture every messaging
+app shows when a link to the front door or to a household's invitation
+is pasted into a chat. It applies to the whole `(public)` tree and is
+**generated at build time from nothing but the artwork**: the layout's
+own rule that a preview must carry no names, date or address holds for
+it too, so it shows the stationery - the sealed envelope on the washed
+sheet, the wax unbroken, a print of the two of you laid beside it, and
+"You're invited" on the envelope in Marcellus, read off the vendored
+TTF the run sheet PDFs use.
+
+- **The seal carries the rings, not the initials.** Same blot and die
+  as `wax-seal.tsx` (exported from there so the two stay one seal),
+  same inverted lighting, and the app icon's reading of the duogram
+  struck into the wax: its meaning, not its letterforms, which is what
+  a preview may carry.
+- **Everything drawn is SVG built by hand, handed to satori as an
+  image.** The renderer behind `ImageResponse` does flexbox, type and
+  shadows and nothing else - no filters, no blend modes, no CSS
+  variables - so the wash, the grain, the envelope's crease and the wax
+  are written as markup with the theme's colours copied in from
+  `globals.css`. Change a token there and change it here.
+- **The florals are read as PNG** (`src/assets/og/`, derived from the
+  webp masters at 480px) because the rasteriser cannot decode webp.
+  The wash under them is the same five layers as `--wash-layers`, so
+  their feathered edges still vanish.
+- **The photograph** is `src/assets/og/couple.jpg`, cropped to 3:4
+  around the two of you and saved without its EXIF before it is
+  committed - the whole frame is mostly lawn, and the original's
+  metadata says where it was taken. With no file there the print is
+  left blank rather than the build failing.
+- **The URL carries a hash** (`/opengraph-image-1c1a04`), which Next
+  adds to any generated metadata route, so `isPublicPath` matches the
+  name plus six hex characters and nothing else, and the Traefik
+  carve-out in `DEPLOYMENT.md` uses a prefix for the same reason.
+- **`metadataBase` is read off the request** (`requestOrigin`, shared
+  with the passkeys' relying party). Without it Next prints
+  `localhost` into `og:image` and every preview is blank; with a
+  configured value the same image could not serve two domains.
+
 ### Song requests
 
 The reply card asks for up to three songs (`MAX_SONG_REQUESTS`), picked

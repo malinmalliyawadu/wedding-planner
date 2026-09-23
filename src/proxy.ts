@@ -61,6 +61,8 @@ const PUBLIC_ROUTER_HEADER = "x-wedding-public";
  * would hand out every private route that returns an image. That is why
  * the album ships its own thumbnails.
  */
+const OPENGRAPH_IMAGE = /^\/opengraph-image(-[0-9a-f]{6})?$/;
+
 export function isPublicPath(pathname: string): boolean {
   /*
    * A dot segment disqualifies the path outright, before anything else
@@ -83,7 +85,15 @@ export function isPublicPath(pathname: string): boolean {
     pathname.startsWith("/_next/static/") ||
     pathname === "/favicon.ico" ||
     pathname === "/icon.svg" ||
-    pathname === "/apple-icon.png"
+    pathname === "/apple-icon.png" ||
+    // The link preview. Every messaging app a link is pasted into fetches
+    // this with no cookie, and it is generated from nothing but the
+    // artwork - no names, no date, no address - so it is as safe to hand
+    // out as the favicon. Next serves a generated image under its file
+    // name plus a short hash of the route (`/opengraph-image-1c1a04`),
+    // which is why this is a pattern and not a string; nothing hangs off
+    // it, and the hash is the only thing allowed after the name.
+    OPENGRAPH_IMAGE.test(pathname)
   );
 }
 
