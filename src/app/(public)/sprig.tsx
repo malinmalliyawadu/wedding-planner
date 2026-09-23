@@ -83,19 +83,13 @@ const STALK =
 const TENDRIL =
   "M 16.8 10.5 C 15.2 8.7 16.6 6.4 18.5 7.1 C 20.1 7.7 19.9 10.1 18.0 10.6";
 
-/*
- * `pathLength={1}` on every stroked path is what lets the ornament draw
- * itself: one dash pattern then fits the stalk, a leaf and a tendril
- * alike without the stylesheet knowing how long any of them is. The
- * `data-draw` and `data-seed` hooks are what `.ornament-draw` animates.
- */
 function Half() {
   return (
     <g fill="none" stroke="currentColor" strokeLinecap="round">
-      <path d={STALK} strokeWidth="1.15" pathLength={1} data-draw />
-      <path d={TENDRIL} strokeWidth="0.95" pathLength={1} data-draw />
+      <path d={STALK} strokeWidth="1.15" />
+      <path d={TENDRIL} strokeWidth="0.95" />
       {LEAVES.map((l, i) => (
-        <path key={i} d={leaf(...l)} strokeWidth="1.05" pathLength={1} data-draw />
+        <path key={i} d={leaf(...l)} strokeWidth="1.05" />
       ))}
       {SEEDS.map(([cx, cy, r], i) => (
         <circle
@@ -105,7 +99,6 @@ function Half() {
           r={r}
           fill="currentColor"
           stroke="none"
-          data-seed
         />
       ))}
     </g>
@@ -125,8 +118,7 @@ export function Sprig({
   return (
     <svg
       viewBox={`0 0 ${width} ${H}`}
-      className={`ornament-draw ${className}`}
-      data-reveal=""
+      className={className}
       role="presentation"
       aria-hidden
     >
@@ -150,7 +142,6 @@ export function Sprig({
           height="3.2"
           transform={`rotate(45 ${mid} ${H / 2})`}
           fill="currentColor"
-          data-seed
         />
       )}
     </svg>

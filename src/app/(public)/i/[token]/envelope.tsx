@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import floral from "@/assets/florals/corner-bottom-left.webp";
+import { Tilt } from "../../tilt";
 import { SEAL_COOKIE_MAX_AGE, sealCookieName } from "./seal-cookie";
 import { WaxSeal } from "./wax-seal";
 
@@ -50,7 +51,17 @@ export function Envelope({
 }) {
   const [phase, setPhase] = useState<"sealed" | "breaking" | "gone">("sealed");
   const stageRef = useRef<HTMLDivElement>(null);
-  const sealRef = useRef<HTMLButtonElement>(null);
+  // A ref rather than the phase, so a second tap in the same frame as
+  // the first - a double tap, or the seal's own click bubbling up to
+  // the stage - cannot start the sequence twice.
+  const struck = useRef(false);
+  // Whether it was a pointer that opened it. The seal is focused by
+  // script the moment the stage mounts, before the guest has touched
+  // anything, so Chrome treats that focus as keyboard-driven and draws
+  // the ring - and carries the ring across to wherever a script moves
+  // focus next. A guest who tapped or clicked would otherwise end the
+  // ceremony looking at a brass box around the couple's names.
+  const byPointer = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const revealTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
@@ -80,7 +91,10 @@ export function Envelope({
     ].join("; ");
     // Hand focus to the invitation rather than dropping it on <body>,
     // where a keyboard user would have to tab from the top of the page.
-    document.getElementById("invitation-title")?.focus();
+    // Quietly, if a pointer opened it: the ring is for the keyboard.
+    const title = document.getElementById("invitation-title");
+    if (title && byPointer.current) title.dataset.quietFocus = "";
+    title?.focus();
   }, [token, reveal]);
 
   useEffect(
@@ -93,7 +107,12 @@ export function Envelope({
 
   useEffect(() => {
     if (phase !== "sealed") return;
-    sealRef.current?.focus({ preventScroll: true });
+    // Focus goes to the stage, not the seal. Focusing the seal by script
+    // before the guest has touched anything reads to the browser as
+    // keyboard focus, and it drew a ring around the wax on every first
+    // visit. From the stage, Escape still works and one Tab reaches the
+    // seal, which is where a keyboard user would want to be.
+    stageRef.current?.focus({ preventScroll: true });
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
@@ -101,8 +120,27 @@ export function Envelope({
     };
   }, [phase]);
 
-  function open() {
-    if (phase !== "sealed") return;
+  /**
+   * On the stage, not on the seal - and that is a fix, not a flourish.
+   *
+   * The seal sits inside a subtree the camera is moving in Z, and while
+   * the drift has it more than a pixel or so behind the camera's own
+   * plane, Chrome's hit-testing hands the tap to the wrapper instead of
+   * the wax: the seal was unclickable for the first several seconds and
+   * then quietly began to work, which is about the most confusing thing
+   * an opening gesture can do. Every tap lands somewhere inside the
+   * stage whatever the compositor decides, so the stage listens. The
+   * seal stays a button for the keyboard and the screen reader, and its
+   * click bubbles here like any other.
+   *
+   * It also means the whole envelope is the target, which on a phone is
+   * simply better: a guest taps the envelope they are holding.
+   */
+  function open(event: React.MouseEvent) {
+    if (struck.current) return;
+    struck.current = true;
+    // A click the keyboard raised has no click count.
+    byPointer.current = event.detail > 0;
     setPhase("breaking");
     // Reduced motion collapses every animation to nothing, so waiting out
     // the full sequence would leave a blank stage sitting there.
@@ -116,11 +154,13 @@ export function Envelope({
   return (
     <div
       ref={stageRef}
-      className="envelope-stage grain-stock"
+      tabIndex={-1}
+      className="envelope-stage grain-stock outline-none"
       data-seal={phase === "breaking" ? "broken" : "sealed"}
       role="dialog"
       aria-modal="true"
       aria-label={`Invitation for ${addressee}`}
+      onClick={open}
       onKeyDown={(event) => {
         // Escape is the way out of anything that covers the page.
         if (event.key === "Escape") dismiss();
@@ -132,6 +172,11 @@ export function Envelope({
           away whatever the first had reached. */}
       <div className="envelope-camera">
         <div className="envelope-drift">
+          {/* Held in the hand: it leans a few degrees towards the pointer
+              while it is sealed, and settles flat as the wax goes. Inside
+              the drift so the two compose, and pointer-only, so a phone
+              never pays for it. */}
+          <Tilt global max={4} enabled={phase === "sealed"} className="envelope-hand">
           <div className="envelope">
             <div className="envelope-back" />
 
@@ -178,10 +223,8 @@ export function Envelope({
             </div>
 
             <button
-              ref={sealRef}
               type="button"
               className="seal"
-              onClick={open}
               disabled={phase !== "sealed"}
             >
               <span className="sr-only">
@@ -190,6 +233,7 @@ export function Envelope({
               <WaxSeal initialA={initialA} initialB={initialB} />
             </button>
           </div>
+          </Tilt>
         </div>
       </div>
 
@@ -208,8 +252,13 @@ export function Envelope({
 
       <button
         type="button"
-        onClick={dismiss}
-        className="absolute top-3 right-3 rounded-md px-3 py-2 text-xs text-ink-faint/70 transition-colors hover:text-ink pointer-coarse:min-h-11"
+        onClick={(event) => {
+          // The stage would read this as the tap that opens it.
+          event.stopPropagation();
+          byPointer.current = event.detail > 0;
+          dismiss();
+        }}
+        className="absolute top-3 right-3 cursor-default rounded-md px-3 py-2 text-xs text-ink-faint/70 transition-colors hover:text-ink pointer-coarse:min-h-11"
       >
         Skip
       </button>

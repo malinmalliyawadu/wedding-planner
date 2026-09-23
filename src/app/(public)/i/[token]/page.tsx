@@ -19,6 +19,7 @@ import { isVenueDrawn, Lodge } from "../../lodge";
 import { Motif, type MotifName } from "../../motifs";
 import { Ribbon, type RibbonLink } from "../../ribbon";
 import {
+  DaysToGo,
   FloralCorner,
   Frame,
   FrameCorners,
@@ -273,17 +274,7 @@ export default async function InvitationPage({
               )}
             </div>
 
-            {/* A countdown as one line of type, not four boxes of digits. */}
-            {daysAway !== null && daysAway >= 0 && (
-              <p className="rise-now mt-9 text-ink-faint [--rise-delay:1000ms]">
-                <span className="font-display text-[1.6rem] text-ink">
-                  {daysAway}
-                </span>
-                <span className="eyebrow ml-2">
-                  {daysAway === 1 ? "day to go" : "days to go"}
-                </span>
-              </p>
-            )}
+            {daysAway !== null && <DaysToGo days={daysAway} delay={1000} className="mt-9" />}
           </div>
         </header>
 
@@ -390,7 +381,7 @@ export default async function InvitationPage({
                     <p className="font-display text-[0.95rem] text-brass sm:hidden">
                       {formatTimeRange(moment.startTime, moment.endTime)}
                     </p>
-                    <p className="font-display text-[1.3rem] leading-tight text-ink sm:mt-0 mt-1">
+                    <p className="mt-1 font-display text-[1.3rem] leading-tight text-ink sm:mt-0">
                       {moment.title}
                     </p>
                     {moment.location && (
@@ -487,12 +478,19 @@ export default async function InvitationPage({
                   <details key={entry.id} className="group border-b border-hairline">
                     <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-6 py-5 text-left font-display text-[1.15rem] text-ink [&::-webkit-details-marker]:hidden">
                       {entry.question}
-                      <span className="relative size-4 shrink-0" aria-hidden>
+                      {/* The plus turns as it closes up into a minus: the
+                          bar collapses and the whole mark makes a half
+                          turn, so it reads as a latch rather than a
+                          toggle. */}
+                      <span
+                        className="relative size-4 shrink-0 transition-transform duration-300 ease-out group-open:rotate-180"
+                        aria-hidden
+                      >
                         <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-brass" />
                         <span className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-brass transition-transform duration-200 group-open:scale-y-0" />
                       </span>
                     </summary>
-                    <div className="pr-10 pb-6">
+                    <div className="faq-answer pr-10 pb-6">
                       <Prose>{entry.answer}</Prose>
                     </div>
                   </details>
@@ -559,7 +557,11 @@ export default async function InvitationPage({
           >
             {gallery.length > 0 && (
               <div className="relative mx-auto h-56 w-full max-w-md sm:h-64" aria-hidden>
-                {/* The three latest prints, put down on the table. */}
+                {/* The three latest prints, put down on the table. Each is
+                    a way into the album - pick one up and it straightens
+                    in your hand - but out of the tab order and hidden
+                    from a screen reader, which has the button below and
+                    does not need three more of it. */}
                 {gallery.slice(0, 3).map((photo, index) => {
                   const place = [
                     { left: "34%", angle: "-9deg", z: "z-0" },
@@ -567,11 +569,13 @@ export default async function InvitationPage({
                     { left: "66%", angle: "10deg", z: "z-20" },
                   ][index];
                   return (
-                    <span
+                    <Link
                       key={photo.id}
+                      href={`/i/${token}/photos`}
+                      tabIndex={-1}
                       data-reveal=""
                       className={`fan fan-in absolute top-2 ${place.z} w-36 bg-card p-1.5 shadow-overlay sm:w-44`}
-                      style={{ left: place.left, "--fan-angle": place.angle } as React.CSSProperties}
+                      style={{ left: place.left, "--fan-rest": place.angle } as React.CSSProperties}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
@@ -581,7 +585,7 @@ export default async function InvitationPage({
                         decoding="async"
                         className="aspect-[4/5] w-full object-cover"
                       />
-                    </span>
+                    </Link>
                   );
                 })}
               </div>
@@ -656,7 +660,7 @@ function Fact({
       {href ? (
         <a
           href={href}
-          className="block rounded-md transition-colors hover:text-brass"
+          className="nod-on-hover block rounded-md transition-colors hover:text-brass"
           {...(href.startsWith("http") ? { target: "_blank", rel: "noreferrer noopener" } : {})}
         >
           {body}

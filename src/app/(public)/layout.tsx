@@ -53,9 +53,7 @@ export default function PublicLayout({ children }: LayoutProps<"/">) {
            * that is never going to run here, so release those too.
            */
           `[data-reveal]{opacity:var(--sketch-opacity,1)!important;` +
-          `transform:translateX(var(--sketch-x,0))!important}` +
-          `[data-reveal] [data-draw]{stroke-dashoffset:0!important}` +
-          `[data-reveal] [data-seed]{opacity:1!important}`
+          `transform:translateX(var(--sketch-x,0))!important}`
         }</style>
       </noscript>
       {children}
