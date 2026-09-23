@@ -67,6 +67,7 @@ export default async function InvitationsPage() {
   // The playlist: one line per song however many households asked,
   // matched the same way the invitation matches them, so what the couple
   // see here and what a guest is told on the card cannot disagree.
+  const householdName = new Map(householdRows.map((h) => [h.id, h.name]));
   const playlist = new Map<
     string,
     { title: string; artist: string | null; householdIds: Set<number> }
@@ -306,8 +307,9 @@ export default async function InvitationsPage() {
       <section className="mt-10">
         <h2 className="font-display text-xl text-ink">The playlist</h2>
         <p className="mt-1 text-sm text-ink-soft">
-          Every song asked for on a reply card, the most requested first.
-          A song two households both picked is listed once.
+          Every song asked for on a reply card, the most requested first,
+          with who asked for it. A song two households both picked is
+          listed once.
         </p>
         {playlistRows.length === 0 ? (
           <div className="mt-4">
@@ -327,6 +329,15 @@ export default async function InvitationsPage() {
                   <p className="truncate text-sm font-medium text-ink">{song.title}</p>
                   <p className="truncate text-xs text-ink-faint">
                     {song.artist ?? "Typed in, no artist given"}
+                  </p>
+                  {/* Which reply card it came off. The whole list is
+                      household by household above; this is the same fact
+                      the other way round, so a song can be traced back
+                      without scrolling for it. */}
+                  <p className="mt-0.5 text-xs text-ink-soft">
+                    {[...song.householdIds]
+                      .map((id) => householdName.get(id) ?? "Unknown household")
+                      .join(", ")}
                   </p>
                 </div>
                 {song.householdIds.size > 1 && (

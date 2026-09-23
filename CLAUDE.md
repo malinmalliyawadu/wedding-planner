@@ -401,7 +401,9 @@ household, replaced whole with every reply; the old one-line
   typed request with no artist keys on the title alone and does not
   match a picked one - "Hallelujah" is not a song anyone can be sure of.
 - `/admin/invitations` shows each household's songs and, under "The
-  playlist", the whole list with a count where households agree.
+  playlist", the whole list with the households that asked for each song
+  and a count where they agree. Requests are per household, never per
+  guest: the card is one reply for everyone on it.
 
 ### The card as a whole (the second pass)
 
@@ -456,7 +458,11 @@ and gave the long page a way to be *used* as well as read.
   furniture and reads as a website on stationery.
 - **Blocks arrive as you reach them** (`Rise`), on the same
   `view()`-or-`data-shown` path as the marginalia, so there is one
-  fallback and reduced motion switches one list off.
+  fallback and reduced motion switches one list off. The rise runs over
+  a fixed 30vh of scroll (`entry 0% entry 30vh`), not a share of the
+  block's own height: written as a percentage, a section heading was
+  over in under one turn of a mouse wheel and simply appeared, while the
+  reply card stayed translucent for most of a screen.
 - **The album lays prints at their own proportions** in columns, using
   the width and height recorded at upload so nothing reflows, and opens
   one at a time on a native `<dialog>` lightbox. The invitation shows
@@ -598,8 +604,13 @@ envelope. Generous, one idea per screen, mobile-first.
 - Four CSS traps, all commented at the point of use: SVG `<g>` needs
   `transform-box: fill-box` or percentage translates never apply;
   `preserve-3d` means depth, not `z-index`, decides what occludes - hence
-  the flap's `translateZ(1px)` and the seal's `translateZ(2px)`, without
-  which the flap swallows the top half of the wax holding it shut;
+  the flap's `translateZ(2px)` and the seal's `translateZ(4px)`, without
+  which the flap swallows the top half of the wax holding it shut - and
+  **no two surfaces share a depth** (back -2, front 0, lining 1, flap 2,
+  seal 4; the flap's shading is the face's own `::after`, not a third
+  sibling), because two planes at exactly the same depth are left to the
+  compositor to order, and a depth-buffered one fights it out per pixel
+  on every frame the envelope tilts under the pointer;
   `backface-visibility: hidden` is right on the flap's *two* faces and
   was wrong on the one face it used to have, where it made the flap
   vanish mid-swing; and a box deliberately wider than its container
