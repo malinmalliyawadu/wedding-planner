@@ -2,7 +2,7 @@ import { CalendarPlus, Camera, MapPin } from "lucide-react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { dateInWords, timeInWords } from "@/lib/date-words";
+import { timeInWords } from "@/lib/time-words";
 import { daysUntilNZ, formatDateFull, formatDateLong } from "@/lib/dates";
 import {
   getFaq,
@@ -71,7 +71,6 @@ export default async function InvitationPage({
   const initialA = (site.partnerAName[0] ?? "A").toUpperCase();
   const initialB = (site.partnerBName[0] ?? "B").toUpperCase();
   const daysAway = site.weddingDate ? daysUntilNZ(site.weddingDate) : null;
-  const words = site.weddingDate ? dateInWords(site.weddingDate) : null;
   const ceremonyWords = site.ceremonyTime ? timeInWords(site.ceremonyTime) : null;
   const town = site.venueAddress ? townFrom(site.venueAddress) : null;
   const lodge = isVenueDrawn(site.venueName);
@@ -214,13 +213,10 @@ export default async function InvitationPage({
 
               <Ornament className="mt-7" />
 
-              {words && (
+              {site.weddingDate && (
                 <div className="rise-now mt-7 [--rise-delay:560ms]">
                   <p className="font-display text-[clamp(1.2rem,4.2vw,1.7rem)] leading-tight text-ink">
-                    {words.weekday}, {words.day}
-                  </p>
-                  <p className="mt-1 font-display text-[clamp(1.05rem,3.6vw,1.35rem)] text-ink-soft">
-                    {words.year}
+                    {formatDateFull(site.weddingDate)}
                   </p>
                   {site.ceremonyTime && (
                     <p className="formula mt-3 text-[clamp(1.1rem,3.6vw,1.4rem)] text-ink-soft">
