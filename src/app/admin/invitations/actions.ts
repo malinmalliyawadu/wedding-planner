@@ -1,12 +1,13 @@
 "use server";
 
-import { eq, isNull } from "drizzle-orm";
+import { asc, eq, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
 import { faqItems, households, publicSite } from "@/db/schema";
 import type { ActionResult } from "@/lib/action-result";
 import { newInviteToken } from "@/lib/invite-token";
+import { type Direction, moveOne } from "@/lib/reorder";
 import { requireAdmin } from "@/lib/auth/session";
 
 /**
@@ -160,9 +161,13 @@ export async function updateSiteContent(
 const faqSchema = z.object({
   question: z.string().trim().min(1, "A question is required").max(300),
   answer: z.string().trim().min(1, "An answer is required").max(2000),
-  sortOrder: z.coerce.number().int().min(0).max(999),
 });
 
+/**
+ * Add a question or edit one. Where it sits is not this form's business:
+ * a new one goes on the end, and an edit keeps its place - otherwise a
+ * dialog left open across a move would put the old position back.
+ */
 export async function saveFaq(
   _prev: ActionResult,
   formData: FormData,
@@ -172,7 +177,6 @@ export async function saveFaq(
   const parsed = faqSchema.safeParse({
     question: formData.get("question") ?? "",
     answer: formData.get("answer") ?? "",
-    sortOrder: formData.get("sortOrder") ?? "0",
   });
   if (!parsed.success) {
     return { status: "error", message: parsed.error.issues[0].message };
@@ -182,8 +186,43 @@ export async function saveFaq(
   if (Number.isSafeInteger(id) && id > 0) {
     await db.update(faqItems).set(parsed.data).where(eq(faqItems.id, id));
   } else {
-    await db.insert(faqItems).values(parsed.data);
+    await db.insert(faqItems).values({
+      ...parsed.data,
+      sortOrder: sql`(select coalesce(max(${faqItems.sortOrder}) + 1, 0) from ${faqItems})`,
+    });
   }
+
+  revalidatePath("/admin/invitations/content");
+  return { status: "success" };
+}
+
+/**
+ * Move a question one place up or down the list guests read.
+ *
+ * Renumbers the whole list rather than swapping two numbers, so orders
+ * that were tied or gappy come out clean after the first move.
+ */
+export async function moveFaq(id: number, direction: Direction): Promise<ActionResult> {
+  await requireAdmin();
+
+  // Checked, not trusted: an action takes whatever arguments are posted.
+  if (!Number.isSafeInteger(id) || (direction !== "up" && direction !== "down")) {
+    return { status: "error", message: "That move was not understood" };
+  }
+
+  await db.transaction(async (tx) => {
+    const current = await tx
+      .select({ id: faqItems.id, sortOrder: faqItems.sortOrder })
+      .from(faqItems)
+      .orderBy(asc(faqItems.sortOrder), asc(faqItems.id))
+      .for("update");
+
+    const next = moveOne(current, id, direction);
+    for (const [index, item] of next.entries()) {
+      if (item.sortOrder === index) continue;
+      await tx.update(faqItems).set({ sortOrder: index }).where(eq(faqItems.id, item.id));
+    }
+  });
 
   revalidatePath("/admin/invitations/content");
   return { status: "success" };
