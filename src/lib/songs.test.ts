@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   MAX_SONG_REQUESTS,
+  buildPlaylist,
   describeSong,
   normaliseSongRequests,
   sameSong,
@@ -74,6 +75,55 @@ describe("normaliseSongRequests", () => {
     expect(normaliseSongRequests([{ title: "X", artist: "", externalId: "" }])).toEqual([
       { title: "X", artist: null, externalId: null },
     ]);
+  });
+});
+
+describe("buildPlaylist", () => {
+  it("lists a song once however many households asked, most asked first", () => {
+    const playlist = buildPlaylist([
+      { householdId: 1, title: "Waterloo", artist: "ABBA" },
+      { householdId: 2, title: "Dancing Queen", artist: "ABBA" },
+      { householdId: 3, title: "Dancing Queen (Live)", artist: "ABBA" },
+      { householdId: 1, title: "Dancing Queen", artist: "ABBA" },
+    ]);
+    expect(playlist.map((song) => [song.title, song.householdIds])).toEqual([
+      ["Dancing Queen", [2, 3, 1]],
+      ["Waterloo", [1]],
+    ]);
+  });
+
+  it("breaks ties by title so the list does not shuffle between loads", () => {
+    const playlist = buildPlaylist([
+      { householdId: 1, title: "Zebra", artist: null },
+      { householdId: 2, title: "Apple", artist: null },
+    ]);
+    expect(playlist.map((song) => song.title)).toEqual(["Apple", "Zebra"]);
+  });
+
+  it("shows the picked form when a typed request matches it", () => {
+    // Typed first, picked second: the line still reads title and artist
+    // apart, because that is the form that knows which is which.
+    const [song] = buildPlaylist([
+      { householdId: 1, title: "ABBA - Dancing Queen", artist: null },
+      { householdId: 2, title: "Dancing Queen", artist: "ABBA" },
+    ]);
+    expect(song).toEqual({
+      title: "Dancing Queen",
+      artist: "ABBA",
+      householdIds: [1, 2],
+    });
+  });
+
+  it("counts a household once for a song it asked for twice", () => {
+    const [song] = buildPlaylist([
+      { householdId: 1, title: "Waterloo", artist: "ABBA" },
+      { householdId: 1, title: "Waterloo [Remastered]", artist: "ABBA" },
+    ]);
+    expect(song.householdIds).toEqual([1]);
+  });
+
+  it("is empty for no requests", () => {
+    expect(buildPlaylist([])).toEqual([]);
   });
 });
 

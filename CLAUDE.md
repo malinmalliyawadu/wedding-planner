@@ -441,10 +441,12 @@ household, replaced whole with every reply; the old one-line
   so an obscure song or a catalogue outage never blocks a reply. A
   typed request with no artist keys on the title alone and does not
   match a picked one - "Hallelujah" is not a song anyone can be sure of.
-- `/admin/invitations` shows each household's songs and, under "The
-  playlist", the whole list with the households that asked for each song
-  and a count where they agree. Requests are per household, never per
-  guest: the card is one reply for everyone on it.
+- `/admin/invitations` shows a household's songs inside its reply, and
+  `/admin/invitations/playlist` is the whole list turned the other way
+  round - by song, with the households that asked for each and a count
+  where they agree (`buildPlaylist` in `songs.ts`, pure and tested).
+  Requests are per household, never per guest: the card is one reply for
+  everyone on it.
 
 ### The card as a whole (the second pass)
 

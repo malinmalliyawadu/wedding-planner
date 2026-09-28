@@ -102,6 +102,52 @@ export function describeSong(song: { title: string; artist: string | null }): st
   return song.artist ? `${song.title} - ${song.artist}` : song.title;
 }
 
+export type PlaylistEntry = {
+  title: string;
+  artist: string | null;
+  /** Every household that asked for it, in the order their requests were stored. */
+  householdIds: number[];
+};
+
+/**
+ * Every song asked for, once each, the most requested first.
+ *
+ * Requests are matched by `songKey` - the same way the reply card tells a
+ * guest a song is already on the list - so what the couple see here and
+ * what a guest was told cannot disagree. Where a typed request and a
+ * picked one match, the picked form is shown: it carries the artist apart
+ * from the title, which the typed one ran together on one line.
+ */
+export function buildPlaylist(
+  requests: { householdId: number; title: string; artist: string | null }[],
+): PlaylistEntry[] {
+  const byKey = new Map<string, PlaylistEntry>();
+  for (const song of requests) {
+    const key = songKey(song.title, song.artist);
+    const entry = byKey.get(key);
+    if (!entry) {
+      byKey.set(key, {
+        title: song.title,
+        artist: song.artist,
+        householdIds: [song.householdId],
+      });
+      continue;
+    }
+    if (!entry.artist && song.artist) {
+      entry.title = song.title;
+      entry.artist = song.artist;
+    }
+    if (!entry.householdIds.includes(song.householdId)) {
+      entry.householdIds.push(song.householdId);
+    }
+  }
+  return [...byKey.values()].sort(
+    (a, b) =>
+      b.householdIds.length - a.householdIds.length ||
+      a.title.localeCompare(b.title),
+  );
+}
+
 /** One line of whitespace, trimmed, and never longer than is stored. */
 export function cleanSongText(text: string | null | undefined): string {
   return (text ?? "").replace(/\s+/g, " ").trim().slice(0, MAX_SONG_TEXT);

@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildChaseList,
   countAttending,
+  householdStatus,
+  outstandingIn,
   repliedHouseholds,
   type RsvpGuest,
   type RsvpHousehold,
@@ -58,6 +60,63 @@ describe("countAttending", () => {
       catered: 0,
       bodies: 0,
     });
+  });
+});
+
+describe("householdStatus", () => {
+  it("is replied once nobody is left pending, whichever way they answered", () => {
+    expect(
+      householdStatus(
+        household(1, "Mixed", [guest("adult", "attending"), guest("adult", "declined")]),
+      ),
+    ).toBe("replied");
+  });
+
+  it("is partial while some have answered and some have not", () => {
+    expect(
+      householdStatus(
+        household(1, "Half", [guest("adult", "attending"), guest("adult", "pending")]),
+      ),
+    ).toBe("partial");
+  });
+
+  it("tells a household that was never sent a link from one that went quiet", () => {
+    expect(householdStatus(household(1, "Quiet", [guest("adult", "pending")]))).toBe(
+      "not_replied",
+    );
+    expect(
+      householdStatus(
+        household(1, "Unsent", [guest("adult", "pending")], { inviteToken: null }),
+      ),
+    ).toBe("no_link");
+  });
+
+  it("calls a half-answered household partial even with no link on record", () => {
+    // Somebody answered, so a link plainly worked; the missing answers are
+    // the thing to chase, not the column.
+    expect(
+      householdStatus(
+        household(1, "Odd", [guest("adult", "attending"), guest("adult", "pending")], {
+          inviteToken: null,
+        }),
+      ),
+    ).toBe("partial");
+  });
+
+  it("is empty for a household with nobody on it", () => {
+    expect(householdStatus(household(1, "Empty", []))).toBe("empty");
+  });
+
+  it("counts the outstanding answers", () => {
+    expect(
+      outstandingIn(
+        household(1, "Big", [
+          guest("adult", "attending"),
+          guest("adult", "pending"),
+          guest("child", "pending"),
+        ]),
+      ),
+    ).toBe(2);
   });
 });
 

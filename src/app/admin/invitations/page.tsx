@@ -1,32 +1,50 @@
 import { asc } from "drizzle-orm";
 import { headers } from "next/headers";
 import Link from "next/link";
+import { ListMusic, PenLine } from "lucide-react";
 import QRCode from "qrcode";
 import { db } from "@/db";
 import { guests, households, publicSite, songRequests } from "@/db/schema";
-import { Chip, EmptyState, PageHeader } from "@/components/ui";
+import { EmptyState, PageHeader } from "@/components/ui";
+import { formatMomentNZ } from "@/lib/dates";
 import { inviteUrl } from "@/lib/invite-token";
-import { describeSong, songKey } from "@/lib/songs";
+import { describeSong } from "@/lib/songs";
 import {
   buildChaseList,
   countAttending,
+  householdStatus,
+  outstandingIn,
   repliedHouseholds,
   type RsvpHousehold,
 } from "@/lib/rsvp-summary";
-import { InviteRow } from "./invite-row";
+import { InvitationFilters } from "./filters";
+import { InviteRow, type InviteRowData } from "./invite-row";
 import { PublishToggle } from "./publish-toggle";
+import { parseView } from "./views";
 
 export const dynamic = "force-dynamic";
 
+const ACTION_LINK =
+  "inline-flex min-h-9 items-center gap-2 rounded-md border border-hairline-strong bg-card px-4 text-sm text-ink transition-colors hover:border-ink-faint";
+
 /**
- * The couple's view of the invitation: whether it is live, who has a
- * link, who has replied and who needs chasing.
+ * The couple's view of the invitation: whether it is live, where the
+ * numbers stand, and one row per household carrying its status, its link
+ * and - opened - its reply. The filter above the list is the old chase
+ * list and list of replies, as two views of the same rows rather than two
+ * more copies of them.
  *
  * The origin is taken from the request rather than configured, because
  * the only thing a link has to match is the domain the couple are
  * looking at it on. Nothing to set, nothing to get wrong on a rename.
  */
-export default async function InvitationsPage() {
+export default async function InvitationsPage({
+  searchParams,
+}: PageProps<"/admin/invitations">) {
+  const params = await searchParams;
+  const view = parseView(params.show);
+  const q = typeof params.q === "string" ? params.q.trim().toLowerCase() : "";
+
   const [headerList, [site], householdRows, guestRows, songRows] = await Promise.all([
     headers(),
     db.select().from(publicSite).limit(1),
@@ -57,45 +75,12 @@ export default async function InvitationsPage() {
     byHousehold.set(guest.householdId, list);
   }
 
-  const songsByHousehold = new Map<number, typeof songRows>();
+  const songsByHousehold = new Map<number, string[]>();
   for (const song of songRows) {
     const list = songsByHousehold.get(song.householdId) ?? [];
-    list.push(song);
+    list.push(describeSong(song));
     songsByHousehold.set(song.householdId, list);
   }
-
-  // The playlist: one line per song however many households asked,
-  // matched the same way the invitation matches them, so what the couple
-  // see here and what a guest is told on the card cannot disagree.
-  const householdName = new Map(householdRows.map((h) => [h.id, h.name]));
-  const playlist = new Map<
-    string,
-    { title: string; artist: string | null; householdIds: Set<number> }
-  >();
-  for (const song of songRows) {
-    const key = songKey(song.title, song.artist);
-    const entry = playlist.get(key) ?? {
-      title: song.title,
-      artist: song.artist,
-      householdIds: new Set<number>(),
-    };
-    // A picked request carries title and artist apart; a typed one has
-    // them run together on one line. Show the picked form when there is
-    // one, whichever household's came first.
-    if (!entry.artist && song.artist) {
-      entry.title = song.title;
-      entry.artist = song.artist;
-    }
-    entry.householdIds.add(song.householdId);
-    playlist.set(key, entry);
-  }
-  const playlistRows = [...playlist.values()].sort(
-    (a, b) =>
-      b.householdIds.size - a.householdIds.size ||
-      a.title.localeCompare(b.title),
-  );
-  const askedElsewhere = (song: { title: string; artist: string | null }) =>
-    (playlist.get(songKey(song.title, song.artist))?.householdIds.size ?? 1) - 1;
 
   const enriched: RsvpHousehold[] = householdRows.map((household) => ({
     id: household.id,
@@ -110,6 +95,16 @@ export default async function InvitationsPage() {
   const replied = repliedHouseholds(enriched);
   const total = countAttending(guestRows);
   const withoutLinks = householdRows.filter((h) => h.inviteToken === null).length;
+
+  // Each view has its own order: the ones to chase in the order worth
+  // working through them, replies newest first, everyone by name.
+  const shown = (
+    view === "chase"
+      ? chase.map((entry) => entry.household)
+      : view === "replied"
+        ? replied
+        : enriched
+  ).filter((household) => q === "" || household.name.toLowerCase().includes(q));
 
   // Only for the households that have a link, and only once per page.
   const qrCodes = new Map<number, string>();
@@ -128,11 +123,63 @@ export default async function InvitationsPage() {
       }),
   );
 
-  const CHASE_LABELS = {
-    partial: "Half answered",
-    not_replied: "No reply yet",
-    no_link: "No link sent",
-  } as const;
+  const rowByHousehold = new Map(householdRows.map((h) => [h.id, h]));
+  const rows: InviteRowData[] = shown.map((household) => {
+    const row = rowByHousehold.get(household.id)!;
+    return {
+      id: household.id,
+      name: household.name,
+      address: row.address,
+      url: row.inviteToken ? inviteUrl(origin, row.inviteToken) : null,
+      qr: qrCodes.get(household.id) ?? null,
+      status: householdStatus(household),
+      outstanding: outstandingIn(household),
+      coming: countAttending(household.guests).bodies,
+      repliedAt: row.rsvpRespondedAt ? formatMomentNZ(row.rsvpRespondedAt) : null,
+      message: row.rsvpMessage,
+      people: (byHousehold.get(household.id) ?? []).map((person) => ({
+        id: person.id,
+        name: `${person.firstName} ${person.lastName}`,
+        ageBracket: person.ageBracket,
+        rsvpStatus: person.rsvpStatus,
+        dietaryNotes: person.dietaryNotes,
+      })),
+      songs: songsByHousehold.get(household.id) ?? [],
+    };
+  });
+
+  const stats = [
+    {
+      label: "Coming",
+      value: total.bodies,
+      hint: `${total.catered} catered`,
+      href: "/admin/guests?rsvp=attending",
+    },
+    {
+      label: "Replied",
+      value: replied.length,
+      hint: `of ${enriched.length} households`,
+      href: "/admin/invitations?show=replied",
+    },
+    {
+      label: "To chase",
+      value: chase.length,
+      hint: withoutLinks > 0 ? `${withoutLinks} with no link` : "everyone has a link",
+      href: "/admin/invitations?show=chase",
+    },
+  ] as const;
+
+  const empty =
+    householdRows.length === 0
+      ? {
+          title: "No households yet",
+          hint: "Households come from the guest list. Add people there and their households appear here.",
+        }
+      : q !== ""
+        ? { title: "No household matches", hint: "Try a shorter name." }
+        : view === "chase"
+          ? { title: "Everyone has answered", hint: "Nothing to chase. Enjoy the feeling." }
+          : { title: "No replies yet", hint: "They will appear here as households answer." };
 
   return (
     <>
@@ -140,12 +187,16 @@ export default async function InvitationsPage() {
         eyebrow="The public side"
         title="Invitations"
         actions={
-          <Link
-            href="/admin/invitations/content"
-            className="inline-flex min-h-9 items-center rounded-md border border-hairline-strong bg-card px-4 text-sm text-ink transition-colors hover:border-ink-faint"
-          >
-            Edit what it says
-          </Link>
+          <>
+            <Link href="/admin/invitations/playlist" className={ACTION_LINK}>
+              <ListMusic className="size-4" aria-hidden />
+              The playlist
+            </Link>
+            <Link href="/admin/invitations/content" className={ACTION_LINK}>
+              <PenLine className="size-4" aria-hidden />
+              Edit what it says
+            </Link>
+          </>
         }
       >
         <p className="mt-3 max-w-2xl text-sm text-ink-soft">
@@ -158,237 +209,43 @@ export default async function InvitationsPage() {
       <PublishToggle published={published} />
 
       {/* ------------------------------------------------------------- *
-       * Where the numbers stand.
+       * Where the numbers stand. Each is a way into the list below.
        * ------------------------------------------------------------- */}
-      <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {[
-          { label: "Coming", value: total.bodies, hint: `${total.catered} catered` },
-          { label: "Replied", value: replied.length, hint: `of ${enriched.length} households` },
-          { label: "To chase", value: chase.length, hint: withoutLinks > 0 ? `${withoutLinks} with no link` : "everyone has a link" },
-        ].map((stat) => (
-          <div
+      <div className="mt-6 grid grid-cols-1 gap-px overflow-hidden rounded-lg border border-hairline bg-hairline sm:grid-cols-3">
+        {stats.map((stat) => (
+          <Link
             key={stat.label}
-            className="rounded-lg border border-hairline bg-card p-5 shadow-card"
+            href={stat.href}
+            className="group bg-card px-5 py-4 transition-colors duration-150 hover:bg-brass-tint/30"
           >
-            <p className="eyebrow text-ink-faint">{stat.label}</p>
+            <p className="eyebrow text-ink-faint transition-colors duration-150 group-hover:text-brass">
+              {stat.label}
+            </p>
             <p className="figures mt-2 text-3xl text-ink">{stat.value}</p>
             <p className="mt-1 text-xs text-ink-faint">{stat.hint}</p>
-          </div>
+          </Link>
         ))}
       </div>
 
       {/* ------------------------------------------------------------- *
-       * Who to nudge.
-       * ------------------------------------------------------------- */}
-      <section className="mt-10">
-        <h2 className="font-display text-xl text-ink">Still to hear from</h2>
-        {chase.length === 0 ? (
-          <div className="mt-4">
-            <EmptyState
-              title="Everyone has answered"
-              hint="Nothing to chase. Enjoy the feeling."
-            />
-          </div>
-        ) : (
-          <ul className="mt-4 rounded-lg border border-hairline bg-card px-5 shadow-card">
-            {chase.map(({ household, reason, outstanding }) => (
-              <li
-                key={household.id}
-                className="flex items-center justify-between gap-3 border-t border-hairline py-3 first:border-t-0"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-ink">
-                    {household.name}
-                  </p>
-                  <p className="text-xs text-ink-faint">
-                    <span className="figures">{outstanding}</span>
-                    {outstanding === 1 ? " person" : " people"} outstanding
-                  </p>
-                </div>
-                <Chip tone={reason === "no_link" ? "madder" : "brass"}>
-                  {CHASE_LABELS[reason]}
-                </Chip>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* ------------------------------------------------------------- *
-       * What people said.
-       * ------------------------------------------------------------- */}
-      <section className="mt-10">
-        <h2 className="font-display text-xl text-ink">Replies</h2>
-        {replied.length === 0 ? (
-          <div className="mt-4">
-            <EmptyState
-              title="No replies yet"
-              hint="They will appear here as households answer."
-            />
-          </div>
-        ) : (
-          <ul className="mt-4 space-y-3">
-            {replied.map((household) => {
-              const row = householdRows.find((h) => h.id === household.id)!;
-              const people = byHousehold.get(household.id) ?? [];
-              return (
-                <li
-                  key={household.id}
-                  className="rounded-lg border border-hairline bg-card p-5 shadow-card"
-                >
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <p className="font-display text-lg text-ink">
-                      {household.name}
-                    </p>
-                    <p className="figures text-xs text-ink-faint">
-                      {countAttending(people).bodies} of {people.length} coming
-                    </p>
-                  </div>
-
-                  <ul className="mt-3 space-y-1.5">
-                    {people.map((person) => (
-                      <li
-                        key={person.id}
-                        className="flex flex-wrap items-center gap-2 text-sm"
-                      >
-                        <span
-                          className={
-                            person.rsvpStatus === "attending"
-                              ? "text-ink"
-                              : "text-ink-faint line-through"
-                          }
-                        >
-                          {person.firstName} {person.lastName}
-                        </span>
-                        {person.rsvpStatus === "attending" &&
-                          person.dietaryNotes && (
-                            <Chip tone="brass">{person.dietaryNotes}</Chip>
-                          )}
-                      </li>
-                    ))}
-                  </ul>
-
-                  {(songsByHousehold.get(household.id) ?? []).length > 0 && (
-                    <ul className="mt-3 space-y-1">
-                      {(songsByHousehold.get(household.id) ?? []).map((song) => {
-                        const others = askedElsewhere(song);
-                        return (
-                          <li
-                            key={song.id}
-                            className="flex flex-wrap items-center gap-2 text-sm text-ink-soft"
-                          >
-                            <span className="eyebrow text-ink-faint">Song</span>
-                            {describeSong(song)}
-                            {others > 0 && (
-                              <Chip tone="brass">
-                                also asked for by {others} other{others === 1 ? "" : "s"}
-                              </Chip>
-                            )}
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                  {row.rsvpMessage && (
-                    <p className="mt-2 border-l-2 border-brass-tint pl-3 text-sm whitespace-pre-line text-ink-soft italic">
-                      {row.rsvpMessage}
-                    </p>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      {/* ------------------------------------------------------------- *
-       * Every song asked for, as one playlist.
-       * ------------------------------------------------------------- */}
-      <section className="mt-10">
-        <h2 className="font-display text-xl text-ink">The playlist</h2>
-        <p className="mt-1 text-sm text-ink-soft">
-          Every song asked for on a reply card, the most requested first,
-          with who asked for it. A song two households both picked is
-          listed once.
-        </p>
-        {playlistRows.length === 0 ? (
-          <div className="mt-4">
-            <EmptyState
-              title="No requests yet"
-              hint="Songs guests ask for on the reply card will collect here."
-            />
-          </div>
-        ) : (
-          <ul className="mt-4 rounded-lg border border-hairline bg-card px-5 shadow-card">
-            {playlistRows.map((song) => (
-              <li
-                key={`${song.title}|${song.artist ?? ""}`}
-                className="flex items-center justify-between gap-3 border-t border-hairline py-3 first:border-t-0"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-ink">{song.title}</p>
-                  <p className="truncate text-xs text-ink-faint">
-                    {song.artist ?? "Typed in, no artist given"}
-                  </p>
-                  {/* Which reply card it came off. The whole list is
-                      household by household above; this is the same fact
-                      the other way round, so a song can be traced back
-                      without scrolling for it. */}
-                  <p className="mt-0.5 text-xs text-ink-soft">
-                    {[...song.householdIds]
-                      .map((id) => householdName.get(id) ?? "Unknown household")
-                      .join(", ")}
-                  </p>
-                </div>
-                {song.householdIds.size > 1 && (
-                  <Chip tone="brass">
-                    <span className="figures">{song.householdIds.size}</span> households
-                  </Chip>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* ------------------------------------------------------------- *
-       * The links themselves.
+       * The households, one row each.
        * ------------------------------------------------------------- */}
       <section className="mt-10 pb-4">
-        <h2 className="font-display text-xl text-ink">Links and QR codes</h2>
-        <p className="mt-1 text-sm text-ink-soft">
-          A QR code is what goes on the table card on the night, so guests
-          can reach the photo album without typing anything.
-        </p>
-        <ul className="mt-4 rounded-lg border border-hairline bg-card px-5 shadow-card">
-          {householdRows.map((household) => {
-            const people = byHousehold.get(household.id) ?? [];
-            const answered =
-              people.length > 0 &&
-              people.every((person) => person.rsvpStatus !== "pending");
-            return (
-              <InviteRow
-                key={household.id}
-                householdId={household.id}
-                name={household.name}
-                address={household.address}
-                url={
-                  household.inviteToken
-                    ? inviteUrl(origin, household.inviteToken)
-                    : null
-                }
-                qr={qrCodes.get(household.id) ?? null}
-                status={
-                  answered
-                    ? { label: "Replied", tone: "fern" }
-                    : household.inviteToken
-                      ? { label: "Waiting", tone: "brass" }
-                      : { label: "No link", tone: "neutral" }
-                }
-              />
-            );
-          })}
-        </ul>
+        <h2 className="font-display text-xl text-ink">Households</h2>
+        <div className="mt-4">
+          <InvitationFilters />
+        </div>
+        {rows.length === 0 ? (
+          <div className="mt-4">
+            <EmptyState title={empty.title} hint={empty.hint} />
+          </div>
+        ) : (
+          <ul className="mt-4 rounded-lg border border-hairline bg-card px-5 shadow-card">
+            {rows.map((household) => (
+              <InviteRow key={household.id} household={household} />
+            ))}
+          </ul>
+        )}
       </section>
     </>
   );
