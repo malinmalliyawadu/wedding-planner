@@ -45,10 +45,40 @@ export function countAttending(guests: RsvpGuest[]): HeadCount {
   };
 }
 
-export type ChaseReason =
-  | "no_link"
+export type HouseholdStatus =
+  | "replied"
+  | "partial"
   | "not_replied"
-  | "partial";
+  | "no_link"
+  | "empty";
+
+/** The statuses that still want something done about them. */
+export type ChaseReason = Exclude<HouseholdStatus, "replied" | "empty">;
+
+/**
+ * Where one household stands, in a word.
+ *
+ * The invitations page shows this against every row and the chase list
+ * gives it as its reason, from the one function, so a row can never say
+ * "waiting" about a household the chase list calls half answered.
+ *
+ * "Partial" outranks the link: a household that half-replied plainly has
+ * a working link, whatever the column says, and the missing answers are
+ * the thing to fix.
+ */
+export function householdStatus(household: RsvpHousehold): HouseholdStatus {
+  if (household.guests.length === 0) return "empty";
+  const outstanding = outstandingIn(household);
+  if (outstanding === 0) return "replied";
+  if (outstanding < household.guests.length) return "partial";
+  return household.inviteToken === null ? "no_link" : "not_replied";
+}
+
+/** How many of the household still have no answer either way. */
+export function outstandingIn(household: RsvpHousehold): number {
+  return household.guests.filter((guest) => guest.rsvpStatus === "pending")
+    .length;
+}
 
 export type ChaseEntry = {
   household: RsvpHousehold;
@@ -77,22 +107,13 @@ export function buildChaseList(households: RsvpHousehold[]): ChaseEntry[] {
 
   const entries: ChaseEntry[] = [];
   for (const household of households) {
-    if (household.guests.length === 0) continue;
-
-    const outstanding = household.guests.filter(
-      (guest) => guest.rsvpStatus === "pending",
-    ).length;
-    if (outstanding === 0) continue;
-
-    const answered = household.guests.length - outstanding;
-    const reason: ChaseReason =
-      answered > 0
-        ? "partial"
-        : household.inviteToken === null
-          ? "no_link"
-          : "not_replied";
-
-    entries.push({ household, reason, outstanding });
+    const status = householdStatus(household);
+    if (status === "empty" || status === "replied") continue;
+    entries.push({
+      household,
+      reason: status,
+      outstanding: outstandingIn(household),
+    });
   }
 
   return entries.sort(
@@ -107,11 +128,7 @@ export function repliedHouseholds(
   households: RsvpHousehold[],
 ): RsvpHousehold[] {
   return households
-    .filter(
-      (household) =>
-        household.guests.length > 0 &&
-        household.guests.every((guest) => guest.rsvpStatus !== "pending"),
-    )
+    .filter((household) => householdStatus(household) === "replied")
     .sort(
       (a, b) =>
         (b.respondedAt?.getTime() ?? 0) - (a.respondedAt?.getTime() ?? 0),
