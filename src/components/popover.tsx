@@ -13,6 +13,8 @@ const EDGE = 8;
 /** Assumed height before the panel has been laid out, and the floor for it. */
 const ASSUMED_HEIGHT = 320;
 const MIN_HEIGHT = 168;
+/** What a <label> leaves alone: a click on one of these is not forwarded. */
+const CONTROLS = "a[href], button, input, select, textarea";
 
 /**
  * A panel anchored to a trigger and drawn in the top layer.
@@ -116,10 +118,23 @@ export function Popover({
       id={id}
       popover="auto"
       // The panel sits in the top layer but is still a DOM descendant of the
-      // <label> that Field renders, and clicking a label forwards a click to
-      // its control. Keeping clicks inside the panel stops a choice from
-      // reopening the trigger it was made from.
-      onClick={(event) => event.stopPropagation()}
+      // <label> that Field renders, and a click on anything in a label that
+      // is not itself a control is forwarded to the label's control - here
+      // the trigger, which toggles the panel shut. That forward is a default
+      // action, not a listener, so stopping propagation does not stop it;
+      // only preventDefault does. A real control keeps its own default.
+      onClick={(event) => {
+        event.stopPropagation();
+        if (!(event.target as Element).closest(CONTROLS)) event.preventDefault();
+      }}
+      // A press inside the panel never moves focus. Where focus lives while
+      // a panel is open is the caller's decision - the trigger for a Select,
+      // the day under the cursor for a DatePicker - and a press on something
+      // that cannot take it (padding, a heading) would otherwise hand it to
+      // the nearest focusable ancestor. Inside a modal that is the <dialog>,
+      // which the onBlur below reads as focus leaving: the panel closes
+      // under the pointer and the release lands on whatever was behind it.
+      onMouseDown={(event) => event.preventDefault()}
       // React's onBlur is focusout, so it catches focus leaving any child:
       // tabbing out of the panel closes it.
       onBlur={(event) => {

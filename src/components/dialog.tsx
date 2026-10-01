@@ -36,6 +36,7 @@ export function Dialog({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
+  const pressedBackdrop = useRef(false);
 
   useEffect(() => {
     const dialog = ref.current;
@@ -48,9 +49,18 @@ export function Dialog({
     <dialog
       ref={ref}
       onClose={onClose}
+      onPointerDown={(e) => {
+        pressedBackdrop.current = e.target === ref.current;
+      }}
       onClick={(e) => {
-        // Click on the backdrop (the dialog element itself) closes.
-        if (e.target === ref.current) onClose();
+        // Click on the backdrop (the dialog element itself) closes - but
+        // only a press that also began there. A click is dispatched on the
+        // nearest common ancestor of where the button went down and where
+        // it came up, so a selection dragged out of a text field, or a
+        // press on a popover panel that closed before the release, both
+        // arrive here looking like a click on the backdrop.
+        if (e.target === ref.current && pressedBackdrop.current) onClose();
+        pressedBackdrop.current = false;
       }}
       className={`m-auto w-[calc(100%-1.5rem)] animate-rise rounded-lg bg-card p-0 text-ink shadow-overlay backdrop:bg-spine/55 backdrop:backdrop-blur-[2px] ${DIALOG_WIDTHS[size]}`}
     >
