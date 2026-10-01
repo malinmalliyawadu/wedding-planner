@@ -216,9 +216,6 @@ export function Select({
         role="listbox"
         aria-labelledby={fieldLabelId}
         aria-label={label}
-        // Keep focus on the trigger: a blurred trigger closes the menu, and
-        // it would close before the click on a row ever landed.
-        onMouseDown={(event) => event.preventDefault()}
         className="py-1"
       >
         {options.length === 0 ? (
