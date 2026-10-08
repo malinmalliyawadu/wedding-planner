@@ -12,10 +12,12 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-  # Stands in for whatever S3-compatible service holds guest photographs
-  # in production. Worth having locally rather than stubbing: the parts
-  # that actually break are the presigned POST policy and the bucket's
-  # CORS rule, and neither of those is exercised by a fake.
+  # Stands in for Cloudflare R2, which holds guest photographs in
+  # production. Worth having locally rather than stubbing: the parts
+  # that actually break are the signed headers on the presigned PUT and
+  # the bucket's CORS rule, and neither of those is exercised by a fake.
+  # MinIO allows browser requests from any origin by default, so no CORS
+  # step is needed here; R2 needs one, and DEPLOYMENT.md has it.
   # Console on 9011, API on 9010, both off the default ports for the
   # same reason Postgres is on 5433.
   s3:
@@ -30,8 +32,8 @@ services:
     volumes:
       - s3data:/data
 
-  # Creates the bucket and allows the browser to POST straight to it,
-  # which is what the app's presigned uploads do. Runs once and exits.
+  # Creates the bucket, private, so the app's presigned PUTs have
+  # somewhere to land. Runs once and exits.
   s3-init:
     image: minio/mc:latest
     depends_on:
