@@ -74,12 +74,12 @@ All **runtime** (not build-time) variables:
 | `DATABASE_URL` | yes | the internal connection string from step 1 |
 | `APP_PASSWORD` | **yes** | the planner's password. `openssl rand -base64 24` |
 | `APP_ORIGIN` | rarely | e.g. `https://wedding.yourdomain.nz`. Only if passkeys complain about the domain |
-| `S3_BUCKET` | photos only | the bucket guest photographs go in |
-| `S3_ACCESS_KEY_ID` | photos only | an access key scoped to that bucket |
-| `S3_SECRET_ACCESS_KEY` | photos only | its secret |
-| `S3_ENDPOINT` | usually | e.g. `https://ap-south-1.vultrobjects.com`. Omit only on real AWS |
-| `S3_REGION` | no | defaults to `us-east-1`, which non-AWS services ignore |
-| `S3_FORCE_PATH_STYLE` | no | defaults to on; set `false` only if your provider needs virtual-host style |
+| `S3_BUCKET` | photos only | the R2 bucket guest photographs go in |
+| `S3_ACCESS_KEY_ID` | photos only | the R2 API token's access key id, scoped to that bucket |
+| `S3_SECRET_ACCESS_KEY` | photos only | its secret access key |
+| `S3_ENDPOINT` | photos only | `https://<account id>.r2.cloudflarestorage.com`. Omit only on real AWS |
+| `S3_REGION` | no | defaults to `us-east-1`, which R2 reads as `auto` |
+| `S3_FORCE_PATH_STYLE` | no | defaults to on, which R2 accepts; set `false` only if a provider needs virtual-host style |
 
 `NODE_ENV`, `PORT` and `HOSTNAME` are baked into the image.
 
@@ -414,35 +414,77 @@ without it.
 Guest photographs do not live in Postgres, so from here on the database
 is no longer your entire backup surface - the bucket is the other half.
 
-Create a bucket on any S3-compatible service (Vultr Object Storage sits
-next to the VPS; Cloudflare R2 is cheaper and has no egress fee). Then:
+The bucket is on **Cloudflare R2**: no egress fee, which is what a wall of
+photographs streamed to every guest's phone would otherwise cost, and the
+first 10GB a month are free. Any S3-compatible service would work - the
+app only speaks S3 - but R2 is the one these steps are written for, and
+one of its quirks shaped the code: R2 does not implement the S3 "POST
+with policy" browser upload, so the app presigns a `PUT` with the type and
+exact size signed into it instead. If you ever move the bucket, keep that
+in mind: a provider that supports presigned `PUT` is all it needs.
 
-1. **Keep the bucket private.** The app streams every photograph itself,
-   so nothing ever links directly into the bucket. That is what makes
-   hiding a photograph in the planner take effect immediately.
-2. **Allow the browser to POST to it.** Guests upload straight to the
-   bucket, so it needs a CORS rule:
+In the Cloudflare dashboard, **R2 Object Storage**:
+
+1. **Create the bucket.** Name it (say `wedding-photos`), location
+   *Automatic* or the hint nearest New Zealand (Oceania is not offered;
+   Asia-Pacific is the closest), default storage class. **Leave public
+   access off** - no `r2.dev` subdomain, no custom domain. The app
+   streams every photograph itself, so nothing ever links into the
+   bucket, and that is what makes hiding a photograph in the planner take
+   effect immediately.
+2. **Add a CORS policy** (bucket → Settings → CORS policy → Add). Guests
+   upload straight to the bucket from the invitation, so the browser
+   needs the bucket's permission to send a `PUT` from your domain:
 
    ```json
    [
      {
        "AllowedOrigins": ["https://wedding.yourdomain.nz"],
-       "AllowedMethods": ["POST"],
-       "AllowedHeaders": ["*"],
+       "AllowedMethods": ["PUT"],
+       "AllowedHeaders": ["Content-Type"],
        "MaxAgeSeconds": 3000
      }
    ]
    ```
 
-   `POST` only, and one origin. Uploads are presigned and expire in five
-   minutes, and the policy caps each file at 8MB, so the bucket refuses
-   anything larger regardless of what a browser claims.
-3. Set the `S3_*` variables from step 3 and redeploy.
-4. Check it: open an invitation, go to the album, add a photograph. If
-   it is not configured, the album says so rather than failing silently.
+   `PUT` only, one origin, one header. The upload URL is presigned and
+   expires in five minutes, and the signature pins the content type and
+   the exact byte count, so the bucket refuses anything else regardless
+   of what a browser claims. (The app caps a ticket at 8MB before it will
+   sign one; photographs are re-encoded on the phone and land well under
+   that.) If you are testing from a second domain, add it as a second
+   origin rather than widening to `*`.
+3. **Create an API token** (R2 overview → *Manage API tokens* → Create
+   *Account* API token). Permission **Object Read & Write**, and under
+   *Specify bucket(s)* pick only this bucket - the key will sit in a VPS
+   environment for a year, and a key that can only touch one bucket of
+   photographs is the right amount of key. No TTL. Copy the **Access Key
+   ID** and **Secret Access Key** from the confirmation screen; the secret
+   is shown once.
+4. **Set the variables** in Coolify (step 3) and redeploy:
+
+   ```
+   S3_BUCKET=wedding-photos
+   S3_ACCESS_KEY_ID=<access key id>
+   S3_SECRET_ACCESS_KEY=<secret access key>
+   S3_ENDPOINT=https://<account id>.r2.cloudflarestorage.com
+   ```
+
+   The endpoint is the **account's**, not the bucket's - the account id
+   is on the R2 overview page, and the same value appears under *S3 API*
+   on the bucket's settings. Leave `S3_REGION` and `S3_FORCE_PATH_STYLE`
+   alone; the defaults are right for R2.
+5. **Check it.** Open an invitation, go to the album, add a photograph.
+   If the bucket is not configured the album says so rather than failing
+   silently; if the upload itself fails, the troubleshooting table at the
+   end has the two likely causes. The planner's `/admin/photos` lists what
+   landed.
 
 Back the bucket up alongside Postgres. Photographs of the day are the one
-thing here that cannot be reconstructed.
+thing here that cannot be reconstructed. R2 has no versioning switch, so
+the backup is a copy: `rclone sync` from the bucket to a disk at home
+once the wedding is over, or Cloudflare's *Super Slurper* into a second
+bucket. A Postgres dump on its own restores a gallery of broken images.
 
 ## 8. First run
 
@@ -512,9 +554,9 @@ was the entire backup surface; it no longer is.
    docker exec <postgres-container> pg_dump -U postgres postgres | gzip > wedding-$(date +%F).sql.gz
    ```
 
-2. **The photo bucket** holds the images themselves. Turn on versioning
-   or a replication rule at the provider. A Postgres backup on its own
-   restores a gallery of broken images.
+2. **The photo bucket** holds the images themselves. See the end of
+   step 7: R2 has no versioning, so copy the bucket out. A Postgres
+   backup on its own restores a gallery of broken images.
 
 The container still holds no state, so there is nothing to back up on the
 VPS itself.
@@ -543,7 +585,8 @@ before it ships rather than after.
 | Guests get a password prompt on their link | You kept basicauth and the public router has the auth middleware on it, or is not matching. Step 6a |
 | Invitation links all 404 | The site is not live — Invitations → Take it live (step 6c) |
 | One invitation 404s and others work | That household has no link yet, or the token was reissued after it was sent |
-| Photo uploads fail | `S3_*` variables missing, or the bucket has no CORS rule for `POST` from your domain (step 7) |
+| Photo uploads fail with "not set up yet" | `S3_*` variables missing, or the API token cannot reach the bucket (step 7) |
+| Photo uploads fail with "did not go through" | The bucket has no CORS rule allowing `PUT` with `Content-Type` from your domain (step 7) - the browser console will say so. Or the clock on the VPS is minutes out, which breaks every signature |
 | Photographs show as broken images | Bucket credentials are readable but the objects are gone — check the bucket, not the database |
 | Container fails to start after adding labels | `$` in the hash is being interpolated; double them to `$$` |
 | PDFs 500 | Fonts missing from the image; check the `src/assets/fonts` COPY in the Dockerfile |
