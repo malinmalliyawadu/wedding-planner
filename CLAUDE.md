@@ -367,6 +367,26 @@ shaped by that.
   hidden (public), `/admin/photos/[id]/image` does not (behind the
   sign-in), or the couple could not see what they had hidden in order to
   unhide it.
+- **The photo booth drops into the same album.** The booth at the venue
+  (`~/Projects/photo-booth`, a separate project) POSTs each finished
+  session's photograph and thumbnail to `/api/booth/photos` with
+  `BOOTH_SYNC_TOKEN` as a bearer; the route checks the token and the
+  bytes (`src/lib/booth.ts`, pure and tested), puts both in the bucket
+  under the same key shape as a guest's upload, and inserts an ordinary
+  `photos` row with `booth_session_id` set and "The photo booth" for a
+  name, so the album, the wall and hiding need no special case. The
+  column is unique: a retry or the attendant's "send again" replaces
+  the objects and keeps `hidden` and `created_at`. The booth's QR code
+  opens `/i/booth/[id]` (under `/i`, so public like the album; `booth`
+  is five characters and can never be a token), which shows the print
+  with a save button, polls itself while the upload is still on its way
+  (`refresh.tsx`), and 404s when the site is unpublished or the photo
+  hidden. `/api/booth/photos` is the one path that is neither public
+  nor behind the session: `carriesOwnCredential` in `proxy.ts` lets it
+  through to its own token check, and lets the public router's stamp
+  through too, because a booth cannot type a basicauth password.
+  Unlike a guest the booth uploads *through* the app, not on a ticket:
+  there is one of it, and checking before storing is worth the hop.
 - `/wall` sits outside `admin/` so a projector gets the picture and no
   sidebar. It is still private: the laptop driving the marquee screen
   signs in once and the session outlasts the night.

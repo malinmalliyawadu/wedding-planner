@@ -533,6 +533,14 @@ export const photos = pgTable("photos", {
   }),
   /** Whoever typed their name on the upload screen; not a guest record. */
   uploaderName: text("uploader_name"),
+  /**
+   * Set when the photo booth sent it (`/api/booth/photos`): the booth's
+   * own ID for the session, which is also what the guest's QR code
+   * carries to `/i/booth/[id]`. Unique, so the booth sending a session
+   * twice (a retry, a resend from its admin page) replaces the photo
+   * rather than adding one. Null for everything guests upload.
+   */
+  boothSessionId: text("booth_session_id").unique(),
   /** Key within the bucket. Opaque, random, never guessable from the id. */
   storageKey: text("storage_key").notNull().unique(),
   /**

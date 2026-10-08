@@ -98,6 +98,22 @@ export function isPublicPath(pathname: string): boolean {
 }
 
 /**
+ * Paths a machine reaches with a credential of its own, checked by the
+ * route itself, rather than a person with a session.
+ *
+ * Just the photo booth's drop. It is not public - a stranger gets a 401
+ * from the route - but it cannot sit behind the sign-in either: the
+ * booth is a worker process at the venue with no browser, no cookie and
+ * no passkey. It carries `BOOTH_SYNC_TOKEN` as a bearer and
+ * `src/app/api/booth/photos/route.ts` is the lock. Letting the public
+ * router stamp it is deliberate too: if basicauth is kept in front of
+ * the planner, the booth still needs a way in, and its own token is it.
+ */
+export function carriesOwnCredential(pathname: string): boolean {
+  return pathname === "/api/booth/photos";
+}
+
+/**
  * Whether this path needs somebody signed in.
  *
  * Private by default, which is the whole point: the question is not "is
@@ -108,11 +124,13 @@ export function isPublicPath(pathname: string): boolean {
  * from inside Docker, where there is no cookie to present, and a health
  * check that reports "not signed in" tells the orchestrator nothing about
  * whether the app can reach Postgres. It answers `ok` or a database error
- * and reads nothing else.
+ * and reads nothing else. The photo booth's drop is the other, and it
+ * checks its own token (`carriesOwnCredential`).
  */
 export function needsSession(pathname: string): boolean {
   if (isPublicPath(pathname)) return false;
   if (pathname === "/api/health") return false;
+  if (carriesOwnCredential(pathname)) return false;
   return true;
 }
 
@@ -173,7 +191,11 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const viaPublicRouter = request.headers.get(PUBLIC_ROUTER_HEADER) !== null;
-  if (viaPublicRouter && !isPublicPath(pathname)) {
+  if (
+    viaPublicRouter &&
+    !isPublicPath(pathname) &&
+    !carriesOwnCredential(pathname)
+  ) {
     // Deliberately indistinguishable from a route that does not exist.
     return new NextResponse("Not found", {
       status: 404,

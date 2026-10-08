@@ -80,6 +80,7 @@ All **runtime** (not build-time) variables:
 | `S3_ENDPOINT` | usually | e.g. `https://ap-south-1.vultrobjects.com`. Omit only on real AWS |
 | `S3_REGION` | no | defaults to `us-east-1`, which non-AWS services ignore |
 | `S3_FORCE_PATH_STYLE` | no | defaults to on; set `false` only if your provider needs virtual-host style |
+| `BOOTH_SYNC_TOKEN` | photo booth only | what the booth presents to `/api/booth/photos`. `openssl rand -base64 24`; see step 7a |
 
 `NODE_ENV`, `PORT` and `HOSTNAME` are baked into the image.
 
@@ -197,6 +198,7 @@ What guests may reach, and nothing else:
 | `/i/<token>/photos` | guests | the shared album |
 | `/i/<token>/wedding.ics` | guests | the calendar file |
 | `/i/photo/<id>` | guests | one photograph (`photo` can never be a token - tokens are 20 characters) |
+| `/i/booth/<id>` | guests | the photo booth's QR page: one booth photograph and a save button (`booth` cannot be a token either) |
 | `/opengraph-image-<hash>` | anyone | the link preview: a picture of the stationery, no data |
 | `/admin/...` | the two of you | the guest list, addresses, budget, savings, seating |
 | `/wall` | the two of you | the projector view for the night |
@@ -444,6 +446,37 @@ next to the VPS; Cloudflare R2 is cheaper and has no egress fee). Then:
 Back the bucket up alongside Postgres. Photographs of the day are the one
 thing here that cannot be reconstructed.
 
+### 7a. The photo booth
+
+Skip this if there is no booth. The booth (the `photo-booth` project)
+sends each finished session's photograph here, so its prints sit in
+the album beside what guests upload, and the QR code on its kiosk
+opens `/i/booth/<id>` on this site.
+
+1. Set `BOOTH_SYNC_TOKEN` (step 3) to something long and random and
+   redeploy. The route answers `503` until it is set, and `401` to
+   anything else.
+2. On the booth, set `GALLERY_SYNC_URL` to
+   `https://wedding.yourdomain.nz/api/booth/photos`,
+   `GALLERY_SYNC_TOKEN` to the same token, and `GALLERY_SESSION_URL` to
+   `https://wedding.yourdomain.nz/i/booth/{id}`.
+3. **If basicauth is still in front of the planner (step 6)**, the
+   booth cannot type a password: add `/api/booth/photos` to the public
+   router's rule. The app lets that one path past the stamp because the
+   route checks the booth's own token; nothing else about the lock
+   changes.
+4. Check it: the booth's admin page has a "Sync" card that asks this
+   site once a minute and says whether the token was accepted. From a
+   shell, this should answer `{"ok":true,"storage":true}`:
+
+   ```bash
+   curl -s -H "Authorization: Bearer $BOOTH_SYNC_TOKEN" https://wedding.yourdomain.nz/api/booth/photos
+   ```
+
+Booth photographs are ordinary album photographs with
+`booth_session_id` set and "The photo booth" where a name would be.
+Hide one in `/admin/photos` like any other and its QR page 404s too.
+
 ## 8. First run
 
 The database starts empty. The app handles that: every page shows an
@@ -545,5 +578,7 @@ before it ships rather than after.
 | One invitation 404s and others work | That household has no link yet, or the token was reissued after it was sent |
 | Photo uploads fail | `S3_*` variables missing, or the bucket has no CORS rule for `POST` from your domain (step 7) |
 | Photographs show as broken images | Bucket credentials are readable but the objects are gone — check the bucket, not the database |
+| The booth says the gallery refuses its token | `BOOTH_SYNC_TOKEN` here and `GALLERY_SYNC_TOKEN` on the booth differ, or basicauth in front of the planner is catching `/api/booth/photos` (step 7a) |
+| A booth QR page says "On its way" and never changes | The booth's upload has not landed: its admin page shows the sync queue and a "send again" button per session |
 | Container fails to start after adding labels | `$` in the hash is being interpolated; double them to `$$` |
 | PDFs 500 | Fonts missing from the image; check the `src/assets/fonts` COPY in the Dockerfile |

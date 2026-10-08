@@ -85,6 +85,13 @@
       "when": 1790130170710,
       "tag": "0011_bizarre_marvel_boy",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791432715941,
+      "tag": "0012_black_captain_britain",
+      "breakpoints": true
     }
   ]
 }
