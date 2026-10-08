@@ -12,6 +12,7 @@ import {
   songRequests,
   tables,
 } from "@/db/schema";
+import { isBoothSessionId } from "@/lib/booth";
 import { isInviteTokenShape } from "@/lib/invite-token";
 import { songKey } from "@/lib/songs";
 
@@ -98,6 +99,15 @@ export type GalleryPhoto = {
   width: number | null;
   height: number | null;
   createdAt: Date;
+};
+
+/** What the photo booth's QR page may know about a booth session's photograph. */
+export type BoothPhoto = {
+  id: number;
+  width: number | null;
+  height: number | null;
+  /** Hidden by the couple: the page 404s, the same as the image route would. */
+  hidden: boolean;
 };
 
 /**
@@ -297,6 +307,31 @@ export const getGallery = cache(async (): Promise<GalleryPhoto[]> => {
     .where(eq(photos.hidden, false))
     .orderBy(desc(photos.createdAt), desc(photos.id));
 });
+
+/**
+ * The photograph the booth sent for one of its sessions, or null when it
+ * has not arrived (yet): the guest scans the QR within seconds of the
+ * booth finishing, and the upload can be a minute behind on venue wifi.
+ * Nothing at all when the site is unpublished, like every other public
+ * page. A nonsense ID costs no database trip.
+ */
+export async function getBoothPhoto(
+  sessionId: string,
+): Promise<BoothPhoto | null> {
+  if (!isBoothSessionId(sessionId)) return null;
+  if ((await getSiteContent()) === null) return null;
+  const [row] = await db
+    .select({
+      id: photos.id,
+      width: photos.width,
+      height: photos.height,
+      hidden: photos.hidden,
+    })
+    .from(photos)
+    .where(eq(photos.boothSessionId, sessionId))
+    .limit(1);
+  return row ?? null;
+}
 
 /**
  * The storage key behind a photo id, for the route that streams it.

@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   allowsAppPasswordAuth,
+  carriesOwnCredential,
   dispatchesServerAction,
   isPublicPath,
   needsSession,
@@ -25,6 +26,7 @@ describe("isPublicPath", () => {
     "/i/abcdefghjkmnpqrstuvw/wedding.ics",
     "/i/photo/12",
     "/i/photo/12/thumb",
+    "/i/booth/abcdefghjkmnpqrstuvw",
     "/login",
     "/_next/static/chunks/main.js",
     "/_next/static/media/marcellus.woff2",
@@ -54,6 +56,7 @@ describe("isPublicPath", () => {
     "/admin/run-sheet",
     "/wall",
     "/api/health",
+    "/api/booth/photos",
   ])("keeps strangers out of %s", (path) => {
     expect(isPublicPath(path)).toBe(false);
   });
@@ -158,6 +161,16 @@ describe("needsSession", () => {
     expect(needsSession("/api/health")).toBe(false);
   });
 
+  it("lets the photo booth's drop through to its own token check", () => {
+    // The booth is a process at the venue with no browser: it cannot hold
+    // a cookie or use a passkey, so the route checks BOOTH_SYNC_TOKEN
+    // itself. Exactly that one path, and nothing hanging off it.
+    expect(needsSession("/api/booth/photos")).toBe(false);
+    expect(needsSession("/api/booth")).toBe(true);
+    expect(needsSession("/api/booth/photos/1")).toBe(true);
+    expect(needsSession("/api/booth/anything")).toBe(true);
+  });
+
   it("guards anything it has never heard of", () => {
     // Private by default is the whole design: a page added tomorrow is
     // behind the sign-in because it exists, not because someone
@@ -165,6 +178,17 @@ describe("needsSession", () => {
     expect(needsSession("/whatever-comes-next")).toBe(true);
     expect(needsSession("/api/something-new")).toBe(true);
     expect(needsSession("/api/health/details")).toBe(true);
+  });
+});
+
+describe("carriesOwnCredential", () => {
+  it("covers the photo booth's drop and nothing else", () => {
+    expect(carriesOwnCredential("/api/booth/photos")).toBe(true);
+    expect(carriesOwnCredential("/api/booth/photos/")).toBe(false);
+    expect(carriesOwnCredential("/api/booth")).toBe(false);
+    expect(carriesOwnCredential("/api/health")).toBe(false);
+    expect(carriesOwnCredential("/admin/photos")).toBe(false);
+    expect(carriesOwnCredential("/i/booth/abcdefghjkmnpqrstuvw")).toBe(false);
   });
 });
 
@@ -240,8 +264,10 @@ describe("every route the app serves", () => {
     ["/i/:token/wedding.ics", "the calendar file for guests"],
     ["/i/photo/:id", "one guest photograph, hidden ones refused"],
     ["/i/photo/:id/thumb", "its thumbnail"],
+    ["/i/booth/:id", "the photo booth's QR page - one booth photograph, hidden ones refused"],
     ["/login", "reachable by definition before signing in"],
     ["/api/health", "probed from inside Docker, reports the database"],
+    ["/api/booth/photos", "the photo booth's drop - checks BOOTH_SYNC_TOKEN itself"],
   ]);
 
   const routes = appRoutes(join(process.cwd(), "src/app"));

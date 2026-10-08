@@ -132,8 +132,33 @@ function getClient(): { client: S3Client; config: StorageConfig } {
  * name. If the bucket is ever made readable by mistake, an unguessable
  * key is the difference between one leaked object and a walkable index.
  */
-function newObjectKey(): string {
+export function newObjectKey(): string {
   return `photos/${crypto.randomUUID()}.jpg`;
+}
+
+/**
+ * Write an object from the server. Guests never come through here -
+ * they upload straight to the bucket on a ticket - but the photo booth
+ * sends its photographs to the app, which has already checked the
+ * booth's token and the bytes before it puts them anywhere. The same
+ * key shape as a ticket's, so everything downstream treats the object
+ * exactly like a guest's.
+ */
+export async function putObject(
+  key: string,
+  body: Uint8Array,
+  contentType: string = UPLOAD_CONTENT_TYPE,
+): Promise<void> {
+  const { client, config } = getClient();
+  await client.send(
+    new PutObjectCommand({
+      Bucket: config.bucket,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+      ContentLength: body.byteLength,
+    }),
+  );
 }
 
 /** Whether a ticket may be minted for a body of this many bytes. */
