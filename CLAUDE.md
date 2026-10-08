@@ -375,7 +375,11 @@ shaped by that.
 - **Two serving routes on purpose**: `/i/photo/[id]` refuses anything
   hidden (public), `/admin/photos/[id]/image` does not (behind the
   sign-in), or the couple could not see what they had hidden in order to
-  unhide it.
+  unhide it. Each has a `/thumb` twin for grids. **`next/image` is
+  banned everywhere by lint**, the planner included: the optimiser
+  fetches its source server-side without the browser's cookie, so on a
+  private route it gets the sign-in page and answers 400 "isn't a valid
+  image". Plain `<img>`, always.
 - **The photo booth drops into the same album.** The booth at the venue
   (`~/Projects/photo-booth`, a separate project) POSTs each finished
   session's photograph and thumbnail to `/api/booth/photos` with
