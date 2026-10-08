@@ -1,5 +1,12 @@
-import { describe, expect, it } from "vitest";
-import { MAX_UPLOAD_BYTES, UPLOAD_CONTENT_TYPE, isIssuedKey } from "./storage";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  MAX_UPLOAD_BYTES,
+  TICKET_TTL_SECONDS,
+  UPLOAD_CONTENT_TYPE,
+  createUploadTicket,
+  isAllowedUploadSize,
+  isIssuedKey,
+} from "./storage";
 
 /**
  * `isIssuedKey` is the gate on what may be written into the photos
@@ -56,5 +63,75 @@ describe("upload limits", () => {
   it("caps a single upload well below a video", () => {
     expect(MAX_UPLOAD_BYTES).toBeLessThanOrEqual(10 * 1024 * 1024);
     expect(MAX_UPLOAD_BYTES).toBeGreaterThan(1024 * 1024);
+  });
+});
+
+describe("isAllowedUploadSize", () => {
+  it.each([1, 4096, MAX_UPLOAD_BYTES])("accepts %d bytes", (size) => {
+    expect(isAllowedUploadSize(size)).toBe(true);
+  });
+
+  it.each([
+    ["zero", 0],
+    ["negative", -1],
+    ["one over the cap", MAX_UPLOAD_BYTES + 1],
+    ["a fraction", 1.5],
+    ["NaN", Number.NaN],
+    ["Infinity", Number.POSITIVE_INFINITY],
+  ])("rejects %s", (_why, size) => {
+    expect(isAllowedUploadSize(size)).toBe(false);
+  });
+});
+
+/**
+ * Presigning needs no network - the signature is computed locally from
+ * the credentials - so the shape of the URL can be pinned exactly. What
+ * matters is which headers the bucket will *check*: the presigner leaves
+ * Content-Type unsigned by default, and a ticket that did not sign the
+ * size would let a client send any file at any length.
+ */
+describe("createUploadTicket", () => {
+  beforeAll(() => {
+    vi.stubEnv("S3_BUCKET", "test-photos");
+    vi.stubEnv("S3_ACCESS_KEY_ID", "AKIATEST");
+    vi.stubEnv("S3_SECRET_ACCESS_KEY", "secret");
+    vi.stubEnv("S3_ENDPOINT", "https://account.r2.cloudflarestorage.com");
+  });
+  afterAll(() => vi.unstubAllEnvs());
+
+  it("signs the type and the exact length into the URL", async () => {
+    const ticket = await createUploadTicket(123_456);
+    const url = new URL(ticket.url);
+    expect(url.searchParams.get("X-Amz-SignedHeaders")).toBe(
+      "content-length;content-type;host",
+    );
+    expect(url.searchParams.get("X-Amz-Expires")).toBe(String(TICKET_TTL_SECONDS));
+    expect(ticket.byteSize).toBe(123_456);
+    expect(ticket.headers).toEqual({ "Content-Type": UPLOAD_CONTENT_TYPE });
+  });
+
+  it("points at the issued key in the configured bucket, path style", async () => {
+    const ticket = await createUploadTicket(10);
+    expect(isIssuedKey(ticket.key)).toBe(true);
+    const url = new URL(ticket.url);
+    expect(url.origin).toBe("https://account.r2.cloudflarestorage.com");
+    expect(url.pathname).toBe(`/test-photos/${ticket.key}`);
+  });
+
+  it("carries no checksum parameters R2 would refuse", async () => {
+    const ticket = await createUploadTicket(10);
+    const names = [...new URL(ticket.url).searchParams.keys()].map((n) => n.toLowerCase());
+    expect(names.some((n) => n.includes("checksum"))).toBe(false);
+  });
+
+  it("issues a fresh key every time", async () => {
+    const a = await createUploadTicket(10);
+    const b = await createUploadTicket(10);
+    expect(a.key).not.toBe(b.key);
+  });
+
+  it("refuses to sign a size outside the cap", async () => {
+    await expect(createUploadTicket(MAX_UPLOAD_BYTES + 1)).rejects.toThrow();
+    await expect(createUploadTicket(0)).rejects.toThrow();
   });
 });

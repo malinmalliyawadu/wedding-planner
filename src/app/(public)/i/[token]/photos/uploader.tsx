@@ -72,21 +72,18 @@ export function Uploader({ token }: { token: string }) {
 
   /** Returns the key the object landed on. */
   async function sendToBucket(blob: Blob): Promise<string> {
-    const permission = await requestUpload(token);
+    // The ticket is signed for this exact byte count, so the size is
+    // asked for up front rather than discovered by the bucket.
+    const permission = await requestUpload(token, blob.size);
     if (!permission.ok) throw new Error(permission.message);
 
-    // Straight to the bucket. The fields must precede the file part -
-    // S3 reads the policy before it reads the body and rejects the whole
-    // request otherwise.
-    const form = new FormData();
-    for (const [key, value] of Object.entries(permission.ticket.fields)) {
-      form.append(key, value);
-    }
-    form.append("file", blob, "photo.jpg");
-
+    // Straight to the bucket. The headers must be exactly the ticket's:
+    // the type is part of the signature, and the browser sets
+    // Content-Length from the blob, which is signed too.
     const response = await fetch(permission.ticket.url, {
-      method: "POST",
-      body: form,
+      method: "PUT",
+      headers: permission.ticket.headers,
+      body: blob,
     });
     if (!response.ok) throw new Error("The upload did not go through");
 

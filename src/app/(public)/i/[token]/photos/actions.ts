@@ -7,6 +7,7 @@ import { photosAreOpen, registerPhoto } from "@/lib/public/mutations";
 import {
   createUploadTicket,
   describeObject,
+  isAllowedUploadSize,
   isIssuedKey,
   type UploadTicket,
 } from "@/lib/storage";
@@ -14,23 +15,33 @@ import {
 /**
  * Uploading happens in two steps with the bucket in between.
  *
- * `requestUpload` mints a presigned POST; the browser sends the file
- * straight to object storage, never through this server. `recordUpload`
- * then indexes what landed - and asks the *bucket* what landed, rather
- * than believing the browser, so the row cannot describe a file that
- * does not exist or lie about its size.
+ * `requestUpload` mints a presigned PUT for a body of one exact size; the
+ * browser sends the file straight to object storage, never through this
+ * server. `recordUpload` then indexes what landed - and asks the *bucket*
+ * what landed, rather than believing the browser, so the row cannot
+ * describe a file that does not exist or lie about its size.
  */
 
 export type UploadPermission =
   | { ok: true; ticket: UploadTicket }
   | { ok: false; message: string };
 
-export async function requestUpload(token: string): Promise<UploadPermission> {
+export async function requestUpload(
+  token: string,
+  byteSize: number,
+): Promise<UploadPermission> {
   if (!isInviteTokenShape(token) || !(await photosAreOpen(token))) {
     return { ok: false, message: "The album is not open at the moment." };
   }
+  // The size is signed into the ticket, so this is where the cap is
+  // applied: a body any larger is never given a URL it could be sent to.
+  // image-prep keeps a photograph well under it, so hitting this means
+  // something went around the uploader.
+  if (!isAllowedUploadSize(byteSize)) {
+    return { ok: false, message: "That photograph is too large to send." };
+  }
   try {
-    return { ok: true, ticket: await createUploadTicket() };
+    return { ok: true, ticket: await createUploadTicket(byteSize) };
   } catch {
     // Almost always a deploy with no bucket credentials. Say something a
     // guest can act on, and leave the detail in the server logs.

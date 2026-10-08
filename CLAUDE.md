@@ -355,10 +355,19 @@ shaped by that.
   The time, title and place are shared, so the two audiences can never
   disagree about when the ceremony is - but `detail` is written for
   suppliers ("power is on the north wall") and is never published.
-- **Photographs** go to S3-compatible storage via a presigned POST, so
-  the browser uploads straight to the bucket and a hundred guests on
-  marquee wifi are not funnelled through the VPS. The policy enforces
-  type and an 8MB cap at the bucket. `src/lib/image-prep.ts` re-encodes
+- **Photographs** go to Cloudflare R2 (any S3-compatible bucket works;
+  MinIO stands in locally) via a presigned PUT, so the browser uploads
+  straight to the bucket and a hundred guests on marquee wifi are not
+  funnelled through the VPS. **PUT, not the S3 POST-with-policy form**,
+  because R2 answers 501 to that form. The difference that matters: a
+  policy accepts a size *range*, a signature accepts one exact size, so
+  the uploader asks for a ticket per blob and `createUploadTicket` signs
+  `Content-Type` and `Content-Length` explicitly - the presigner leaves
+  the type unsigned by default, and an unsigned type is a ticket for
+  anything. The 8MB cap is applied where the ticket is minted, and the
+  bucket enforces the rest. The SDK client sets both checksum options to
+  `WHEN_REQUIRED`: recent SDKs attach CRC32 headers R2 does not
+  implement. `src/lib/image-prep.ts` re-encodes
   on the device first, which fixes HEIC, size, EXIF rotation and the GPS
   tag in one pass. The bucket stays private and the app streams every
   image, so hiding one takes effect immediately instead of racing a
