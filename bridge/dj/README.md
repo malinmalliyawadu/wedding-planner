@@ -207,6 +207,7 @@ them.
 | `DJ_DRIVER` | `claude` | `claude`, `keys` or `fake` |
 | `ANTHROPIC_API_KEY` | - | for the Claude driver |
 | `DJ_WATCH_SECONDS` | `30` | Claude driver: how often it reads the decks |
+| `DJ_APP` | first app named `djay…` | Claude driver: which app to bring forward |
 | `DJ_CONFIG` | `./djay.config.json` | keystroke driver: the calibrated steps |
 | `DJ_POLL_MS` | `3000` | how often to ask |
 | `DJ_FALLBACK_COMMAND` | none | see above |
