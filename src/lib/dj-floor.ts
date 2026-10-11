@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { djFloor, djQueueItems, djVotes, songRequests } from "@/db/schema";
 import { verifyBearerToken } from "./bearer";
 import { fillCoversLater } from "./dj-cover";
+import { newInviteToken } from "./invite-token";
 import {
   ACTIVE_STATUSES,
   REPLAY_GAP_MS,
@@ -34,6 +35,7 @@ const DEFAULT_FLOOR: FloorSettings = {
   open: false,
   skipVotesNeeded: 5,
   bridgeSeenAt: null,
+  shareCode: null,
 };
 
 export async function getFloor(): Promise<FloorSettings> {
@@ -42,12 +44,27 @@ export async function getFloor(): Promise<FloorSettings> {
 }
 
 export async function updateFloor(
-  values: Partial<Pick<FloorSettings, "open" | "skipVotesNeeded" | "bridgeSeenAt">>,
+  values: Partial<Pick<FloorSettings, "open" | "skipVotesNeeded" | "bridgeSeenAt" | "shareCode">>,
 ): Promise<void> {
   await db
     .insert(djFloor)
     .values({ id: 1, ...values })
     .onConflictDoUpdate({ target: djFloor.id, set: values });
+}
+
+/**
+ * Make a new secret for the venue's QR code, retiring the old one: every
+ * printed copy of it stops working at once. An invite token's shape and
+ * strength, because it is the same kind of thing - a link that is the
+ * credential.
+ */
+export async function replaceShareCode(): Promise<void> {
+  await updateFloor({ shareCode: newInviteToken() });
+}
+
+/** The URL in the venue's QR code. `origin` carries no trailing slash. */
+export function danceShareUrl(origin: string, code: string): string {
+  return `${origin.replace(/\/+$/, "")}/i/dance/${code}`;
 }
 
 /**
@@ -76,6 +93,7 @@ export async function loadQueue(now: Date = new Date()): Promise<{
           .select({
             itemId: djVotes.itemId,
             householdId: djVotes.householdId,
+            phoneKey: djVotes.phoneKey,
             kind: djVotes.kind,
           })
           .from(djVotes)

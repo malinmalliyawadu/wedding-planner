@@ -48,10 +48,10 @@ export function isActive(status: QueueStatus): boolean {
 }
 
 /**
- * Songs one household may have waiting at once. Two, so one table cannot
+ * Songs one asker may have waiting at once. Two, so one table cannot
  * fill the night; a slot comes back as soon as djay has the song.
  */
-export const MAX_WAITING_PER_HOUSEHOLD = 2;
+export const MAX_WAITING = 2;
 
 /**
  * How long a song is off the menu after it was on. Without it the
@@ -60,7 +60,7 @@ export const MAX_WAITING_PER_HOUSEHOLD = 2;
  */
 export const REPLAY_GAP_MS = 90 * 60 * 1000;
 
-/** Households that must vote before a song is skipped, unless the couple change it. */
+/** Votes needed before a song is skipped, unless the couple change it. */
 export const DEFAULT_SKIP_VOTES_NEEDED = 5;
 
 /**
@@ -71,13 +71,50 @@ export const DEFAULT_SKIP_VOTES_NEEDED = 5;
  */
 export const CUE_DEPTH = 1;
 
+/**
+ * Who is asking, and voting. A guest reaches the dance floor one of two
+ * ways, and each is its own identity:
+ *
+ * - through their household's invitation link, where the household is
+ *   the asker, exactly as on the reply card;
+ * - through the QR code at the venue, which names nobody, so the phone
+ *   is the asker - an anonymous cookie, stored here only as its hash
+ *   (`src/lib/public/dance-phone.ts`).
+ *
+ * One person could be both, from two links. That is fine: the limits are
+ * there so one table cannot fill the night, not to count heads exactly.
+ */
+export type Asker = { householdId: number } | { phoneKey: string };
+
+/** The asker columns a request or a vote carries. Exactly one is set, or neither for the couple. */
+export type AskerColumns = { householdId: number | null; phoneKey: string | null };
+
+/** The columns a request or vote by this asker is written with. */
+export function askerColumns(asker: Asker): AskerColumns {
+  return "householdId" in asker
+    ? { householdId: asker.householdId, phoneKey: null }
+    : { householdId: null, phoneKey: asker.phoneKey };
+}
+
+/** Whether this row was asked for, or voted, by this asker. */
+export function isAsker(row: AskerColumns, asker: Asker): boolean {
+  return "householdId" in asker
+    ? row.householdId === asker.householdId
+    : row.phoneKey === asker.phoneKey;
+}
+
 export type QueueItem = {
   id: number;
   title: string;
   artist: string | null;
   songKey: string;
-  /** Null when the couple added it, or the DJ played it off their own bat. */
+  /**
+   * Who asked: a household (invitation link) or a phone (the venue's QR
+   * code). Both null when the couple added it, or the DJ played it off
+   * their own bat.
+   */
   householdId: number | null;
+  phoneKey: string | null;
   status: QueueStatus;
   /** The couple pressed skip, or removed it after djay already had it. */
   skipRequested: boolean;
@@ -88,7 +125,7 @@ export type QueueItem = {
 };
 
 export type VoteKind = "up" | "skip";
-export type Vote = { itemId: number; householdId: number; kind: VoteKind };
+export type Vote = AskerColumns & { itemId: number; kind: VoteKind };
 
 /** Votes of one kind, by item. */
 export function tally(votes: readonly Vote[], kind: VoteKind): Map<number, number> {
@@ -104,8 +141,8 @@ export type RankedItem<I extends QueueItem = QueueItem> = I & { upVotes: number 
 
 /**
  * What is waiting, in the order it will go to djay: most wanted first,
- * then first asked. Requesting a song counts as its household's vote for
- * it, so a fresh request starts on one, not zero.
+ * then first asked. Requesting a song counts as the asker's vote for it,
+ * so a fresh request starts on one, not zero.
  */
 export function upcoming<I extends QueueItem>(
   items: readonly I[],
@@ -123,16 +160,16 @@ export function upcoming<I extends QueueItem>(
     );
 }
 
-export type RequestRefusal = "already_queued" | "just_played" | "household_limit";
+export type RequestRefusal = "already_queued" | "just_played" | "waiting_limit";
 
 /**
- * Whether a household may add this song now. The database's unique index
+ * Whether this asker may add this song now. The database's unique index
  * on active song keys is the real lock on duplicates; this is what lets
  * the page say why before anyone presses anything.
  */
 export function checkRequest(
   key: string,
-  householdId: number,
+  asker: Asker,
   items: readonly QueueItem[],
   now: Date,
 ): { ok: true } | { ok: false; reason: RequestRefusal } {
@@ -147,13 +184,15 @@ export function checkRequest(
       return { ok: false, reason: "just_played" };
     }
   }
-  const waiting = items.filter(
-    (item) => item.householdId === householdId && item.status === "queued",
-  ).length;
-  if (waiting >= MAX_WAITING_PER_HOUSEHOLD) {
-    return { ok: false, reason: "household_limit" };
+  if (waitingFor(asker, items) >= MAX_WAITING) {
+    return { ok: false, reason: "waiting_limit" };
   }
   return { ok: true };
+}
+
+/** This asker's requests still waiting in the app, against `MAX_WAITING`. */
+export function waitingFor(asker: Asker, items: readonly QueueItem[]): number {
+  return items.filter((item) => item.status === "queued" && isAsker(item, asker)).length;
 }
 
 /** Whether the bridge should press Skip on this item. */
@@ -339,7 +378,7 @@ export function describeRefusal(reason: RequestRefusal): string {
       return "That one is already on the list - give it a vote instead.";
     case "just_played":
       return "That one has had its turn tonight. Try again later.";
-    case "household_limit":
-      return `You have ${MAX_WAITING_PER_HOUSEHOLD} songs waiting already. Once one is up, add another.`;
+    case "waiting_limit":
+      return `You have ${MAX_WAITING} songs waiting already. Once one is up, add another.`;
   }
 }

@@ -598,6 +598,13 @@ export const djFloor = pgTable(
     skipVotesNeeded: integer("skip_votes_needed").notNull().default(5),
     /** When the bridge last asked what to do: is the laptop still there? */
     bridgeSeenAt: timestamp("bridge_seen_at", { withTimezone: true }),
+    /**
+     * The secret in the venue's QR code (`/i/dance/<code>`), which opens
+     * the dance floor without an invitation link. Same shape and strength
+     * as an invite token. Null until the couple make one; replacing it
+     * retires every printed copy of the old one.
+     */
+    shareCode: text("share_code"),
   },
   (t) => [
     check("dj_floor_singleton", sql`${t.id} = 1`),
@@ -622,10 +629,16 @@ export const djQueueItems = pgTable(
      * sure was the same song.
      */
     coverUrl: text("cover_url"),
-    /** Who asked. Null for the couple, or a song the DJ played unasked. */
+    /**
+     * Who asked: a household through its invitation link, or a phone
+     * through the venue's QR code (see `Asker` in dj-queue.ts). Both null
+     * for the couple, or a song the DJ played unasked.
+     */
     householdId: integer("household_id").references(() => households.id, {
       onDelete: "set null",
     }),
+    /** SHA-256 of the phone's cookie, never the cookie itself. */
+    phoneKey: text("phone_key"),
     status: djItemStatusEnum("status").notNull().default("queued"),
     /**
      * The couple pressed skip, or removed it once djay already had it.
@@ -648,12 +661,21 @@ export const djQueueItems = pgTable(
     uniqueIndex("dj_queue_items_active_song")
       .on(t.songKey)
       .where(sql`${t.status} in ('queued', 'cued', 'playing')`),
+    check(
+      "dj_queue_items_one_asker",
+      sql`${t.householdId} is null or ${t.phoneKey} is null`,
+    ),
   ],
 );
 
 /**
- * One household's vote on one request. Per household, not per guest, as
- * with song requests: the link is the identity and it is shared.
+ * One asker's vote on one request: a household (per household, not per
+ * guest, as with song requests - the link is the identity and it is
+ * shared) or a phone that came in through the venue's QR code.
+ *
+ * Exactly one of the two is set. The two unique constraints are the lock
+ * on voting twice; Postgres treats nulls as distinct, so a phone's vote
+ * never collides with a household's on the first, nor the other way round.
  */
 export const djVotes = pgTable(
   "dj_votes",
@@ -661,15 +683,24 @@ export const djVotes = pgTable(
     itemId: integer("item_id")
       .notNull()
       .references(() => djQueueItems.id, { onDelete: "cascade" }),
-    householdId: integer("household_id")
-      .notNull()
-      .references(() => households.id, { onDelete: "cascade" }),
+    householdId: integer("household_id").references(() => households.id, {
+      onDelete: "cascade",
+    }),
+    /** SHA-256 of the phone's cookie, as on `dj_queue_items`. */
+    phoneKey: text("phone_key"),
     kind: djVoteKindEnum("kind").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (t) => [primaryKey({ columns: [t.itemId, t.householdId, t.kind] })],
+  (t) => [
+    unique("dj_votes_household").on(t.itemId, t.householdId, t.kind),
+    unique("dj_votes_phone").on(t.itemId, t.phoneKey, t.kind),
+    check(
+      "dj_votes_one_asker",
+      sql`(${t.householdId} is null) <> (${t.phoneKey} is null)`,
+    ),
+  ],
 );
 
 /**

@@ -11,9 +11,16 @@ import {
   songRequests,
 } from "@/db/schema";
 import { fillCoversLater } from "@/lib/dj-cover";
-import { checkRequest, type RequestRefusal, type VoteKind } from "@/lib/dj-queue";
+import {
+  askerColumns,
+  checkRequest,
+  type Asker,
+  type RequestRefusal,
+  type VoteKind,
+} from "@/lib/dj-queue";
 import { isInviteTokenShape } from "@/lib/invite-token";
-import { getRequestContext } from "@/lib/public/queries";
+import { ensurePhoneKey } from "@/lib/public/dance-phone";
+import { getRequestContext, isDanceShareCode } from "@/lib/public/queries";
 import {
   cleanSongText,
   normaliseSongRequests,
@@ -28,7 +35,9 @@ import {
  * household id from the form: a hidden field is a thing an attacker
  * controls, and RSVPing on someone else's behalf is exactly the mischief
  * a public form invites. The token is the only identity here, so it is
- * the only identity these functions accept.
+ * the only identity these functions accept - with one exception, the
+ * dance floor's venue QR code, whose identity is the phone's own cookie
+ * (`dance-phone.ts`), read here and never taken from the caller either.
  */
 
 export type RsvpAnswer = {
@@ -171,12 +180,27 @@ export async function photosAreOpen(token: string): Promise<boolean> {
 // ---------------------------------------------------------------------------
 // The dance floor.
 
-/** A household whose link is good and whose dance floor is open, or null. */
-async function resolveDancingHousehold(token: string): Promise<number | null> {
-  const householdId = await resolveOpenHousehold(token);
-  if (householdId === null) return null;
+/**
+ * How a guest came in: their household's invitation link, or the QR code
+ * at the venue. The QR code's asker is the phone's cookie, which is read
+ * (or minted) here rather than taken from the caller, as a household is
+ * re-resolved from its token rather than taken from a form.
+ */
+export type DanceCredential = { token: string } | { shareCode: string };
+
+/** The asker behind a credential, when it is good and the dance floor is open; else null. */
+async function resolveDancer(credential: DanceCredential): Promise<Asker | null> {
+  let asker: Asker;
+  if ("token" in credential) {
+    const householdId = await resolveOpenHousehold(credential.token);
+    if (householdId === null) return null;
+    asker = { householdId };
+  } else {
+    if (!(await isDanceShareCode(credential.shareCode))) return null;
+    asker = { phoneKey: await ensurePhoneKey() };
+  }
   const [floor] = await db.select({ open: djFloor.open }).from(djFloor).limit(1);
-  return floor?.open ? householdId : null;
+  return floor?.open ? asker : null;
 }
 
 export type SongRequestOutcome =
@@ -184,17 +208,17 @@ export type SongRequestOutcome =
   | { ok: false; reason: RequestRefusal | "closed" | "empty" };
 
 /**
- * Add a song to the queue for a household, with its vote for it. The
+ * Add a song to the queue for this asker, with their vote for it. The
  * unique index on active song keys is the last word on duplicates: two
  * phones adding the same song in the same second both pass the check, and
  * the second insert finds the first already there.
  */
 export async function requestDanceSong(
-  token: string,
+  credential: DanceCredential,
   song: SongRequest,
 ): Promise<SongRequestOutcome> {
-  const householdId = await resolveDancingHousehold(token);
-  if (householdId === null) return { ok: false, reason: "closed" };
+  const asker = await resolveDancer(credential);
+  if (asker === null) return { ok: false, reason: "closed" };
 
   const title = cleanSongText(song.title);
   if (title === "") return { ok: false, reason: "empty" };
@@ -203,17 +227,18 @@ export async function requestDanceSong(
   const key = songKey(title, artist);
 
   const now = new Date();
-  const verdict = checkRequest(key, householdId, await getRequestContext(now), now);
+  const verdict = checkRequest(key, asker, await getRequestContext(now), now);
   if (!verdict.ok) return verdict;
 
+  const who = askerColumns(asker);
   const added = await db.transaction(async (tx) => {
     const [row] = await tx
       .insert(djQueueItems)
-      .values({ title, artist, externalId, songKey: key, householdId })
+      .values({ title, artist, externalId, songKey: key, ...who })
       .onConflictDoNothing()
       .returning({ id: djQueueItems.id });
     if (!row) return null;
-    await tx.insert(djVotes).values({ itemId: row.id, householdId, kind: "up" });
+    await tx.insert(djVotes).values({ itemId: row.id, ...who, kind: "up" });
     return row.id;
   });
   if (added === null) return { ok: false, reason: "already_queued" };
@@ -223,18 +248,18 @@ export async function requestDanceSong(
 }
 
 /**
- * Cast or take back a household's vote. An up vote only counts on a song
- * still waiting in the app, a skip only on the song on air: anything else
- * is a stale page, and is quietly ignored rather than reported.
+ * Cast or take back a vote. An up vote only counts on a song still
+ * waiting in the app, a skip only on the song on air: anything else is a
+ * stale page, and is quietly ignored rather than reported.
  */
 export async function voteOnDanceSong(
-  token: string,
+  credential: DanceCredential,
   itemId: number,
   kind: VoteKind,
   on: boolean,
 ): Promise<boolean> {
-  const householdId = await resolveDancingHousehold(token);
-  if (householdId === null) return false;
+  const asker = await resolveDancer(credential);
+  if (asker === null) return false;
   if (!Number.isSafeInteger(itemId) || itemId <= 0) return false;
 
   const [item] = await db
@@ -247,11 +272,16 @@ export async function voteOnDanceSong(
 
   const mine = and(
     eq(djVotes.itemId, itemId),
-    eq(djVotes.householdId, householdId),
+    "householdId" in asker
+      ? eq(djVotes.householdId, asker.householdId)
+      : eq(djVotes.phoneKey, asker.phoneKey),
     eq(djVotes.kind, kind),
   );
   if (on) {
-    await db.insert(djVotes).values({ itemId, householdId, kind }).onConflictDoNothing();
+    await db
+      .insert(djVotes)
+      .values({ itemId, ...askerColumns(asker), kind })
+      .onConflictDoNothing();
   } else {
     await db.delete(djVotes).where(mine);
   }

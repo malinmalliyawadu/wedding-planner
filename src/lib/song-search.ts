@@ -49,6 +49,21 @@ const cache = new Map<string, { at: number; matches: SongMatch[] }>();
 export class SongSearchUnavailable extends Error {}
 
 /**
+ * A cover at another size. The catalogue's CDN takes the size from the
+ * path (`.../250x250-000000-80-0-0.jpg`) and will render any square, so
+ * the dance floor can show a cover across a phone screen without storing
+ * a second address, and a list row need not download that one. A URL of
+ * any other shape is handed back untouched.
+ */
+const SIZED_COVER = /^(https:\/\/[a-z0-9-]+\.dzcdn\.net\/images\/cover\/[0-9a-f]+\/)(\d+)x\2(-[^/]*)$/;
+
+export function coverAtSize(url: string, px: number): string {
+  const match = SIZED_COVER.exec(url);
+  if (!match || !Number.isInteger(px) || px < 1) return url;
+  return `${match[1]}${px}x${px}${match[3]}`;
+}
+
+/**
  * The shape of one hit from the catalogue's search. Only the fields the
  * picker shows are named; anything else in the payload is ignored, and a
  * hit missing one of these is dropped rather than failing the search.

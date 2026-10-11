@@ -1218,9 +1218,10 @@ plays them on the DJ laptop. Three parts, and the split is the design:
   nothing played or skipped in the last 90 minutes; two waiting per
   household), the status machine (`transition`), when to skip
   (`shouldSkip`), and what a report from the laptop means (`planOnAir`).
-- **The app** (`/i/[token]/dance-floor` for guests, `/admin/dance-floor`
-  for the couple, `src/lib/dj-floor.ts` for the database) keeps the
-  queue. Votes are per household, like song requests. Guests see vote
+- **The app** (`/i/[token]/dance-floor` and `/i/dance/[code]` for
+  guests, `/admin/dance-floor` for the couple, `src/lib/dj-floor.ts` for
+  the database) keeps the queue. Votes are per household through an
+  invitation link, like song requests, and per phone through the QR code. Guests see vote
   counts and "yours", never who asked; the planner sees names.
   `dj_floor.open` is a kill switch and starts shut, like `published`.
 - **`bridge/dj/`** is a Node script on the Mac running djay, polling
@@ -1228,6 +1229,53 @@ plays them on the DJ laptop. Three parts, and the split is the design:
   `carriesOwnCredential` door, same shape as the booth's). It has its
   own `package.json` (the Anthropic SDK, for the Claude driver only) and
   is not part of the image (`.dockerignore`).
+
+### The guests' page, and its two doors
+
+The page is the same at both doors, `/i/[token]/dance-floor` and the
+venue's QR code at `/i/dance/[code]`: `src/app/(public)/_dance-floor/`
+renders it, and each route binds its own credential into the two
+actions. It is the one public page that does not look like the
+stationery, on purpose - see below.
+
+- **The QR code names nobody, so the phone is the asker.** `Asker` in
+  `dj-queue.ts` is a household (invitation link) or a phone (QR code);
+  requests and votes carry exactly one of `household_id` / `phone_key`
+  (check constraints), and the limits and "yours" work the same for
+  both. The phone is a random httpOnly cookie, `/i/dance`-scoped,
+  minted by the page's first poll of `./state` (a page cannot set a
+  cookie) and stored only as its SHA-256 (`src/lib/public/dance-phone.ts`).
+  `mutations.ts` reads it itself, never from the caller. Actions wait
+  for that first poll, or a fast tap would mint a second cookie and
+  race the first. Clearing cookies is a second vote; at a wedding that
+  is a guest being cheeky, and the couple can overrule anything.
+- **The code is a secret like an invite token** (`dj_floor.share_code`,
+  same generator). The couple make it, print it and can replace it from
+  `/admin/dance-floor`, which retires every printed copy at once; an
+  unpublished site shuts this door as it does every link.
+- **A good link with the floor shut is told when it opens** and polls
+  until it does. Only a bad link 404s - a guest who scans the table's
+  code during dinner should not meet "page not found".
+- **Covers are sized by the server** (`coverAtSize` in `song-search.ts`,
+  the only file that knows the catalogue's CDN takes the size from the
+  path): 720px for the hero, 144px for a list row and for the blurred
+  backdrop.
+
+**Its design is the room, not the card.** Guests are in a dark marquee
+holding a drink, so the page is aubergine night (`dance-floor.css`, its
+own tokens), lit by what is playing - the cover blurred huge behind
+everything - and swept by mirror-ball flecks: a strip twice the screen's
+width sliding by one copy, transform only. That is the one flourish.
+Everything else is thumb-first: one primary action in a bar at the
+bottom ("Request a song", a full-screen search sheet on a native
+`<dialog>`), 56px vote buttons, votes applied at once with
+`useOptimistic` and squared with the server after, and rows that glide
+to their new places when the room reorders the list (FLIP, measured
+against the list so scrolling is not mistaken for a reorder). Titles
+are Sofia Sans Extra Condensed, which keeps a long title large on a
+phone; the couple's names stay in Marcellus as the one tie back to the
+stationery. The drawn `MirrorBall` stands in for a missing cover and
+for the closed and between-songs states, deterministic like the seal.
 
 Decisions worth knowing before changing any of it:
 

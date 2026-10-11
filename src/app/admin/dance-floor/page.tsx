@@ -1,9 +1,11 @@
 import { inArray } from "drizzle-orm";
+import QRCode from "qrcode";
 import { db } from "@/db";
 import { households } from "@/db/schema";
 import { Chip, EmptyState, PageHeader } from "@/components/ui";
 import {
   bridgeHealth,
+  danceShareUrl,
   getFloor,
   isBridgeConfigured,
   loadQueue,
@@ -11,12 +13,14 @@ import {
   type QueueRow,
 } from "@/lib/dj-floor";
 import { tally, upcoming } from "@/lib/dj-queue";
+import { requestOrigin } from "@/lib/request-origin";
 import { describeSong } from "@/lib/songs";
 import {
   ActButton,
   AddSongForm,
   AutoRefresh,
   OpenToggle,
+  ShareCodeCard,
   ThresholdForm,
 } from "./controls";
 
@@ -55,7 +59,22 @@ export default async function DanceFloorAdminPage() {
         ).map((h) => [h.id, h.name]),
   );
   const who = (item: QueueRow) =>
-    item.householdId === null ? "You / the DJ" : (names.get(item.householdId) ?? "A household");
+    item.householdId !== null
+      ? (names.get(item.householdId) ?? "A household")
+      : item.phoneKey !== null
+        ? "A phone, from the QR code"
+        : "You / the DJ";
+
+  const shareUrl = floor.shareCode ? danceShareUrl(await requestOrigin(), floor.shareCode) : null;
+  const shareSvg = shareUrl
+    ? await QRCode.toString(shareUrl, {
+        type: "svg",
+        margin: 1,
+        // Medium correction: a printed card gets a drink set down on it.
+        errorCorrectionLevel: "M",
+        color: { dark: "#212b25ff", light: "#ffffffff" },
+      })
+    : null;
 
   const skipVotes = tally(votes, "skip");
   const playing = items.find((item) => item.status === "playing") ?? null;
@@ -69,8 +88,8 @@ export default async function DanceFloorAdminPage() {
       <AutoRefresh />
       <PageHeader eyebrow="On the night" title="Dance floor">
         <p className="mt-3 max-w-2xl text-sm text-ink-soft">
-          Guests ask for songs and vote from their invitation links. The
-          bridge on the DJ laptop hands djay Pro one request at a time and
+          Guests ask for songs and vote from their invitation links, or
+          from the QR code at the venue. The bridge on the DJ laptop hands djay Pro one request at a time and
           presses Skip when enough of them vote a song off. A song djay
           cannot find is dropped, and whoever wanted it can ask again.
         </p>
@@ -78,6 +97,10 @@ export default async function DanceFloorAdminPage() {
 
       <div className="space-y-8">
         <OpenToggle open={floor.open} />
+
+        <section className="rounded-lg border border-hairline bg-card p-5">
+          <ShareCodeCard url={shareUrl} svg={shareSvg} />
+        </section>
 
         <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="rounded-lg border border-hairline bg-card p-5">

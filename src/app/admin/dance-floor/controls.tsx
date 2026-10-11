@@ -2,12 +2,14 @@
 
 import { useActionState, useEffect, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Disc3, Lock } from "lucide-react";
+import { useState } from "react";
+import { Check, Copy, Disc3, Download, Lock, RefreshCw } from "lucide-react";
 import { Button, Field, inputClass } from "@/components/ui";
 import { idleResult, type ActionResult } from "@/lib/action-result";
 import {
   addSong,
   importFromReplyCards,
+  newShareCode,
   setFloorOpen,
   setOnAir,
   setSkipVotesNeeded,
@@ -51,8 +53,8 @@ export function OpenToggle({ open }: { open: boolean }) {
             </p>
             <p className="mt-0.5 text-sm text-ink-soft">
               {open
-                ? "Every invitation shows a “Request a song” link, and guests can add and vote."
-                : "Guests see nothing of this. The bridge still plays what is already on the list."}
+                ? "Every invitation shows a “Request a song” link, and guests can add and vote - from it or from the venue QR code."
+                : "Invitations hide the link, and the QR code says requests open later. The bridge still plays what is already on the list."}
             </p>
           </div>
         </div>
@@ -158,7 +160,7 @@ export function ThresholdForm({ value }: { value: number }) {
   const [state, formAction, pending] = useActionState(setSkipVotesNeeded, idleResult);
   return (
     <form action={formAction} className="flex flex-wrap items-end gap-3">
-      <Field label="Votes to skip" hint="Households, not guests: one link, one vote.">
+      <Field label="Votes to skip" hint="One per invitation link, and one per phone from the QR code.">
         <input
           name="skipVotesNeeded"
           type="number"
@@ -179,5 +181,103 @@ export function ThresholdForm({ value }: { value: number }) {
         </p>
       )}
     </form>
+  );
+}
+
+/**
+ * The venue's QR code: the dance floor for anyone at the wedding, with no
+ * invitation link needed. The image is made on the server and passed in;
+ * the SVG is the one to print, since it stays sharp at any size.
+ */
+export function ShareCodeCard({
+  url,
+  svg,
+}: {
+  url: string | null;
+  svg: string | null;
+}) {
+  const [pending, startTransition] = useTransition();
+  const [copied, setCopied] = useState(false);
+
+  function replace() {
+    if (
+      url &&
+      !confirm(
+        "Make a new QR code? Every printed copy of the current one stops working straight away.",
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const result = await newShareCode();
+      if (result.status === "error") alert(result.message);
+    });
+  }
+
+  async function copy() {
+    if (!url) return;
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  }
+
+  if (!url || !svg) {
+    return (
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="eyebrow text-ink-faint">The QR code for the venue</p>
+          <p className="mt-2 max-w-xl text-sm text-ink-soft">
+            One code for the tables, the bar or the wall. Anyone who scans it
+            can ask for songs and vote without their invitation link; votes
+            from it count once per phone.
+          </p>
+        </div>
+        <Button variant="subtle" disabled={pending} onClick={replace} className="shrink-0 pointer-coarse:min-h-11">
+          {pending ? "Making…" : "Make the QR code"}
+        </Button>
+      </div>
+    );
+  }
+
+  const svgHref = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  return (
+    <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={svgHref}
+        alt="QR code for the dance floor"
+        width={160}
+        height={160}
+        className="size-40 shrink-0 rounded-md border border-hairline bg-white p-2"
+      />
+      <div className="min-w-0 flex-1">
+        <p className="eyebrow text-ink-faint">The QR code for the venue</p>
+        <p className="mt-2 max-w-xl text-sm text-ink-soft">
+          Put it on the tables, the bar or the wall. Anyone who scans it can
+          ask for songs and vote without their invitation link; votes from it
+          count once per phone. It works only while requests are open.
+        </p>
+        <p className="mt-3 truncate font-mono text-xs text-ink-faint">{url}</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button size="sm" variant="subtle" onClick={copy} className="pointer-coarse:min-h-11">
+            {copied ? <Check size={15} aria-hidden /> : <Copy size={15} aria-hidden />}
+            {copied ? "Copied" : "Copy the link"}
+          </Button>
+          <a
+            href={svgHref}
+            download="dance-floor-qr.svg"
+            // Dressed as a subtle small Button: a download has to be a link.
+            className="inline-flex items-center justify-center gap-2 rounded-md border border-hairline-strong bg-card px-2.5 py-1.5 text-xs font-medium whitespace-nowrap text-ink transition-colors duration-150 hover:border-ink-faint hover:bg-white pointer-coarse:min-h-11"
+          >
+            <Download size={15} aria-hidden />
+            Download to print
+          </a>
+          <Button size="sm" variant="ghost" disabled={pending} onClick={replace} className="pointer-coarse:min-h-11">
+            <RefreshCw size={15} aria-hidden />
+            {pending ? "Replacing…" : "Replace the code"}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
