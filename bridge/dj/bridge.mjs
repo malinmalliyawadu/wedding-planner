@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,7 +25,16 @@ import { fakeDriver } from "./fake.mjs";
  *   node bridge.mjs            run the bridge
  *   node bridge.mjs probe      print what accessibility can see in djay
  *
- * Environment:
+ * Settings come from the environment, or from a `.env` file beside this
+ * script (copy `.env.example`), so the night's command is just the first
+ * line above. A variable already set in the shell wins over the file.
+ *
+ * While it runs on a Mac, the bridge keeps the machine awake itself
+ * (`caffeinate`, released when the bridge exits): a laptop that sleeps
+ * through the first dance takes the queue with it. DJ_KEEP_AWAKE=0 to
+ * turn that off.
+ *
+ * Settings:
  *   WEDDING_URL          the app, e.g. https://wedding.example.com
  *   DJ_BRIDGE_TOKEN      the same value as on the server
  *   DJ_DRIVER            djay (default) or fake
@@ -33,9 +43,44 @@ import { fakeDriver } from "./fake.mjs";
  *   DJ_FALLBACK_COMMAND  optional; run for each song djay could not find,
  *                        with the prompt on stdin. See README.md.
  *   FAKE_SONG_SECONDS    the fake driver's song length (default 20)
+ *   DJ_KEEP_AWAKE        0 to let the Mac sleep (default: keep it awake)
  */
 
 const here = dirname(fileURLToPath(import.meta.url));
+loadEnvFile(join(here, ".env"));
+
+/**
+ * KEY=value lines from a `.env` file into the environment, without
+ * overwriting anything already set. Blank lines and # comments are
+ * skipped and one layer of matching quotes is taken off a value. Written
+ * out rather than leaning on Node's own loader, which arrived late in
+ * Node 20 and differs between versions.
+ */
+function loadEnvFile(path) {
+  if (!existsSync(path)) return;
+  for (const raw of readFileSync(path, "utf8").split(/\r?\n/)) {
+    const line = raw.trim();
+    if (line === "" || line.startsWith("#")) continue;
+    const match = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(line);
+    if (!match) continue;
+    const [, key, rawValue] = match;
+    const value = /^(["']).*\1$/.test(rawValue) ? rawValue.slice(1, -1) : rawValue;
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
+}
+
+/**
+ * Hold off sleep for as long as this process lives. `caffeinate -w` exits
+ * by itself when the bridge does, however it ends, so nothing is left
+ * holding the Mac awake afterwards.
+ */
+function keepAwake() {
+  if (process.platform !== "darwin" || process.env.DJ_KEEP_AWAKE === "0") return;
+  const child = spawn("caffeinate", ["-dis", "-w", String(process.pid)], { stdio: "ignore" });
+  child.on("error", () => log("could not start caffeinate: the Mac may sleep"));
+  child.unref();
+  log("keeping the Mac awake while the bridge runs");
+}
 const POLL_MS = Number(process.env.DJ_POLL_MS ?? 3000);
 const FALLBACK_TIMEOUT_MS = 5 * 60 * 1000;
 /** Press Skip again if the song is still on this long after. */
@@ -49,7 +94,7 @@ function log(...parts) {
 function required(name) {
   const value = process.env[name];
   if (!value) {
-    console.error(`${name} is not set. See README.md.`);
+    console.error(`${name} is not set. Put it in bridge/dj/.env (see .env.example).`);
     process.exit(1);
   }
   return value;
@@ -117,12 +162,17 @@ async function main() {
     return;
   }
 
+  // Say what is missing now, not on the first poll three seconds in.
+  required("WEDDING_URL");
+  required("DJ_BRIDGE_TOKEN");
+
   const driver =
     (process.env.DJ_DRIVER ?? "djay") === "fake"
       ? fakeDriver({ songSeconds: Number(process.env.FAKE_SONG_SECONDS ?? 20), log })
       : await djayDriver(process.env.DJ_CONFIG ?? join(here, "djay.config.json"));
   const fallback = process.env.DJ_FALLBACK_COMMAND ?? "";
 
+  keepAwake();
   log(`bridge up: driver ${driver.name}, polling every ${POLL_MS}ms`);
   if (!driver.canReadDecks) {
     log("this driver cannot read djay's decks: mark songs on air from the planner, or calibrate nowPlaying");
