@@ -14,7 +14,9 @@ Please, using computer use on this Mac:
    nothing more.
 3. Otherwise search djay's library for the song in Apple Music. Accept a
    remaster or the album version; avoid live, karaoke and cover versions
-   unless nothing else exists.
+   unless nothing else exists. Pick only a single song from the results:
+   never open, select or add an artist, album or playlist, because that
+   replaces what Automix is playing from.
 4. Add it to the end of the Automix queue (not to a deck).
 
 Be quick: guests are dancing. Do not change any settings, sign in to

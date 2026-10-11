@@ -137,7 +137,10 @@ playlist long enough to fill the gaps between requests. Each request is
 loaded onto the idle deck (⌘← for deck 1, ⌘→ for deck 2, or the
 library's right-click menu), replacing
 whatever Automix had lined up there, and Automix mixes into it when the
-playing track ends. The app only hands over the next request once that
+playing track ends. Only a single song is ever picked from the search
+results: opening an artist, album or playlist there replaces the list
+Automix plays from, so the drivers are told never to. The search is
+left as it is after a cue, and the next one types over it. The app only hands over the next request once that
 one is on air, so a waiting request is never loaded over. djay's Queue
 (⌘↩) is not used: Automix does not play from it.
 
@@ -185,7 +188,10 @@ reading the decks, which a shortcut cannot do. So check the `cue` steps
 by hand, in djay, before trusting them:
 
 - ⌘F, type a song, wait for the Apple Music results. Does ↓ highlight
-  the first result? Does ⌘↩ then put it in the Queue (⌘K to look)?
+  the first *song*? If the results list artists, albums or playlists
+  first, ↓ lands on one of those, and opening one replaces the list
+  Automix is playing from - change the steps so only a song is ever
+  selected. Does ⌘↩ then put it in the Queue (⌘K to look)?
 - With Automix playing, does ⇧⌘↩ mix into the next track?
 
 If ⌘F does nothing, find the search field with the probe below and use
@@ -204,8 +210,9 @@ is also the only way to set up `nowPlaying`.
 
 2. **`cue`** - the steps that get a song into the Automix queue. The
    guess: focus search (Cmd-F), paste `{query}` (title and artist), wait
-   for Apple Music results, select the first, Cmd-Return to add the
-   selection to the queue, Escape. Change the steps until a song lands
+   for Apple Music results, select the first song, Cmd-Return to add
+   the selection to the queue. The search is left as it is: the next
+   cue selects it all (Cmd-A) and pastes over it, which saves a step. Change the steps until a song lands
    at the end of the Automix queue every time.
 
 3. **`skip`** - ⇧⌘↩ (`mixer.transitionActiveToInactive`), so the floor

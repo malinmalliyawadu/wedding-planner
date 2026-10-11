@@ -1236,6 +1236,13 @@ Decisions worth knowing before changing any of it:
   it next. The deck holds one song, so a second would replace the
   first; djay's Queue is not used, because Automix does not play from
   it. Everything else stays in the app, where votes still move it.
+- **Only ever a single song is picked from djay's search.** Its Apple
+  Music results mix songs with artists, albums and playlists, and
+  opening one of those replaces the list Automix plays from for the
+  rest of the night. The cue task says so, and treats a song only
+  reachable through an album as not found. The search is not cleared
+  afterwards - the next cue selects it all and types over it, which is
+  one step fewer per request.
 - **The bridge reports what it sees, not what it did.** It sends the
   song on air whenever that changes; the server ends what was playing
   (`skipped` if the couple asked or the floor voted it off, else
