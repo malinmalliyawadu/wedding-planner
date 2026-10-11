@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   MAX_SONG_REQUESTS,
   buildPlaylist,
+  coverFor,
   describeSong,
   normaliseSongRequests,
   sameSong,
@@ -131,5 +132,43 @@ describe("describeSong", () => {
   it("writes the playlist's line", () => {
     expect(describeSong({ title: "Waterloo", artist: "ABBA" })).toBe("Waterloo - ABBA");
     expect(describeSong({ title: "Waterloo", artist: null })).toBe("Waterloo");
+  });
+});
+
+describe("coverFor", () => {
+  const match = (title: string, artist: string, cover: string | null, artwork: string | null = null) => ({
+    externalId: "1",
+    title,
+    artist,
+    album: null,
+    artwork,
+    cover,
+  });
+
+  it("takes the cover of the same song", () => {
+    const matches = [
+      match("Dancing Queen (Glee Cast Version)", "Glee Cast", "https://c/glee.jpg"),
+      match("Dancing Queen", "ABBA", "https://c/abba.jpg"),
+    ];
+    // The Glee version's key is the same title, but a different artist.
+    expect(coverFor(matches, { title: "Dancing Queen", artist: "ABBA" })).toBe("https://c/abba.jpg");
+  });
+
+  it("matches a typed request that names the artist", () => {
+    expect(
+      coverFor([match("Dancing Queen", "ABBA", "https://c/abba.jpg")], { title: "ABBA - Dancing Queen", artist: null }),
+    ).toBe("https://c/abba.jpg");
+  });
+
+  it("gives no cover rather than a guess", () => {
+    const matches = [match("Hallelujah", "Jeff Buckley", "https://c/jb.jpg")];
+    expect(coverFor(matches, { title: "Hallelujah", artist: null })).toBeNull();
+    expect(coverFor([], { title: "Anything", artist: "Anyone" })).toBeNull();
+  });
+
+  it("falls back to the small cover when there is no large one", () => {
+    expect(
+      coverFor([match("Waterloo", "ABBA", null, "https://c/56.jpg")], { title: "Waterloo", artist: "ABBA" }),
+    ).toBe("https://c/56.jpg");
   });
 });

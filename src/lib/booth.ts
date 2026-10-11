@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { verifyBearerToken } from "./bearer";
 
 /**
  * The photo booth's side door.
@@ -36,29 +36,14 @@ export function isBoothConfigured(): boolean {
 }
 
 /**
- * Check an `Authorization: Bearer` header against the configured token
- * without leaking the token's length or contents through timing. Both
- * sides are hashed to a fixed 32 bytes first, as `password.ts` does,
- * because `timingSafeEqual` throws on buffers of different lengths.
- *
- * There is no throttle here, unlike the login form: the token is long
- * and random (`openssl rand -base64 24`), not something a person chose,
- * and the booth retries an upload a dozen times on a bad connection.
+ * Check an `Authorization: Bearer` header against the configured token.
+ * The comparison itself is shared with the DJ bridge (`bearer.ts`).
  */
 export function verifyBoothToken(
   authorization: string | null,
   expected: string | undefined = process.env.BOOTH_SYNC_TOKEN,
 ): boolean {
-  if (!expected) return false;
-  if (authorization === null) return false;
-  const [scheme, ...rest] = authorization.trim().split(/\s+/);
-  const presented = rest.join(" ");
-  if (scheme?.toLowerCase() !== "bearer" || presented === "") return false;
-  return timingSafeEqual(sha256(presented), sha256(expected));
-}
-
-function sha256(value: string): Buffer {
-  return createHash("sha256").update(value, "utf8").digest();
+  return verifyBearerToken(authorization, expected);
 }
 
 /**

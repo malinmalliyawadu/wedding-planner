@@ -108,9 +108,13 @@ export function isPublicPath(pathname: string): boolean {
  * `src/app/api/booth/photos/route.ts` is the lock. Letting the public
  * router stamp it is deliberate too: if basicauth is kept in front of
  * the planner, the booth still needs a way in, and its own token is it.
+ *
+ * The DJ bridge is the second, for the same reasons: a script on the
+ * laptop driving djay Pro, polling every few seconds with
+ * `DJ_BRIDGE_TOKEN`, checked by `src/app/api/dj/bridge/route.ts`.
  */
 export function carriesOwnCredential(pathname: string): boolean {
-  return pathname === "/api/booth/photos";
+  return pathname === "/api/booth/photos" || pathname === "/api/dj/bridge";
 }
 
 /**
@@ -124,8 +128,8 @@ export function carriesOwnCredential(pathname: string): boolean {
  * from inside Docker, where there is no cookie to present, and a health
  * check that reports "not signed in" tells the orchestrator nothing about
  * whether the app can reach Postgres. It answers `ok` or a database error
- * and reads nothing else. The photo booth's drop is the other, and it
- * checks its own token (`carriesOwnCredential`).
+ * and reads nothing else. The photo booth's drop and the DJ bridge are
+ * the others, and each checks its own token (`carriesOwnCredential`).
  */
 export function needsSession(pathname: string): boolean {
   if (isPublicPath(pathname)) return false;

@@ -1,0 +1,23 @@
+{
+  "$comment": "How the bridge drives djay Pro. NOT YET CALIBRATED: these steps are a starting guess and must be checked on the DJ laptop (see README.md, 'Calibrating'). {query} is replaced with 'title artist'.",
+  "app": "djay Pro",
+  "cue": [
+    { "activate": true },
+    { "keystroke": "f", "using": ["command"] },
+    { "delay": 0.4 },
+    { "keystroke": "a", "using": ["command"] },
+    { "paste": "{query}" },
+    { "key": "return" },
+    { "delay": 3 },
+    { "key": "down" },
+    { "delay": 0.3 },
+    { "key": "return", "using": ["command"] },
+    { "delay": 0.3 },
+    { "key": "escape" }
+  ],
+  "skip": [
+    { "activate": true },
+    { "click": "Skip" }
+  ],
+  "nowPlaying": null
+}

@@ -23,6 +23,7 @@ describe("isPublicPath", () => {
     "/i",
     "/i/abcdefghjkmnpqrstuvw",
     "/i/abcdefghjkmnpqrstuvw/photos",
+    "/i/abcdefghjkmnpqrstuvw/dance-floor",
     "/i/abcdefghjkmnpqrstuvw/wedding.ics",
     "/i/photo/12",
     "/i/photo/12/thumb",
@@ -57,6 +58,8 @@ describe("isPublicPath", () => {
     "/wall",
     "/api/health",
     "/api/booth/photos",
+    "/api/dj/bridge",
+    "/admin/dance-floor",
   ])("keeps strangers out of %s", (path) => {
     expect(isPublicPath(path)).toBe(false);
   });
@@ -171,6 +174,14 @@ describe("needsSession", () => {
     expect(needsSession("/api/booth/anything")).toBe(true);
   });
 
+  it("lets the DJ bridge through to its own token check", () => {
+    // A script on the laptop driving djay: no browser, so DJ_BRIDGE_TOKEN.
+    expect(needsSession("/api/dj/bridge")).toBe(false);
+    expect(needsSession("/api/dj")).toBe(true);
+    expect(needsSession("/api/dj/bridge/1")).toBe(true);
+    expect(needsSession("/api/dj/anything")).toBe(true);
+  });
+
   it("guards anything it has never heard of", () => {
     // Private by default is the whole design: a page added tomorrow is
     // behind the sign-in because it exists, not because someone
@@ -182,8 +193,12 @@ describe("needsSession", () => {
 });
 
 describe("carriesOwnCredential", () => {
-  it("covers the photo booth's drop and nothing else", () => {
+  it("covers the photo booth's drop, the DJ bridge and nothing else", () => {
     expect(carriesOwnCredential("/api/booth/photos")).toBe(true);
+    expect(carriesOwnCredential("/api/dj/bridge")).toBe(true);
+    expect(carriesOwnCredential("/api/dj/bridge/")).toBe(false);
+    expect(carriesOwnCredential("/api/dj")).toBe(false);
+    expect(carriesOwnCredential("/admin/dance-floor")).toBe(false);
     expect(carriesOwnCredential("/api/booth/photos/")).toBe(false);
     expect(carriesOwnCredential("/api/booth")).toBe(false);
     expect(carriesOwnCredential("/api/health")).toBe(false);
@@ -268,6 +283,9 @@ describe("every route the app serves", () => {
     ["/login", "reachable by definition before signing in"],
     ["/api/health", "probed from inside Docker, reports the database"],
     ["/api/booth/photos", "the photo booth's drop - checks BOOTH_SYNC_TOKEN itself"],
+    ["/i/:token/dance-floor", "the song queue - the link is the credential"],
+    ["/i/:token/dance-floor/state", "the queue's live state - checks the token itself"],
+    ["/api/dj/bridge", "the DJ laptop's bridge - checks DJ_BRIDGE_TOKEN itself"],
   ]);
 
   const routes = appRoutes(join(process.cwd(), "src/app"));

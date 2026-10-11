@@ -81,6 +81,7 @@ All **runtime** (not build-time) variables:
 | `S3_REGION` | no | defaults to `us-east-1`, which R2 reads as `auto` |
 | `S3_FORCE_PATH_STYLE` | no | defaults to on, which R2 accepts; set `false` only if a provider needs virtual-host style |
 | `BOOTH_SYNC_TOKEN` | photo booth only | what the booth presents to `/api/booth/photos`. `openssl rand -base64 24`; see step 7a |
+| `DJ_BRIDGE_TOKEN` | dance floor only | what the DJ laptop's bridge presents to `/api/dj/bridge`. `openssl rand -base64 24`; see step 7b |
 
 `NODE_ENV`, `PORT` and `HOSTNAME` are baked into the image.
 
@@ -518,6 +519,37 @@ opens `/i/booth/<id>` on this site.
 Booth photographs are ordinary album photographs with
 `booth_session_id` set and "The photo booth" where a name would be.
 Hide one in `/admin/photos` like any other and its QR page 404s too.
+
+### 7b. The dance floor and the DJ bridge
+
+Skip this if nobody is playing music through djay Pro. Guests ask for
+songs and vote at `/i/<token>/dance-floor` (linked from the invitation
+while requests are open); the couple run it from `/admin/dance-floor`.
+The bridge is a small Node script on the Mac running djay that hands
+djay one request at a time and presses Skip when the floor votes a song
+off. `bridge/dj/README.md` covers the laptop end, including calibrating
+it against djay.
+
+1. Set `DJ_BRIDGE_TOKEN` (step 3) to something long and random and
+   redeploy. The route answers `503` until it is set, and `401` to
+   anything else.
+2. On the laptop, run the bridge with `WEDDING_URL` and the same
+   `DJ_BRIDGE_TOKEN` (see the README).
+3. **If basicauth is still in front of the planner (step 6)**, add
+   `/api/dj/bridge` to the public router's rule, exactly as for the
+   booth: the app lets that one path past the stamp because the route
+   checks the bridge's own token.
+4. Check it: `/admin/dance-floor` says "Connected" within a few seconds
+   of the bridge starting. From a shell, this should answer JSON with
+   `cue`, `skip`, `help` and `onAir`:
+
+   ```bash
+   curl -s -H "Authorization: Bearer $DJ_BRIDGE_TOKEN" https://wedding.yourdomain.nz/api/dj/bridge
+   ```
+
+Requests stay closed until you press "Open requests" on that page.
+Without a bridge at all the queue still works: mark songs on air and
+skip them by hand from the same page.
 
 ## 8. First run
 
