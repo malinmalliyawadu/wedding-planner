@@ -10,7 +10,9 @@ touches djay. Every few seconds it asks the app what to do and does it:
 |---|---|
 | `cue` | loads that song onto djay's **idle deck**, so Automix plays it next (one at a time, so votes keep moving the rest) |
 | `skip` | moves on to the next track - the floor voted the song off, or you did |
-| `help` | hands a song djay could not find to the fallback, if you set one |
+
+A song djay cannot find is dropped from the queue; whoever wanted it can
+ask again.
 
 and reports what is **on air** whenever it changes. It reports what it
 sees rather than what it did, so you can take over djay by hand at any
@@ -39,10 +41,23 @@ and nothing billed. Apple closed this to ordinary programs in macOS
   either: one source, so two spellings of a title cannot argue about
   whether the song changed.
 
+### Skipping: the media key
+
+Now Playing is also how the bridge skips. It presses macOS's own
+next-track (`media-control next-track`, the ⏭ key) - instant and free,
+where the driver finding djay's button takes Claude tens of seconds. It
+is only pressed while djay holds Now Playing, so a browser video on the
+laptop is never what gets skipped. If the song is still on air eight
+seconds later the key did not take, and the driver skips it the long
+way (up to two more tries).
+
 **Check it at the rehearsal**, because it is the part that depends on
 djay: with Automix playing, run `media-control get` and see djay's track
 in it, then watch `media-control stream` through a mix to see that the
-track changes when the new one comes in. If djay does not show up there
+track changes when the new one comes in. Then, with Automix playing, run
+`media-control next-track` and listen: djay should move on to the next
+song. If it does nothing, skips still work through the driver, just
+slowly. If djay does not show up there
 at all, set `DJ_NOW_PLAYING=driver` and the driver reads the decks
 instead (below). Without `media-control` installed the bridge says so
 at startup and does the same by itself.
@@ -61,8 +76,9 @@ how long it has left.
 
 What that means on the night:
 
-- **It is slow by computer standards.** Adding a song or skipping one
-  takes tens of seconds; one job runs at a time, skips first. The bridge
+- **It is slow by computer standards.** Adding a song takes tens of
+  seconds, and so does a skip when the media key cannot do it (above);
+  one job runs at a time, skips first. The bridge
   keeps checking in with the app meanwhile, so the planner still shows
   it as connected.
 - **djay comes to the front while Claude works**, exactly as it would
@@ -152,7 +168,7 @@ DJ_DRIVER=fake FAKE_SONG_SECONDS=20 node bridge.mjs
 
 A pretend djay: each song "plays" for 20 seconds, Skip moves on at once,
 and it plays "DJ's choice N" when its queue runs dry. A song with
-"missing" in the title is never found, so the fallback path gets
+"missing" in the title is never found, so a failed cue gets
 exercised too. Run it against a local `pnpm dev` with requests open and
 two phones on two invitation links.
 
@@ -241,27 +257,19 @@ lands in the Automix queue and Skip reliably skips.
 
 ## When djay cannot find a song
 
-A cue can fail two ways:
+It is dropped from the queue (`unavailable`, "not found" in the
+planner's history), and whoever wanted it can simply ask again. Nothing
+is held back for someone to hunt for, so the next request goes straight
+to djay. A cue can fail two ways:
 
-- **Loudly** - the steps errored. The song goes to "Needs a hand".
+- **Loudly** - the driver said it could not find it (`NOT_FOUND`) or
+  its steps errored.
 - **Silently** - the keystrokes ran but nothing was added, which looks
   exactly like success from outside. The app notices when two other
-  songs have started since djay was given it, and moves it to "Needs a
-  hand" too (`staleCues`). It counts songs rather than minutes, so the
-  speeches do not trigger it.
-
-With the Claude driver a `NOT_FOUND` already means Claude looked at
-the screen and could not find it, so there is no further fallback by
-default. With the keystroke driver, `DJ_FALLBACK_COMMAND` can name a
-command to run once per song needing a hand, with the prompt from
-`fallback-prompt.md` on stdin and `SONG_TITLE` and `SONG_ARTIST` in the
-environment; the **last line** of its output decides: `CUED` marks the
-song cued, `NOT_FOUND` gives up on it, anything else leaves it under
-"Needs a hand". While it runs the bridge presses nothing else.
-
-Without a fallback command, songs that need a hand wait on
-`/admin/dance-floor`, where "It's in djay's queue" and "Give up" settle
-them.
+  songs have started since djay was given it, and drops it then
+  (`staleCues`). It counts songs rather than minutes, so the speeches do
+  not trigger it. If it was on a deck after all and comes on later, it
+  is added back as the DJ's own choice.
 
 ## Environment
 
@@ -279,7 +287,6 @@ them.
 | `DJ_APP` | first app named `djay…` | Claude driver: which app to bring forward |
 | `DJ_CONFIG` | `./djay.config.json` | keystroke driver: the calibrated steps |
 | `DJ_POLL_MS` | `3000` | how often to ask |
-| `DJ_FALLBACK_COMMAND` | none | see above |
 | `FAKE_SONG_SECONDS` | `20` | the fake driver's song length |
 | `DJ_KEEP_AWAKE` | on | `0` lets the Mac sleep while the bridge runs |
 

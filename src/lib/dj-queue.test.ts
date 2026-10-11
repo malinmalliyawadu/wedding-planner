@@ -83,7 +83,7 @@ describe("checkRequest", () => {
   });
 
   it("refuses a song already waiting, cued or on air, whoever asked", () => {
-    for (const status of ["queued", "cued", "needs_help", "playing"] as const) {
+    for (const status of ["queued", "cued", "playing"] as const) {
       const existing = item({ title: "Valerie", artist: "Amy Winehouse", status, householdId: 7 });
       // The same song spelled differently is the same song.
       expect(checkRequest(songKey("valerie (live)", "amy winehouse"), 1, [existing], T0)).toEqual({
@@ -126,11 +126,13 @@ describe("checkRequest", () => {
     expect(checkRequest(songKey("One more", null), 3, mine, T0)).toEqual({ ok: true });
   });
 
-  it("counts a song waiting on help as still waiting", () => {
+  it("gives a slot back, and the song, when djay could not be given it", () => {
     const mine = Array.from({ length: MAX_WAITING_PER_HOUSEHOLD }, (_, i) =>
-      item({ title: `Mine ${i}`, householdId: 3, status: "needs_help" }),
+      item({ title: `Mine ${i}`, householdId: 3, status: i === 0 ? "unavailable" : "queued" }),
     );
-    expect(checkRequest(songKey("One more", null), 3, mine, T0).ok).toBe(false);
+    expect(checkRequest(songKey("One more", null), 3, mine, T0)).toEqual({ ok: true });
+    // Asking again for the one that failed is allowed straight away.
+    expect(checkRequest(mine[0].songKey, 3, mine, T0)).toEqual({ ok: true });
   });
 });
 
@@ -171,10 +173,10 @@ describe("nextToCue", () => {
     expect(nextToCue([...held, waiting], [])).toBeNull();
   });
 
-  it("keeps the music going while one song waits on help", () => {
-    const stuck = item({ title: "Obscure B-side", status: "needs_help" });
+  it("moves on past a song djay could not be given", () => {
+    const failed = item({ title: "Obscure B-side", status: "unavailable" });
     const waiting = item({ title: "Waiting" });
-    expect(nextToCue([stuck, waiting], [])?.id).toBe(waiting.id);
+    expect(nextToCue([failed, waiting], [])?.id).toBe(waiting.id);
   });
 
   it("has nothing to cue when nothing is waiting", () => {
@@ -185,21 +187,17 @@ describe("nextToCue", () => {
 describe("transition", () => {
   const cases: [string, QueueEvent, string | null][] = [
     ["queued", "cued", "cued"],
-    ["needs_help", "cued", "cued"],
     ["playing", "cued", null],
-    ["queued", "cue_failed", "needs_help"],
-    ["needs_help", "cue_failed", "unavailable"],
+    ["queued", "cue_failed", "unavailable"],
     ["cued", "cue_failed", null],
     ["cued", "started", "playing"],
     ["queued", "started", "playing"],
-    ["needs_help", "started", "playing"],
     ["played", "started", null],
     ["skipped", "started", null],
     ["removed", "started", null],
     ["playing", "ended", "played"],
     ["cued", "ended", null],
     ["queued", "removed", "removed"],
-    ["needs_help", "removed", "removed"],
     ["cued", "removed", null],
     ["playing", "removed", null],
   ];
@@ -218,7 +216,6 @@ describe("transition", () => {
 describe("removal", () => {
   it("takes a request off the list while it is still the app's", () => {
     expect(removal("queued")).toBe("remove");
-    expect(removal("needs_help")).toBe("remove");
   });
 
   it("skips a song djay already holds when it comes on", () => {

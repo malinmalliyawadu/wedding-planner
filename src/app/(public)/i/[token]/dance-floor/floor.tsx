@@ -396,7 +396,7 @@ function UpNext({
                 {(song.stage !== "waiting" || song.mine) && (
                   <p className="eyebrow mt-1 text-brass">
                     {[
-                      song.stage === "next" ? "Next up" : song.stage === "finding" ? "Being found" : null,
+                      song.stage === "next" ? "Next up" : null,
                       song.mine ? "Yours" : null,
                     ]
                       .filter(Boolean)

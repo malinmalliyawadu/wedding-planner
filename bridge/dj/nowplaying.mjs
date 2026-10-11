@@ -19,13 +19,19 @@ import { execFile, spawn } from "node:child_process";
  * A pause is not "nothing on air". It is reported as nothing at all, so a
  * moment's pause between decks never ends a song that is about to carry
  * on; what ends a song is the next one starting.
+ *
+ * It also presses the system's own next-track, the media key, which is
+ * how the bridge skips: instant and free, where asking the driver to
+ * find the button takes Claude tens of seconds. The key goes to whichever
+ * app holds Now Playing, so it is only pressed while that is djay - the
+ * browser video above must never be the thing that gets skipped.
  */
 
 const RESTART_MS = 5000;
 
-function get() {
+function run(...args) {
   return new Promise((resolve, reject) => {
-    execFile("media-control", ["get"], { timeout: 10_000, maxBuffer: 16 * 1024 * 1024 }, (error, stdout) => {
+    execFile("media-control", args, { timeout: 10_000, maxBuffer: 16 * 1024 * 1024 }, (error, stdout) => {
       if (error) reject(error);
       else resolve(stdout);
     });
@@ -43,7 +49,7 @@ export async function nativeNowPlaying({ log, onReading, bundlePrefix = "com.alg
 
   let first;
   try {
-    first = JSON.parse((await get()).trim() || "null");
+    first = JSON.parse((await run("get")).trim() || "null");
   } catch (error) {
     log(
       error.code === "ENOENT"
@@ -57,7 +63,7 @@ export async function nativeNowPlaying({ log, onReading, bundlePrefix = "com.alg
   }
 
   const ignored = new Set();
-  let state = {};
+  let state = first ?? {};
   let child = null;
   let stopped = false;
 
@@ -111,6 +117,24 @@ export async function nativeNowPlaying({ log, onReading, bundlePrefix = "com.alg
   start();
   handle(first);
   return {
+    /**
+     * Press next-track for djay. False when djay does not hold Now Playing
+     * or the press failed, so the caller can skip some other way; true
+     * says only that it was sent - what comes on air says whether it worked.
+     */
+    async next() {
+      if (!isDjay(state)) {
+        log(`next-track not sent: Now Playing is ${state.bundleIdentifier ?? "nobody"}, not djay`);
+        return false;
+      }
+      try {
+        await run("next-track");
+        return true;
+      } catch (error) {
+        log(`next-track failed: ${error.message}`);
+        return false;
+      }
+    },
     stop() {
       stopped = true;
       child?.kill();

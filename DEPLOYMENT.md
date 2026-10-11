@@ -541,7 +541,7 @@ it against djay.
    checks the bridge's own token.
 4. Check it: `/admin/dance-floor` says "Connected" within a few seconds
    of the bridge starting. From a shell, this should answer JSON with
-   `cue`, `skip`, `help` and `onAir`:
+   `cue`, `skip` and `onAir`:
 
    ```bash
    curl -s -H "Authorization: Bearer $DJ_BRIDGE_TOKEN" https://wedding.yourdomain.nz/api/dj/bridge

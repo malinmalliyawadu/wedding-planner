@@ -1276,6 +1276,12 @@ Decisions worth knowing before changing any of it:
   is never reported as nothing on air. While it is in use it is the only
   source - the driver's own readings are ignored, so two spellings of a
   title cannot argue about whether the song changed.
+- **Skips press the media key first.** With Now Playing in use, a skip
+  is `media-control next-track` - instant, where Claude finding djay's
+  button takes tens of seconds - sent only while djay holds Now Playing,
+  so a browser video on the laptop is never what gets skipped. If the
+  song is still on air eight seconds later the key did not take, and the
+  driver skips it instead.
 - **Without it, the driver reads the decks, and that is not a job.**
   Claude screenshots djay's window alone (`screencapture -l`), so it
   works with another app in front, alongside an add or skip. Each
@@ -1285,10 +1291,14 @@ Decisions worth knowing before changing any of it:
 - `DJ_DRIVER=keys` (`djay.mjs`, `djay.config.json`) is the blind
   alternative: djay's own shortcuts, near-instant, no API key. Its steps
   were written against djay's exported key bindings but not run.
-- **A blind cue can fail silently**, so a cue that did nothing would hold
-  djay's one slot all night. `staleCues` moves a request to `needs_help`
-  once two other songs have started since it was cued - counted in
-  songs, not minutes, so the speeches do not trip it.
+- **A song djay cannot find is dropped, not hunted for.** `cue_failed`
+  ends a request as `unavailable`, which holds nothing against anyone,
+  so whoever wanted it asks again; there is no "needs a hand" state to
+  wait in, for Claude or for a person. A blind cue can also fail
+  silently, and would then hold djay's one slot all night, so
+  `staleCues` drops a cued request the same way once two other songs
+  have started since - counted in songs, not minutes, so the speeches
+  do not trip it.
 - The `dj_queue_items_active_song` partial unique index is the real lock
   on duplicates; `checkRequest` is what lets the page say why.
 - **Album covers are found by the server, never sent by a guest.** A
