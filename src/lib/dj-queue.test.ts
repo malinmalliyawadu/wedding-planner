@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   CUE_DEPTH,
-  MAX_WAITING_PER_HOUSEHOLD,
+  MAX_WAITING,
+  askerColumns,
   QUEUE_STATUSES,
   REPLAY_GAP_MS,
   checkRequest,
+  isAsker,
   nextToCue,
   planOnAir,
   removal,
@@ -13,6 +15,7 @@ import {
   tally,
   transition,
   upcoming,
+  waitingFor,
   type QueueEvent,
   type QueueItem,
   type Vote,
@@ -28,6 +31,7 @@ function item(overrides: Partial<QueueItem> & { title: string; artist?: string |
   return {
     id: nextId++,
     householdId: 1,
+    phoneKey: null,
     status: "queued",
     skipRequested: false,
     createdAt: T0,
@@ -40,8 +44,8 @@ function item(overrides: Partial<QueueItem> & { title: string; artist?: string |
   };
 }
 
-const up = (itemId: number, householdId: number): Vote => ({ itemId, householdId, kind: "up" });
-const skip = (itemId: number, householdId: number): Vote => ({ itemId, householdId, kind: "skip" });
+const up = (itemId: number, householdId: number): Vote => ({ itemId, householdId, phoneKey: null, kind: "up" });
+const skip = (itemId: number, householdId: number): Vote => ({ itemId, householdId, phoneKey: null, kind: "skip" });
 
 describe("upcoming", () => {
   it("puts the most wanted first, then the first asked", () => {
@@ -79,14 +83,14 @@ describe("tally", () => {
 
 describe("checkRequest", () => {
   it("lets a fresh song through", () => {
-    expect(checkRequest(songKey("Valerie", "Amy Winehouse"), 1, [], T0)).toEqual({ ok: true });
+    expect(checkRequest(songKey("Valerie", "Amy Winehouse"), { householdId: 1 }, [], T0)).toEqual({ ok: true });
   });
 
   it("refuses a song already waiting, cued or on air, whoever asked", () => {
     for (const status of ["queued", "cued", "playing"] as const) {
       const existing = item({ title: "Valerie", artist: "Amy Winehouse", status, householdId: 7 });
       // The same song spelled differently is the same song.
-      expect(checkRequest(songKey("valerie (live)", "amy winehouse"), 1, [existing], T0)).toEqual({
+      expect(checkRequest(songKey("valerie (live)", "amy winehouse"), { householdId: 1 }, [existing], T0)).toEqual({
         ok: false,
         reason: "already_queued",
       });
@@ -97,42 +101,86 @@ describe("checkRequest", () => {
     for (const status of ["played", "skipped"] as const) {
       const done = item({ title: "Mr Brightside", status, endedAt: T0 });
       const key = done.songKey;
-      expect(checkRequest(key, 1, [done], minutes(30))).toEqual({ ok: false, reason: "just_played" });
-      expect(checkRequest(key, 1, [done], new Date(T0.getTime() + REPLAY_GAP_MS))).toEqual({ ok: true });
+      expect(checkRequest(key, { householdId: 1 }, [done], minutes(30))).toEqual({ ok: false, reason: "just_played" });
+      expect(checkRequest(key, { householdId: 1 }, [done], new Date(T0.getTime() + REPLAY_GAP_MS))).toEqual({ ok: true });
     }
   });
 
   it("does not hold a removed or unavailable song against anyone", () => {
     for (const status of ["removed", "unavailable"] as const) {
       const gone = item({ title: "Wonderwall", status, endedAt: T0 });
-      expect(checkRequest(gone.songKey, 1, [gone], minutes(1))).toEqual({ ok: true });
+      expect(checkRequest(gone.songKey, { householdId: 1 }, [gone], minutes(1))).toEqual({ ok: true });
     }
   });
 
   it("caps how many songs one household has waiting", () => {
-    const mine = Array.from({ length: MAX_WAITING_PER_HOUSEHOLD }, (_, i) =>
+    const mine = Array.from({ length: MAX_WAITING }, (_, i) =>
       item({ title: `Mine ${i}`, householdId: 3 }),
     );
     const key = songKey("One more", null);
-    expect(checkRequest(key, 3, mine, T0)).toEqual({ ok: false, reason: "household_limit" });
+    expect(checkRequest(key, { householdId: 3 }, mine, T0)).toEqual({ ok: false, reason: "waiting_limit" });
     // Another household is not affected.
-    expect(checkRequest(key, 4, mine, T0)).toEqual({ ok: true });
+    expect(checkRequest(key, { householdId: 4 }, mine, T0)).toEqual({ ok: true });
+  });
+
+  it("caps a phone from the venue's QR code the same way, apart from any household", () => {
+    const fromPhone = Array.from({ length: MAX_WAITING }, (_, i) =>
+      item({ title: `Phone ${i}`, householdId: null, phoneKey: "phone-a" }),
+    );
+    const key = songKey("One more", null);
+    expect(checkRequest(key, { phoneKey: "phone-a" }, fromPhone, T0)).toEqual({
+      ok: false,
+      reason: "waiting_limit",
+    });
+    expect(checkRequest(key, { phoneKey: "phone-b" }, fromPhone, T0)).toEqual({ ok: true });
+    // The couple's own songs (neither column set) belong to no asker at all.
+    expect(checkRequest(key, { householdId: 1 }, fromPhone, T0)).toEqual({ ok: true });
   });
 
   it("gives a slot back once djay has the song", () => {
-    const mine = Array.from({ length: MAX_WAITING_PER_HOUSEHOLD }, (_, i) =>
+    const mine = Array.from({ length: MAX_WAITING }, (_, i) =>
       item({ title: `Mine ${i}`, householdId: 3, status: i === 0 ? "cued" : "queued" }),
     );
-    expect(checkRequest(songKey("One more", null), 3, mine, T0)).toEqual({ ok: true });
+    expect(checkRequest(songKey("One more", null), { householdId: 3 }, mine, T0)).toEqual({ ok: true });
   });
 
   it("gives a slot back, and the song, when djay could not be given it", () => {
-    const mine = Array.from({ length: MAX_WAITING_PER_HOUSEHOLD }, (_, i) =>
+    const mine = Array.from({ length: MAX_WAITING }, (_, i) =>
       item({ title: `Mine ${i}`, householdId: 3, status: i === 0 ? "unavailable" : "queued" }),
     );
-    expect(checkRequest(songKey("One more", null), 3, mine, T0)).toEqual({ ok: true });
+    expect(checkRequest(songKey("One more", null), { householdId: 3 }, mine, T0)).toEqual({ ok: true });
     // Asking again for the one that failed is allowed straight away.
-    expect(checkRequest(mine[0].songKey, 3, mine, T0)).toEqual({ ok: true });
+    expect(checkRequest(mine[0].songKey, { householdId: 3 }, mine, T0)).toEqual({ ok: true });
+  });
+});
+
+describe("isAsker and waitingFor", () => {
+  it("tells a household and a phone apart, and matches neither to the couple's songs", () => {
+    const household = item({ title: "A", householdId: 5 });
+    const phone = item({ title: "B", householdId: null, phoneKey: "k" });
+    const couple = item({ title: "C", householdId: null });
+    expect(isAsker(household, { householdId: 5 })).toBe(true);
+    expect(isAsker(household, { phoneKey: "k" })).toBe(false);
+    expect(isAsker(phone, { phoneKey: "k" })).toBe(true);
+    expect(isAsker(phone, { householdId: 5 })).toBe(false);
+    expect(isAsker(couple, { householdId: 5 })).toBe(false);
+    expect(isAsker(couple, { phoneKey: "k" })).toBe(false);
+  });
+
+  it("writes exactly one asker column, which isAsker then recognises", () => {
+    expect(askerColumns({ householdId: 5 })).toEqual({ householdId: 5, phoneKey: null });
+    expect(askerColumns({ phoneKey: "k" })).toEqual({ householdId: null, phoneKey: "k" });
+    expect(isAsker(askerColumns({ phoneKey: "k" }), { phoneKey: "k" })).toBe(true);
+  });
+
+  it("counts only what is still waiting in the app", () => {
+    const items = [
+      item({ title: "A", householdId: null, phoneKey: "k" }),
+      item({ title: "B", householdId: null, phoneKey: "k", status: "cued" }),
+      item({ title: "C", householdId: null, phoneKey: "k", status: "played" }),
+      item({ title: "D", householdId: null, phoneKey: "other" }),
+    ];
+    expect(waitingFor({ phoneKey: "k" }, items)).toBe(1);
   });
 });
 

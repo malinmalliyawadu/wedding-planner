@@ -200,6 +200,8 @@ What guests may reach, and nothing else:
 | `/i/<token>/wedding.ics` | guests | the calendar file |
 | `/i/photo/<id>` | guests | one photograph (`photo` can never be a token - tokens are 20 characters) |
 | `/i/booth/<id>` | guests | the photo booth's QR page: one booth photograph and a save button (`booth` cannot be a token either) |
+| `/i/<token>/dance-floor` | guests | song requests and votes on the night, as a household |
+| `/i/dance/<code>` | guests | the same, from the QR code at the venue, as a phone (`dance` cannot be a token either) |
 | `/opengraph-image-<hash>` | anyone | the link preview: a picture of the stationery, no data |
 | `/admin/...` | the two of you | the guest list, addresses, budget, savings, seating |
 | `/wall` | the two of you | the projector view for the night |
@@ -524,7 +526,12 @@ Hide one in `/admin/photos` like any other and its QR page 404s too.
 
 Skip this if nobody is playing music through djay Pro. Guests ask for
 songs and vote at `/i/<token>/dance-floor` (linked from the invitation
-while requests are open); the couple run it from `/admin/dance-floor`.
+while requests are open), or from the QR code for the venue, which
+`/admin/dance-floor` makes and downloads as an SVG for printing; the
+couple run it all from that page. The QR code opens `/i/dance/<code>`,
+under `/i` like everything else a guest loads, so the public router
+needs nothing new for it. "Replace the code" on that page retires every
+printed copy at once.
 The bridge is a small Node script on the Mac running djay that hands
 djay one request at a time and presses Skip when the floor votes a song
 off. `bridge/dj/README.md` covers the laptop end, including calibrating

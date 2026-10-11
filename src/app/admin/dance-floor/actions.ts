@@ -9,6 +9,7 @@ import {
   importReplyCardSongs,
   markOnAir,
   removeOrSkip,
+  replaceShareCode,
   updateFloor,
 } from "@/lib/dj-floor";
 import { cleanSongText } from "@/lib/songs";
@@ -87,5 +88,13 @@ export async function importFromReplyCards(): Promise<ActionResult> {
   await requireAdmin();
 
   await importReplyCardSongs();
+  return done();
+}
+
+/** Make the venue's QR code, or a new one that retires the old. */
+export async function newShareCode(): Promise<ActionResult> {
+  await requireAdmin();
+
+  await replaceShareCode();
   return done();
 }

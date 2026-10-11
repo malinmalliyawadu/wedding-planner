@@ -24,6 +24,7 @@ describe("isPublicPath", () => {
     "/i/abcdefghjkmnpqrstuvw",
     "/i/abcdefghjkmnpqrstuvw/photos",
     "/i/abcdefghjkmnpqrstuvw/dance-floor",
+    "/i/dance/abcdefghjkmnpqrstuvw",
     "/i/abcdefghjkmnpqrstuvw/wedding.ics",
     "/i/photo/12",
     "/i/photo/12/thumb",
@@ -285,6 +286,9 @@ describe("every route the app serves", () => {
     ["/api/booth/photos", "the photo booth's drop - checks BOOTH_SYNC_TOKEN itself"],
     ["/i/:token/dance-floor", "the song queue - the link is the credential"],
     ["/i/:token/dance-floor/state", "the queue's live state - checks the token itself"],
+    ["/i/dance/:code", "the dance floor from the venue's QR code - the code is the credential"],
+    ["/i/dance/:code/state", "its live state - checks the code itself"],
+    ["/i/dance/:code/songs", "its song search - checks the code itself"],
     ["/api/dj/bridge", "the DJ laptop's bridge - checks DJ_BRIDGE_TOKEN itself"],
   ]);
 

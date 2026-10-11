@@ -1,0 +1,341 @@
+/*
+ * The dance floor, after dark.
+ *
+ * Deliberately not the invitation's paper and ink. Guests reach this page
+ * from a QR code on the night, in a dark marquee, phone in one hand and a
+ * drink in the other - a bright ivory sheet would be a torch in their
+ * face. So the page is the room: aubergine night, lit by whatever is
+ * playing (its cover, blurred huge behind everything) and swept by the
+ * mirror ball's flecks of light. That is the one flourish; everything
+ * else is plain, large and within reach of a thumb.
+ *
+ * Self-contained on purpose: these tokens exist for this page only, so
+ * they live here rather than in `globals.css`'s `@theme`.
+ */
+
+.dance {
+  --night: #17121f;
+  --night-raised: #231b2e;
+  --night-high: #2e2539;
+  --moon: #fbf4ea;
+  --moon-soft: rgb(251 244 234 / 0.72);
+  --moon-faint: rgb(251 244 234 / 0.52);
+  --line: rgb(251 244 234 / 0.1);
+  --line-strong: rgb(251 244 234 / 0.2);
+  /* Fairy lights and the bar's champagne: the one colour that means "you". */
+  --champagne: #f3d9a4;
+  --on-champagne: #2a1d0c;
+  /* Side B's rose, lit up for the dark: the colour of moving on. */
+  --rose: #f2a7b4;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  position: relative;
+  /* Above the public layout's paper grain, which sits at z-index 1. */
+  z-index: 2;
+  isolation: isolate;
+  min-height: 100dvh;
+  background: var(--night);
+  color: var(--moon);
+  font-family: var(--font-figtree), system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  color-scheme: dark;
+}
+
+.dance-display {
+  font-family: var(--font-dance), var(--font-figtree), sans-serif;
+  font-weight: 760;
+  font-variant-numeric: lining-nums;
+  letter-spacing: 0.005em;
+}
+
+/* The search field marks its own focus with its border; a ring around that too is two rings. */
+.dance :focus-visible:not(input) {
+  outline: 2px solid var(--champagne);
+  outline-offset: 3px;
+}
+
+/* Every control answers a finger at once, and nothing waits for a double tap. */
+.dance button,
+.dance a,
+.dance summary {
+  touch-action: manipulation;
+}
+
+.dance-press {
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 200ms var(--ease-out),
+    border-color 200ms var(--ease-out),
+    color 200ms var(--ease-out);
+}
+.dance-press:active {
+  transform: scale(0.94);
+}
+
+/* ------------------------------------------------------------------ *
+ * The room: the playing cover's light, and the mirror ball's flecks.
+ * ------------------------------------------------------------------ */
+
+.dance-room {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/*
+ * The cover, blurred into the light the room is lit by. A small copy is
+ * plenty, since the blur throws away every detail it has. The filter is
+ * static and the layer never moves, so it is rasterised once per song,
+ * not per frame.
+ */
+.dance-glow {
+  position: absolute;
+  inset: -20% -30% auto;
+  height: 95%;
+  -webkit-mask-image: linear-gradient(to bottom, #000 30%, transparent 92%);
+  mask-image: linear-gradient(to bottom, #000 30%, transparent 92%);
+  animation: dance-fade-in 1.4s var(--ease-out) both;
+}
+.dance-glow img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(56px) saturate(1.5);
+  opacity: 0.62;
+  transform: scale(1.15);
+}
+/* No cover: the warm wash of a marquee's lights instead. */
+.dance-glow-plain {
+  background:
+    radial-gradient(60% 50% at 30% 30%, rgb(243 217 164 / 0.22), transparent 70%),
+    radial-gradient(55% 45% at 75% 40%, rgb(242 167 180 / 0.18), transparent 70%);
+}
+
+/*
+ * The mirror ball. A strip twice the screen's width, carrying the same
+ * scatter of light twice, slides left by exactly one copy and repeats, so
+ * the flecks sweep across the room like the real thing turning above the
+ * floor. Transform only, so the compositor does all of it.
+ */
+.dance-flecks {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 200%;
+  animation: dance-sweep var(--sweep, 80s) linear infinite;
+  will-change: transform;
+}
+.dance-flecks-far {
+  --sweep: 130s;
+  opacity: 0.55;
+}
+/*
+ * A hot white core going to the tint at the edge, as a mirror's
+ * reflection is: bright where it lands, coloured by the light it carries.
+ */
+.dance-fleck {
+  position: absolute;
+  border-radius: 9999px;
+  background: radial-gradient(
+    closest-side,
+    #fff 0%,
+    var(--tint, #fff) 45%,
+    transparent 100%
+  );
+}
+
+@keyframes dance-sweep {
+  to {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes dance-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * What answers a tap, or a change on the floor.
+ * ------------------------------------------------------------------ */
+
+/* A new cover arrives rather than swapping. */
+.dance-cover-in {
+  animation: dance-cover-in 700ms var(--ease-out) both;
+}
+@keyframes dance-cover-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+
+/* The "now playing" equaliser: it is live, and this is how music says so. */
+.dance-eq {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 0.8rem;
+}
+.dance-eq span {
+  width: 3px;
+  height: 100%;
+  border-radius: 1px;
+  background: currentColor;
+  transform-origin: bottom;
+  animation: dance-eq 1s ease-in-out infinite;
+}
+.dance-eq span:nth-child(2) {
+  animation-duration: 0.8s;
+  animation-delay: -0.3s;
+}
+.dance-eq span:nth-child(3) {
+  animation-duration: 1.15s;
+  animation-delay: -0.6s;
+}
+@keyframes dance-eq {
+  0%,
+  100% {
+    transform: scaleY(0.3);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+/* The live dot breathes; a dot that has lost the room does not. */
+.dance-live-dot {
+  position: relative;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--rose);
+}
+.dance-live-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  animation: dance-ping 2.2s var(--ease-out) infinite;
+}
+.dance-live-dot[data-state="waiting"] {
+  background: var(--champagne);
+}
+.dance-live-dot[data-state="lost"] {
+  background: var(--moon-faint);
+}
+.dance-live-dot[data-state="lost"]::after {
+  animation: none;
+}
+@keyframes dance-ping {
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+/* A count that changed under your thumb gives a little hop. */
+.dance-pop {
+  animation: dance-pop 360ms var(--ease-spring);
+}
+@keyframes dance-pop {
+  40% {
+    transform: scale(1.3);
+  }
+}
+
+/* The song you just asked for glows once where it landed. */
+.dance-row[data-flash] {
+  animation: dance-flash 2.4s var(--ease-out);
+}
+@keyframes dance-flash {
+  0%,
+  35% {
+    background-color: rgb(243 217 164 / 0.14);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.dance-toast {
+  animation: dance-toast-in 280ms var(--ease-out) both;
+}
+@keyframes dance-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.75rem) scale(0.98);
+  }
+}
+
+/* The search sheet rises from where its button is, and gets out of the way faster. */
+.dance-sheet {
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 240ms var(--ease-out),
+    transform 280ms var(--ease-out),
+    overlay 240ms allow-discrete,
+    display 240ms allow-discrete;
+}
+.dance-sheet:not([open]) {
+  opacity: 0;
+  transform: translateY(1.5rem);
+  transition-duration: 160ms;
+}
+@starting-style {
+  .dance-sheet[open] {
+    opacity: 0;
+    transform: translateY(1.5rem);
+  }
+}
+.dance-sheet::backdrop {
+  background: rgb(8 6 12 / 0.6);
+}
+
+.dance-skeleton {
+  animation: dance-skeleton 1.4s ease-in-out infinite;
+  background: var(--night-high);
+}
+@keyframes dance-skeleton {
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* The drawn mirror ball's glints, for when there is no cover to show. */
+.dance-glint {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dance-glint 3.2s ease-in-out infinite;
+}
+.dance-glint:nth-of-type(2) {
+  animation-delay: -1.7s;
+  animation-duration: 4.1s;
+}
+@keyframes dance-glint {
+  0%,
+  60%,
+  100% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  75% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dance *,
+  .dance *::before,
+  .dance *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

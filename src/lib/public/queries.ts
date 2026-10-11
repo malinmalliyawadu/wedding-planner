@@ -18,14 +18,19 @@ import {
 import { isBoothSessionId } from "@/lib/booth";
 import {
   ACTIVE_STATUSES,
-  MAX_WAITING_PER_HOUSEHOLD,
+  MAX_WAITING,
   REPLAY_GAP_MS,
+  isAsker,
   tally,
   upcoming,
+  waitingFor,
+  type Asker,
+  type AskerColumns,
   type QueueItem,
   type Vote,
 } from "@/lib/dj-queue";
 import { isInviteTokenShape } from "@/lib/invite-token";
+import { coverAtSize } from "@/lib/song-search";
 import { songKey } from "@/lib/songs";
 
 /**
@@ -384,9 +389,9 @@ export type FloorSong = {
   title: string;
   artist: string | null;
   upVotes: number;
-  /** Your household has voted it up (asking for it counts). */
+  /** You have voted it up (asking for it counts). */
   votedUp: boolean;
-  /** Your household asked for it. */
+  /** You asked for it. */
   mine: boolean;
   /** The album cover, found by the server (`dj-cover.ts`); null when unsure. */
   coverUrl: string | null;
@@ -405,16 +410,32 @@ export type FloorNowPlaying = {
   skipVotesNeeded: number;
   votedSkip: boolean;
   mine: boolean;
+  /** Large enough to fill a phone's width; null when there is no cover. */
   coverUrl: string | null;
+  /** The same cover, small: the page blurs it into the room's light. */
+  coverSmallUrl: string | null;
 };
 
+/**
+ * The dance floor as one asker sees it. "You" is the household behind an
+ * invitation link, or the phone behind the venue's QR code.
+ */
 export type DanceFloor = {
   nowPlaying: FloorNowPlaying | null;
   upNext: FloorSong[];
-  /** Your household's songs still waiting, against `maxWaiting`. */
+  /** Your songs still waiting, against `maxWaiting`. */
   yourWaiting: number;
   maxWaiting: number;
+  /** Votes that skip a song, for saying how it works between songs too. */
+  skipVotesNeeded: number;
 };
+
+/**
+ * What the page shows: the floor, or the fact that it is shut. A guest
+ * with a good link who arrives early is told it opens later, and the page
+ * opens itself when it does; only a bad link gets a 404.
+ */
+export type DanceFloorState = ({ open: true } & DanceFloor) | { open: false };
 
 /** Whether the request page is open, for the invitation's link to it. */
 export const getDanceFloorOpen = cache(async (): Promise<boolean> => {
@@ -423,19 +444,57 @@ export const getDanceFloorOpen = cache(async (): Promise<boolean> => {
 });
 
 /**
- * The live queue as one household sees it, or null when the link is not
- * good or the floor is shut. Polled by the page every few seconds, so it
- * reads only what it shows.
+ * Whether this is the venue QR code's secret. Also false while the site
+ * is unpublished: the kill switch covers this door as it does every link.
  */
-export async function getDanceFloor(token: string): Promise<DanceFloor | null> {
+export const isDanceShareCode = cache(async (code: string): Promise<boolean> => {
+  if (!isInviteTokenShape(code)) return false;
+  if (!(await getSiteContent())) return false;
+  const [floor] = await db.select({ code: djFloor.shareCode }).from(djFloor).limit(1);
+  return floor?.code === code;
+});
+
+/**
+ * The dance floor through a household's invitation link, or null when the
+ * link is not good.
+ */
+export async function getDanceFloorForHousehold(token: string): Promise<DanceFloorState | null> {
   const householdId = await getHouseholdIdForToken(token);
   if (householdId === null) return null;
+  return readDanceFloor({ householdId });
+}
 
+/**
+ * The dance floor through the venue's QR code, or null when the code is
+ * not the current one. `phoneKey` is null for a phone that has not been
+ * given its cookie yet, which has asked for nothing and voted for nothing.
+ */
+export async function getDanceFloorForShareCode(
+  code: string,
+  phoneKey: string | null,
+): Promise<DanceFloorState | null> {
+  if (!(await isDanceShareCode(code))) return null;
+  return readDanceFloor(phoneKey === null ? null : { phoneKey });
+}
+
+/**
+ * Cover sizes, in pixels. Large fills a phone's width at 2x; small is a
+ * list row at 3x, and blurred into the background it needs no more.
+ */
+const COVER_LARGE_PX = 720;
+const COVER_SMALL_PX = 144;
+
+/**
+ * The live queue as one asker sees it. Polled by the page every few
+ * seconds, so it reads only what it shows - and no asker column leaves
+ * this function except as "mine".
+ */
+async function readDanceFloor(asker: Asker | null): Promise<DanceFloorState> {
   const [floor] = await db
     .select({ open: djFloor.open, skipVotesNeeded: djFloor.skipVotesNeeded })
     .from(djFloor)
     .limit(1);
-  if (!floor?.open) return null;
+  if (!floor?.open) return { open: false };
 
   type FloorItem = QueueItem & { coverUrl: string | null };
   const items: FloorItem[] = await db
@@ -446,6 +505,7 @@ export async function getDanceFloor(token: string): Promise<DanceFloor | null> {
       coverUrl: djQueueItems.coverUrl,
       songKey: djQueueItems.songKey,
       householdId: djQueueItems.householdId,
+      phoneKey: djQueueItems.phoneKey,
       status: djQueueItems.status,
       skipRequested: djQueueItems.skipRequested,
       createdAt: djQueueItems.createdAt,
@@ -463,13 +523,15 @@ export async function getDanceFloor(token: string): Promise<DanceFloor | null> {
           .select({
             itemId: djVotes.itemId,
             householdId: djVotes.householdId,
+            phoneKey: djVotes.phoneKey,
             kind: djVotes.kind,
           })
           .from(djVotes)
           .where(inArray(djVotes.itemId, items.map((item) => item.id)));
 
+  const isMine = (row: AskerColumns) => asker !== null && isAsker(row, asker);
   const mineVoted = (itemId: number, kind: Vote["kind"]) =>
-    votes.some((v) => v.itemId === itemId && v.householdId === householdId && v.kind === kind);
+    votes.some((v) => v.itemId === itemId && v.kind === kind && isMine(v));
   const ups = tally(votes, "up");
   const skips = tally(votes, "skip");
 
@@ -478,15 +540,16 @@ export async function getDanceFloor(token: string): Promise<DanceFloor | null> {
     id: item.id,
     title: item.title,
     artist: item.artist,
-    coverUrl: item.coverUrl,
+    coverUrl: item.coverUrl && coverAtSize(item.coverUrl, COVER_SMALL_PX),
     upVotes: ups.get(item.id) ?? 0,
     votedUp: mineVoted(item.id, "up"),
-    mine: item.householdId === householdId,
+    mine: isMine(item),
     stage,
   });
   const byId = (a: QueueItem, b: QueueItem) => a.id - b.id;
 
   return {
+    open: true,
     nowPlaying: playing
       ? {
           id: playing.id,
@@ -495,18 +558,18 @@ export async function getDanceFloor(token: string): Promise<DanceFloor | null> {
           skipVotes: skips.get(playing.id) ?? 0,
           skipVotesNeeded: floor.skipVotesNeeded,
           votedSkip: mineVoted(playing.id, "skip"),
-          mine: playing.householdId === householdId,
-          coverUrl: playing.coverUrl,
+          mine: isMine(playing),
+          coverUrl: playing.coverUrl && coverAtSize(playing.coverUrl, COVER_LARGE_PX),
+          coverSmallUrl: playing.coverUrl && coverAtSize(playing.coverUrl, COVER_SMALL_PX),
         }
       : null,
     upNext: [
       ...items.filter((i) => i.status === "cued").sort(byId).map((i) => song(i, "next")),
       ...upcoming(items, votes).map((i) => song(i, "waiting")),
     ],
-    yourWaiting: items.filter(
-      (i) => i.householdId === householdId && i.status === "queued",
-    ).length,
-    maxWaiting: MAX_WAITING_PER_HOUSEHOLD,
+    yourWaiting: asker === null ? 0 : waitingFor(asker, items),
+    maxWaiting: MAX_WAITING,
+    skipVotesNeeded: floor.skipVotesNeeded,
   };
 }
 
@@ -522,6 +585,7 @@ export async function getRequestContext(now: Date): Promise<QueueItem[]> {
       artist: djQueueItems.artist,
       songKey: djQueueItems.songKey,
       householdId: djQueueItems.householdId,
+      phoneKey: djQueueItems.phoneKey,
       status: djQueueItems.status,
       skipRequested: djQueueItems.skipRequested,
       createdAt: djQueueItems.createdAt,

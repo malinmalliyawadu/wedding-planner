@@ -1,20 +1,18 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import {
-  getDanceFloor,
-  getInvitation,
-  getSiteContent,
-} from "@/lib/public/queries";
-import { Ribbon } from "../../../ribbon";
-import { Section } from "../../../sections";
-import { Floor } from "./floor";
+import { getDanceFloorForHousehold, getSiteContent } from "@/lib/public/queries";
+import { danceViewport, DanceFloorScreen } from "../../../_dance-floor/screen";
+import { requestSong, voteOnSong } from "./actions";
 
 /**
- * The dance floor: ask for a song, vote the list, vote a song off.
+ * The dance floor, through a household's invitation link: ask for a song,
+ * vote the list, vote a song off. The same page as the venue's QR code
+ * (`/i/dance/[code]`), with the household as the one asking and a way
+ * back to the invitation.
  *
- * Like the album, no envelope - a guest gets here on the night from the
- * link on their own invitation, phone in one hand and a drink in the
- * other. It exists only while the couple have it open, and 404s like any
- * other unknown page otherwise.
+ * Like the album, no envelope - a guest gets here on the night, phone in
+ * one hand and a drink in the other. A good link with the floor shut is
+ * told when it opens and opens itself; only a bad link 404s.
  *
  * The page is rendered once with the true state and then keeps itself
  * current (`Floor` polls `./state`), because the point of it is what is
@@ -22,42 +20,26 @@ import { Floor } from "./floor";
  */
 export const dynamic = "force-dynamic";
 
+export const metadata: Metadata = { title: "The dance floor" };
+export const viewport = danceViewport;
+
 export default async function DanceFloorPage({
   params,
 }: PageProps<"/i/[token]/dance-floor">) {
   const { token } = await params;
-  const [invitation, site, floor] = await Promise.all([
-    getInvitation(token),
-    getSiteContent(),
-    getDanceFloor(token),
-  ]);
-  if (!invitation || !site || !floor) notFound();
-
-  const initialA = (site.partnerAName[0] ?? "A").toUpperCase();
-  const initialB = (site.partnerBName[0] ?? "B").toUpperCase();
+  const [site, floor] = await Promise.all([getSiteContent(), getDanceFloorForHousehold(token)]);
+  if (!site || !floor) notFound();
 
   return (
-    <>
-      <Ribbon
-        monogram={{ a: initialA, b: initialB }}
-        links={[
-          { id: "on-now", label: "On now" },
-          { id: "ask", label: "Ask for one" },
-          { id: "up-next", label: "Up next" },
-        ]}
-        cta={{ href: `/i/${token}`, label: "Invitation" }}
-      />
-
-      <main id="main" data-invitation="" className="overflow-x-clip pt-14 pb-20">
-        <Section
-          id="on-now"
-          eyebrow="The dance floor"
-          title="What's playing"
-          intro="Ask for a song, vote up the ones you want next, and if enough of you would rather not, we'll move on."
-        >
-          <Floor token={token} initial={floor} />
-        </Section>
-      </main>
-    </>
+    <DanceFloorScreen
+      couple={{ a: site.partnerAName, b: site.partnerBName }}
+      initial={floor}
+      statePath={`/i/${token}/dance-floor/state`}
+      searchPath={`/i/${token}/songs`}
+      request={requestSong.bind(null, token)}
+      vote={voteOnSong.bind(null, token)}
+      invitationHref={`/i/${token}`}
+      goneHint="Open the link from your invitation again."
+    />
   );
 }

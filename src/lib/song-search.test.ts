@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCatalogueResults } from "./song-search";
+import { coverAtSize, parseCatalogueResults } from "./song-search";
 
 describe("parseCatalogueResults", () => {
   const hit = (id: number, title: string, artist = "ABBA") => ({
@@ -66,5 +66,32 @@ describe("parseCatalogueResults", () => {
     expect(parseCatalogueResults({ data: [{ id: 5, title: "T", artist: { name: "A" } }] })).toEqual([
       { externalId: "5", title: "T", artist: "A", album: null, artwork: null, cover: null },
     ]);
+  });
+});
+
+describe("coverAtSize", () => {
+  const cdn = "https://cdn-images.dzcdn.net/images/cover/18f41ecd3781fb96bffa2b0b49955db5";
+
+  it("asks the catalogue's CDN for the size wanted", () => {
+    expect(coverAtSize(`${cdn}/250x250-000000-80-0-0.jpg`, 720)).toBe(
+      `${cdn}/720x720-000000-80-0-0.jpg`,
+    );
+    expect(coverAtSize(`${cdn}/1000x1000-000000-80-0-0.jpg`, 144)).toBe(
+      `${cdn}/144x144-000000-80-0-0.jpg`,
+    );
+  });
+
+  it("leaves anything else alone", () => {
+    for (const url of [
+      "https://cdn.example/250x250-000000-80-0-0.jpg",
+      `${cdn}/250x300-000000-80-0-0.jpg`,
+      `http://cdn-images.dzcdn.net/images/cover/abc/250x250-x.jpg`,
+      "https://evil.example/https://cdn-images.dzcdn.net/images/cover/abc/250x250-x.jpg",
+    ]) {
+      expect(coverAtSize(url, 720)).toBe(url);
+    }
+    expect(coverAtSize(`${cdn}/250x250-000000-80-0-0.jpg`, 0)).toBe(
+      `${cdn}/250x250-000000-80-0-0.jpg`,
+    );
   });
 });
