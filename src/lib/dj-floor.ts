@@ -6,7 +6,7 @@ import { fillCoversLater } from "./dj-cover";
 import { newInviteToken } from "./invite-token";
 import {
   ACTIVE_STATUSES,
-  REPLAY_GAP_MS,
+  SKIP_GAP_MS,
   nextToCue,
   planOnAir,
   shouldSkip,
@@ -69,14 +69,14 @@ export function danceShareUrl(origin: string, code: string): string {
 
 /**
  * Everything the queue logic needs: every active request, everything that
- * ended recently enough to matter (the replay gap, and the songs counted
+ * ended recently enough to matter (the skip gap, and the songs counted
  * by `staleCues`), and the votes on all of them.
  */
 export async function loadQueue(now: Date = new Date()): Promise<{
   items: QueueRow[];
   votes: Vote[];
 }> {
-  const since = new Date(now.getTime() - REPLAY_GAP_MS);
+  const since = new Date(now.getTime() - SKIP_GAP_MS);
   const items = await db
     .select()
     .from(djQueueItems)

@@ -78,6 +78,31 @@ export function SearchSheet({
     };
   }, [trimmed, searchPath]);
 
+  // Fit the sheet to the part of the screen the keyboard leaves. iOS
+  // shrinks the visual viewport for the keyboard (and may scroll it),
+  // while anything sized in viewport units carries on behind it.
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    const viewport = window.visualViewport;
+    if (!sheet || !viewport) return;
+    let frame = 0;
+    const fit = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        sheet.style.setProperty("--sheet-height", `${viewport.height}px`);
+        sheet.style.setProperty("--sheet-top", `${viewport.offsetTop}px`);
+      });
+    };
+    fit();
+    viewport.addEventListener("resize", fit);
+    viewport.addEventListener("scroll", fit);
+    return () => {
+      cancelAnimationFrame(frame);
+      viewport.removeEventListener("resize", fit);
+      viewport.removeEventListener("scroll", fit);
+    };
+  }, [sheetRef]);
+
   // Start clean every time it is opened.
   useEffect(() => {
     const sheet = sheetRef.current;
@@ -106,7 +131,7 @@ export function SearchSheet({
     <dialog
       ref={sheetRef}
       aria-labelledby={titleId}
-      className="dance-sheet m-0 h-dvh max-h-none w-full max-w-none overflow-hidden bg-(--night) p-0 text-(--moon) sm:mx-auto sm:max-w-[32rem] sm:border-x sm:border-(--line)"
+      className="dance-sheet m-0 max-h-none w-full max-w-none overflow-hidden bg-(--night) p-0 text-(--moon) sm:mx-auto sm:max-w-[32rem] sm:border-x sm:border-(--line)"
       onClick={(event) => {
         // A tap on the backdrop, where the sheet does not cover the screen.
         if (event.target === event.currentTarget) event.currentTarget.close();
@@ -169,7 +194,14 @@ export function SearchSheet({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom)+1.5rem)]">
+        <div
+          // A swipe through the results puts the keyboard away, as every
+          // music app does, so the whole list can be seen.
+          onTouchMove={() => {
+            if (document.activeElement === inputRef.current) inputRef.current?.blur();
+          }}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom)+1.5rem)]"
+        >
           {!searching ? (
             <div className="px-6 pt-14 text-center">
               <p className="dance-display text-[2rem] leading-tight">What should they play?</p>
