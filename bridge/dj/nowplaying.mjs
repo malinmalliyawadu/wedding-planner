@@ -29,6 +29,36 @@ import { execFile, spawn } from "node:child_process";
 
 const RESTART_MS = 5000;
 
+/**
+ * The ⏭ key itself, posted as the keyboard would post it (NX_KEYTYPE_NEXT
+ * as a system-defined event, down then up). This is what makes the media
+ * key work without media-control: macOS hands it to whichever app holds
+ * Now Playing, exactly as when someone presses the key on the laptop.
+ * Needs the Accessibility permission the bridge already has for typing.
+ */
+const NEXT_TRACK_KEY = `ObjC.import("AppKit");
+ObjC.import("CoreGraphics");
+for (const down of [true, false]) {
+  const flags = down ? 0xa00 : 0xb00;
+  const event = $.NSEvent.otherEventWithTypeLocationModifierFlagsTimestampWindowNumberContextSubtypeData1Data2(
+    14, $.NSMakePoint(0, 0), flags, 0, 0, null, 8, (17 << 16) | flags, -1);
+  $.CGEventPost(0, event.CGEvent);
+}`;
+
+/**
+ * Presses next-track with no way of knowing who holds Now Playing: the
+ * media key when media-control is not there to read it. False when the
+ * press could not be made.
+ */
+export async function pressNextTrackKey(log) {
+  return new Promise((resolve) => {
+    execFile("osascript", ["-l", "JavaScript", "-e", NEXT_TRACK_KEY], { timeout: 10_000 }, (error, _stdout, stderr) => {
+      if (error) log(`next-track key failed: ${(stderr || error.message).trim()}`);
+      resolve(!error);
+    });
+  });
+}
+
 function run(...args) {
   return new Promise((resolve, reject) => {
     execFile("media-control", args, { timeout: 10_000, maxBuffer: 16 * 1024 * 1024 }, (error, stdout) => {

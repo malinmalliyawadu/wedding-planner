@@ -6,7 +6,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { djayDriver, probe } from "./djay.mjs";
 import { fakeDriver } from "./fake.mjs";
-import { nativeNowPlaying } from "./nowplaying.mjs";
+import { nativeNowPlaying, pressNextTrackKey } from "./nowplaying.mjs";
 
 /**
  * The DJ bridge: the wedding app's dance floor, played through djay Pro.
@@ -125,10 +125,12 @@ const WATCH_LEAD_MS = Number(process.env.DJ_WATCH_LEAD_SECONDS ?? 20) * 1000;
 const WATCH_OVERRUN_MS = 60 * 1000;
 /**
  * Skip again if the song is still on this long after. The media key is
- * either taken at once or not at all, so its wait is short; a skip by the
+ * either taken at once or not at all, so its wait is short when Now
+ * Playing will show the change; without it the driver has to read the
+ * decks to see the song go, which takes a look of its own. A skip by the
  * driver includes the driver finding the button.
  */
-const SKIP_RETRY_MS = { key: 8 * 1000, driver: 20 * 1000 };
+const SKIP_RETRY_MS = { key: 8 * 1000, blindKey: 30 * 1000, driver: 20 * 1000 };
 const SKIP_ATTEMPTS = 3;
 
 function log(...parts) {
@@ -211,7 +213,7 @@ async function main() {
 
   /** What we last told the app was on air (undefined: never said). */
   let reported;
-  /** Skip attempts per item: { at, count, how }, how being "key" or "driver". */
+  /** Skip attempts per item: { at, count, how }, how being "key", "blindKey" or "driver". */
   const skips = new Map();
   /**
    * macOS Now Playing, when it can be read. Then it alone says what is on
@@ -295,22 +297,43 @@ async function main() {
     }
   }
 
+  /**
+   * The media key, pressed the moment the app asks for a skip. It touches
+   * no screen and clicks nothing, so it does not wait behind a job: a
+   * forty-second add must not hold up the floor's skip. With Now Playing
+   * it is pressed only while djay holds it; without media-control there
+   * is no telling who does, so it is pressed anyway - on the night that
+   * is djay, and if it is not, the song is still on air and the driver
+   * skips it below.
+   */
+  function keySkip(song) {
+    if (skips.has(song.id)) return;
+    skips.set(song.id, { at: Date.now(), count: 1, how: native ? "key" : "blindKey" });
+    log(`skip: ${describe(song)}`);
+    const press = native ? native.next() : mediaKey ? pressNextTrackKey(log) : Promise.resolve(false);
+    void press.then((sent) => {
+      if (sent) {
+        log("  next-track sent");
+        // Look at the decks soon rather than at the slow rate, so the app
+        // hears the song has gone before the driver is sent after it.
+        if (!native) lastWatch = 0;
+      } else {
+        // No key to press: straight to the driver, with all its tries.
+        skips.set(song.id, { at: 0, count: 0, how: "driver" });
+      }
+    });
+  }
+
   function nextJob(ins) {
     if (ins.skip) {
+      // The key has been pressed (keySkip) and the song is still on: the
+      // driver does it the long way.
       const tried = skips.get(ins.skip.id);
-      if (!tried || (tried.count < SKIP_ATTEMPTS && Date.now() - tried.at > SKIP_RETRY_MS[tried.how])) {
+      if (tried && tried.count < SKIP_ATTEMPTS && Date.now() - tried.at > SKIP_RETRY_MS[tried.how]) {
         const song = ins.skip;
         return async () => {
-          log(`skip: ${describe(song)}`);
-          const count = (tried?.count ?? 0) + 1;
-          // The media key first, once: if the song is still on after
-          // that, it did not take, and the driver does it the long way.
-          if (!tried && native && (await native.next())) {
-            log("  next-track sent");
-            skips.set(song.id, { at: Date.now(), count, how: "key" });
-            return;
-          }
-          skips.set(song.id, { at: Date.now(), count, how: "driver" });
+          log(`skip, by the driver: ${describe(song)}`);
+          skips.set(song.id, { at: Date.now(), count: tried.count + 1, how: "driver" });
           try {
             await fromJob(await driver.skip(song));
           } catch (error) {
@@ -373,6 +396,8 @@ async function main() {
       },
     });
   }
+  // Without media-control the ⏭ key can still be pressed, just blind.
+  const mediaKey = process.platform === "darwin" && driverName !== "fake";
   if (native) log("on air comes from macOS Now Playing");
   else if (!driver.canReadDecks) {
     log("this driver cannot read djay's decks: mark songs on air from the planner, or calibrate nowPlaying");
@@ -385,6 +410,7 @@ async function main() {
       if (wasDown) log("app reachable again");
       wasDown = false;
 
+      if (ins.skip) keySkip(ins.skip);
       const job = busy ? null : nextJob(ins);
       if (job) {
         busy = true;

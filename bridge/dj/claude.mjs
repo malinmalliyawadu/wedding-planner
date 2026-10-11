@@ -298,14 +298,19 @@ async function createScreen(app, log) {
     } catch {
       id = "";
     }
-    const whole = !/^\d+$/.test(id);
+    let whole = !/^\d+$/.test(id);
+    let shot;
+    if (!whole) {
+      // The window can be listed and still refuse a capture - mid-way
+      // through a Space change, say - so that falls back to the screen too.
+      shot = await capture(["-x", "-o", "-l", id], WATCH_LONG_EDGE, watching).catch(() => null);
+      whole = shot === null;
+    }
     if (whole !== lastWhole) {
-      log(whole ? "djay's window is not on this screen: reading the decks off the whole screen" : "reading the decks off djay's window");
+      log(whole ? "djay's window cannot be captured: reading the decks off the whole screen" : "reading the decks off djay's window");
       lastWhole = whole;
     }
-    const shot = whole
-      ? await capture(["-x", "-m"], SCREENSHOT_LONG_EDGE, watching)
-      : await capture(["-x", "-o", "-l", id], WATCH_LONG_EDGE, watching);
+    if (whole) shot = await capture(["-x", "-m"], SCREENSHOT_LONG_EDGE, watching);
     return { image: shot.image, whole };
   }
 
