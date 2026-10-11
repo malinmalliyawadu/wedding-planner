@@ -294,6 +294,27 @@
     transform: translateY(1.5rem);
   }
 }
+/*
+ * Sized to what the phone can actually show, not to the screen: with the
+ * keyboard up, 100dvh still reaches behind it, and the last results (and
+ * the "ask for it by name" row) sat where no scrolling could reach them.
+ * `SearchSheet` keeps these two in step with the visual viewport.
+ */
+.dance-sheet {
+  top: var(--sheet-top, 0px);
+  bottom: auto;
+  height: var(--sheet-height, 100dvh);
+}
+
+/*
+ * The floor behind the sheet must not scroll while it is open. A swipe
+ * that reached it would scroll a page nobody can see and, on iOS, fold
+ * Safari's toolbar away and resize the sheet under the finger.
+ */
+html:has(.dance-sheet[open]) {
+  overflow: hidden;
+}
+
 .dance-sheet::backdrop {
   background: rgb(8 6 12 / 0.6);
 }

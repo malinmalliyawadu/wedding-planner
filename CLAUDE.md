@@ -1215,8 +1215,9 @@ plays them on the DJ laptop. Three parts, and the split is the design:
   every rule: the order (`upcoming`: up votes, then first asked; asking
   counts as your vote), whether a request is allowed (`checkRequest`:
   one active copy of a song, matched by `songKey` as on the reply card;
-  nothing played or skipped in the last 90 minutes; two waiting per
-  household), the status machine (`transition`), when to skip
+  nothing skipped in the last 90 minutes, though a song that played to
+  the end can be asked for again at once; two waiting per household or
+  phone), the status machine (`transition`), when to skip
   (`shouldSkip`), and what a report from the laptop means (`planOnAir`).
 - **The app** (`/i/[token]/dance-floor` and `/i/dance/[code]` for
   guests, `/admin/dance-floor` for the couple, `src/lib/dj-floor.ts` for

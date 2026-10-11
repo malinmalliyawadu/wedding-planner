@@ -54,11 +54,13 @@ export function isActive(status: QueueStatus): boolean {
 export const MAX_WAITING = 2;
 
 /**
- * How long a song is off the menu after it was on. Without it the
- * wedding hears "Mr Brightside" every forty minutes, and a song the
- * floor voted off comes straight back.
+ * How long a skipped song is off the menu. A song that played to the end
+ * can be asked for again at once - if the room wants "Mr Brightside"
+ * twice, that is the room's call. One the floor voted off (or the couple
+ * skipped) cannot, or the people who voted it off would watch it come
+ * straight back.
  */
-export const REPLAY_GAP_MS = 90 * 60 * 1000;
+export const SKIP_GAP_MS = 90 * 60 * 1000;
 
 /** Votes needed before a song is skipped, unless the couple change it. */
 export const DEFAULT_SKIP_VOTES_NEEDED = 5;
@@ -160,7 +162,7 @@ export function upcoming<I extends QueueItem>(
     );
 }
 
-export type RequestRefusal = "already_queued" | "just_played" | "waiting_limit";
+export type RequestRefusal = "already_queued" | "just_skipped" | "waiting_limit";
 
 /**
  * Whether this asker may add this song now. The database's unique index
@@ -177,11 +179,11 @@ export function checkRequest(
     if (item.songKey !== key) continue;
     if (isActive(item.status)) return { ok: false, reason: "already_queued" };
     if (
-      (item.status === "played" || item.status === "skipped") &&
+      item.status === "skipped" &&
       item.endedAt !== null &&
-      now.getTime() - item.endedAt.getTime() < REPLAY_GAP_MS
+      now.getTime() - item.endedAt.getTime() < SKIP_GAP_MS
     ) {
-      return { ok: false, reason: "just_played" };
+      return { ok: false, reason: "just_skipped" };
     }
   }
   if (waitingFor(asker, items) >= MAX_WAITING) {
@@ -376,8 +378,8 @@ export function describeRefusal(reason: RequestRefusal): string {
   switch (reason) {
     case "already_queued":
       return "That one is already on the list - give it a vote instead.";
-    case "just_played":
-      return "That one has had its turn tonight. Try again later.";
+    case "just_skipped":
+      return "That one was skipped a little while ago. Try again later.";
     case "waiting_limit":
       return `You have ${MAX_WAITING} songs waiting already. Once one is up, add another.`;
   }

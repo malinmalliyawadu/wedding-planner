@@ -19,7 +19,7 @@ import { isBoothSessionId } from "@/lib/booth";
 import {
   ACTIVE_STATUSES,
   MAX_WAITING,
-  REPLAY_GAP_MS,
+  SKIP_GAP_MS,
   isAsker,
   tally,
   upcoming,
@@ -575,7 +575,7 @@ async function readDanceFloor(asker: Asker | null): Promise<DanceFloorState> {
 
 /**
  * The requests `checkRequest` needs to judge a new one: everything active,
- * and anything that went off air inside the replay gap.
+ * and anything that went off air inside the skip gap.
  */
 export async function getRequestContext(now: Date): Promise<QueueItem[]> {
   return db
@@ -597,7 +597,7 @@ export async function getRequestContext(now: Date): Promise<QueueItem[]> {
     .where(
       or(
         inArray(djQueueItems.status, [...ACTIVE_STATUSES]),
-        gt(djQueueItems.endedAt, new Date(now.getTime() - REPLAY_GAP_MS)),
+        gt(djQueueItems.endedAt, new Date(now.getTime() - SKIP_GAP_MS)),
       ),
     );
 }

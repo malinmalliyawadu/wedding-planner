@@ -4,7 +4,7 @@ import {
   MAX_WAITING,
   askerColumns,
   QUEUE_STATUSES,
-  REPLAY_GAP_MS,
+  SKIP_GAP_MS,
   checkRequest,
   isAsker,
   nextToCue,
@@ -97,13 +97,16 @@ describe("checkRequest", () => {
     }
   });
 
-  it("keeps a song off the menu for a while after it was on", () => {
-    for (const status of ["played", "skipped"] as const) {
-      const done = item({ title: "Mr Brightside", status, endedAt: T0 });
-      const key = done.songKey;
-      expect(checkRequest(key, { householdId: 1 }, [done], minutes(30))).toEqual({ ok: false, reason: "just_played" });
-      expect(checkRequest(key, { householdId: 1 }, [done], new Date(T0.getTime() + REPLAY_GAP_MS))).toEqual({ ok: true });
-    }
+  it("lets a song that played be asked for again straight away", () => {
+    const done = item({ title: "Mr Brightside", status: "played", endedAt: T0 });
+    expect(checkRequest(done.songKey, { householdId: 1 }, [done], minutes(1))).toEqual({ ok: true });
+  });
+
+  it("keeps a skipped song off the menu for a while", () => {
+    const done = item({ title: "Mr Brightside", status: "skipped", endedAt: T0 });
+    const key = done.songKey;
+    expect(checkRequest(key, { householdId: 1 }, [done], minutes(30))).toEqual({ ok: false, reason: "just_skipped" });
+    expect(checkRequest(key, { householdId: 1 }, [done], new Date(T0.getTime() + SKIP_GAP_MS))).toEqual({ ok: true });
   });
 
   it("does not hold a removed or unavailable song against anyone", () => {
