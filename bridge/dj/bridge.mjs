@@ -46,6 +46,8 @@ import { nativeNowPlaying, pressNextTrackKey } from "./nowplaying.mjs";
  *                        keys: fixed keyboard shortcuts (djay.mjs);
  *                        fake: a pretend djay, for rehearsing
  *   ANTHROPIC_API_KEY    for the claude driver
+ *   DJ_CLAUDE_MODEL      claude driver: opus (default) or sonnet, which
+ *                        is quicker and cheaper
  *   DJ_NOW_PLAYING       native (default): what is on air comes from macOS
  *                        Now Playing, via `media-control` (brew install
  *                        media-control); driver: the driver reads the decks
@@ -199,7 +201,12 @@ async function main() {
       }
       throw error;
     });
-    driver = await claudeDriver({ app: process.env.DJ_APP || undefined, log, watchSeconds: Number(process.env.DJ_WATCH_SECONDS ?? 30) }).catch((error) => {
+    driver = await claudeDriver({
+      app: process.env.DJ_APP || undefined,
+      log,
+      watchSeconds: Number(process.env.DJ_WATCH_SECONDS ?? 30),
+      model: process.env.DJ_CLAUDE_MODEL || undefined,
+    }).catch((error) => {
       console.error(error.message);
       process.exit(1);
     });

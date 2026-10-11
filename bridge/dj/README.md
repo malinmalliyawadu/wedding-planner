@@ -88,6 +88,18 @@ What that means on the night:
   one job runs at a time, skips first. The bridge
   keeps checking in with the app meanwhile, so the planner still shows
   it as connected.
+- **The model is a choice of speed against judgement**
+  (`DJ_CLAUDE_MODEL`). Every step of a job is one turn of the model, so
+  a quicker one shortens every step. Looks at the decks, timed on this
+  laptop: Opus about 6 seconds, Sonnet about 4, both reading the title
+  and time left correctly every time. Opus is the default because a job
+  that clicks has to judge which deck is idle, and loading onto the
+  wrong one cuts the song on air; try `sonnet` at a rehearsal and watch
+  the `turns, …s` line each add or skip logs. Two more were tried and
+  are not offered: Haiku was barely quicker than Sonnet and gave no
+  answer on two of three looks, and Opus's fast mode has little output
+  to speed up here, while its rate limit turned screenshot-sized
+  requests away.
 - **djay comes to the front while Claude works**, exactly as it would
   for a person. Treat the laptop as djay's for the night.
 Only when Now Playing is not in use (see above):
@@ -290,6 +302,7 @@ to djay. A cue can fail two ways:
 | `DJ_BRIDGE_TOKEN` | - | the same value as the server's |
 | `DJ_DRIVER` | `claude` | `claude`, `keys` or `fake` |
 | `ANTHROPIC_API_KEY` | - | for the Claude driver |
+| `DJ_CLAUDE_MODEL` | `opus` | Claude driver: `opus` or `sonnet`, which is quicker and half the price |
 | `DJ_NOW_PLAYING` | `native` | `native`: on air from macOS Now Playing; `driver`: the driver reads the decks |
 | `DJ_NOW_PLAYING_BUNDLE` | `com.algoriddim.` | whose Now Playing counts |
 | `DJ_WATCH_SECONDS` | `30` | Claude driver, without Now Playing: how often it reads the decks |
