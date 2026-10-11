@@ -1,5 +1,5 @@
 {
-  "$comment": "How the bridge drives djay Pro, by keyboard shortcut. Cmd-Return (musicLibrary.markSelectedSongs, adds the selection to the Queue) and Shift-Cmd-Return (mixer.transitionActiveToInactive, mixes into the next deck) are taken from djay's own key bindings on the DJ laptop. Still to confirm by hand: that Cmd-F focuses the library search, and that Down then selects the first song - not an artist, album or playlist, because opening one replaces what Automix plays from (see README.md, 'Calibrating'). The search is left as it is afterwards; Cmd-A then paste types over it next time. {query} is replaced with 'title artist'.",
+  "$comment": "How the bridge drives djay Pro, by keyboard shortcut. Cmd-Return (musicLibrary.markSelectedSongs, adds the selection to the Queue) and Shift-Cmd-Return (mixer.transitionActiveToInactive, mixes into the next deck) are taken from djay's own key bindings on the DJ laptop. Still to confirm by hand: that Cmd-F focuses the library search, and that Down then selects the first song - not an artist, album or playlist, because opening one replaces what Automix plays from (see README.md, 'Calibrating'). The search is cleared afterwards with Cmd-F then Escape (a macOS search field clears on Escape); confirm that too. {query} is replaced with 'title artist'.",
   "app": "djay Pro",
   "cue": [
     { "activate": true },
@@ -10,7 +10,10 @@
     { "delay": 2.5 },
     { "key": "down" },
     { "delay": 0.3 },
-    { "key": "return", "using": ["command"] }
+    { "key": "return", "using": ["command"] },
+    { "delay": 0.3 },
+    { "keystroke": "f", "using": ["command"] },
+    { "key": "escape" }
   ],
   "skip": [
     { "activate": true },

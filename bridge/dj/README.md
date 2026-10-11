@@ -156,7 +156,8 @@ whatever Automix had lined up there, and Automix mixes into it when the
 playing track ends. Only a single song is ever picked from the search
 results: opening an artist, album or playlist there replaces the list
 Automix plays from, so the drivers are told never to. The search is
-left as it is after a cue, and the next one types over it. The app only hands over the next request once that
+cleared after every cue, by keyboard: ⌘F to focus it, then Esc, which
+clears any macOS search field (⌘A and Delete if it does not). The app only hands over the next request once that
 one is on air, so a waiting request is never loaded over. djay's Queue
 (⌘↩) is not used: Automix does not play from it.
 
@@ -208,6 +209,8 @@ by hand, in djay, before trusting them:
   first, ↓ lands on one of those, and opening one replaces the list
   Automix is playing from - change the steps so only a song is ever
   selected. Does ⌘↩ then put it in the Queue (⌘K to look)?
+- Then ⌘F and Esc: does the search field empty and the library go back
+  to the list it was showing?
 - With Automix playing, does ⇧⌘↩ mix into the next track?
 
 If ⌘F does nothing, find the search field with the probe below and use
@@ -227,8 +230,9 @@ is also the only way to set up `nowPlaying`.
 2. **`cue`** - the steps that get a song into the Automix queue. The
    guess: focus search (Cmd-F), paste `{query}` (title and artist), wait
    for Apple Music results, select the first song, Cmd-Return to add
-   the selection to the queue. The search is left as it is: the next
-   cue selects it all (Cmd-A) and pastes over it, which saves a step. Change the steps until a song lands
+   the selection to the queue, then Cmd-F and Escape to clear the
+   search. djay has no binding of its own for clearing it; Escape in a
+   focused macOS search field is the platform's. Change the steps until a song lands
    at the end of the Automix queue every time.
 
 3. **`skip`** - ⇧⌘↩ (`mixer.transitionActiveToInactive`), so the floor
