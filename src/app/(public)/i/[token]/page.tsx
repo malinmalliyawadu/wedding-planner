@@ -1,9 +1,10 @@
-import { CalendarPlus, Camera, MapPin } from "lucide-react";
+import { CalendarPlus, Camera, MapPin, Music } from "lucide-react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { daysUntilNZ, formatDateFull, formatDateLong } from "@/lib/dates";
 import {
+  getDanceFloorOpen,
   getFaq,
   getGallery,
   getGuestSchedule,
@@ -59,11 +60,12 @@ export default async function InvitationPage({
   // either way: whether a token exists is not something to leak.
   if (!invitation || !site) notFound();
 
-  const [schedule, faq, gallery, jar] = await Promise.all([
+  const [schedule, faq, gallery, jar, dancing] = await Promise.all([
     getGuestSchedule(),
     getFaq(),
     site.photosEnabled ? getGallery() : Promise.resolve([]),
     cookies(),
+    getDanceFloorOpen(),
   ]);
   // Opened before on this browser: the envelope never enters the HTML,
   // so there is nothing to flash up and dismiss.
@@ -85,6 +87,7 @@ export default async function InvitationPage({
     hasDetails && { id: "details", label: "Good to know" },
     site.giftNote && { id: "gifts", label: "Gifts" },
     { id: "rsvp", label: "Reply" },
+    dancing && { id: "dance-floor", label: "Requests" },
     site.photosEnabled && { id: "photos", label: "Album" },
   ].filter((link): link is RibbonLink => Boolean(link));
 
@@ -557,6 +560,30 @@ export default async function InvitationPage({
             />
           </Rise>
         </Section>
+
+        {/* ---------------------------------------------------------- *
+         * The dance floor. Only while the couple have it open, which in
+         * practice is the night itself: before then there is nothing to
+         * play songs on.
+         * ---------------------------------------------------------- */}
+        {dancing && (
+          <Section
+            id="dance-floor"
+            eyebrow="On the night"
+            title="The dance floor"
+            intro="Ask for a song, and vote for the ones you want to hear next."
+          >
+            <Rise className="text-center">
+              <Link
+                href={`/i/${token}/dance-floor`}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-ink px-8 text-[0.8125rem] font-semibold tracking-caps text-paper uppercase transition-colors hover:bg-spine-raised"
+              >
+                <Music className="size-4" aria-hidden />
+                Request a song
+              </Link>
+            </Rise>
+          </Section>
+        )}
 
         {/* ---------------------------------------------------------- *
          * The album.

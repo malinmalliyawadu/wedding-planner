@@ -1,7 +1,10 @@
-import { and, asc, desc, eq, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, ne, or } from "drizzle-orm";
 import { cache } from "react";
 import { db } from "@/db";
 import {
+  djFloor,
+  djQueueItems,
+  djVotes,
   faqItems,
   guests,
   households,
@@ -13,6 +16,15 @@ import {
   tables,
 } from "@/db/schema";
 import { isBoothSessionId } from "@/lib/booth";
+import {
+  ACTIVE_STATUSES,
+  MAX_WAITING_PER_HOUSEHOLD,
+  REPLAY_GAP_MS,
+  tally,
+  upcoming,
+  type QueueItem,
+  type Vote,
+} from "@/lib/dj-queue";
 import { isInviteTokenShape } from "@/lib/invite-token";
 import { songKey } from "@/lib/songs";
 
@@ -361,4 +373,161 @@ export async function getVisiblePhotoObject(
       size === "thumb" ? (row.thumbStorageKey ?? row.storageKey) : row.storageKey,
     contentType: row.contentType,
   };
+}
+
+// ---------------------------------------------------------------------------
+// The dance floor.
+
+/** A song on the guests' list. Who asked for it is never said, unless it was you. */
+export type FloorSong = {
+  id: number;
+  title: string;
+  artist: string | null;
+  upVotes: number;
+  /** Your household has voted it up (asking for it counts). */
+  votedUp: boolean;
+  /** Your household asked for it. */
+  mine: boolean;
+  /**
+   * `next`: djay has it and it is coming. `finding`: djay could not find
+   * it and someone is looking. `waiting`: still in the app; votes move it.
+   */
+  stage: "next" | "finding" | "waiting";
+};
+
+export type FloorNowPlaying = {
+  id: number;
+  title: string;
+  artist: string | null;
+  skipVotes: number;
+  skipVotesNeeded: number;
+  votedSkip: boolean;
+  mine: boolean;
+};
+
+export type DanceFloor = {
+  nowPlaying: FloorNowPlaying | null;
+  upNext: FloorSong[];
+  /** Your household's songs still waiting, against `maxWaiting`. */
+  yourWaiting: number;
+  maxWaiting: number;
+};
+
+/** Whether the request page is open, for the invitation's link to it. */
+export const getDanceFloorOpen = cache(async (): Promise<boolean> => {
+  const [floor] = await db.select({ open: djFloor.open }).from(djFloor).limit(1);
+  return floor?.open ?? false;
+});
+
+/**
+ * The live queue as one household sees it, or null when the link is not
+ * good or the floor is shut. Polled by the page every few seconds, so it
+ * reads only what it shows.
+ */
+export async function getDanceFloor(token: string): Promise<DanceFloor | null> {
+  const householdId = await getHouseholdIdForToken(token);
+  if (householdId === null) return null;
+
+  const [floor] = await db
+    .select({ open: djFloor.open, skipVotesNeeded: djFloor.skipVotesNeeded })
+    .from(djFloor)
+    .limit(1);
+  if (!floor?.open) return null;
+
+  const items: QueueItem[] = await db
+    .select({
+      id: djQueueItems.id,
+      title: djQueueItems.title,
+      artist: djQueueItems.artist,
+      songKey: djQueueItems.songKey,
+      householdId: djQueueItems.householdId,
+      status: djQueueItems.status,
+      skipRequested: djQueueItems.skipRequested,
+      createdAt: djQueueItems.createdAt,
+      cuedAt: djQueueItems.cuedAt,
+      startedAt: djQueueItems.startedAt,
+      endedAt: djQueueItems.endedAt,
+    })
+    .from(djQueueItems)
+    .where(inArray(djQueueItems.status, [...ACTIVE_STATUSES]));
+
+  const votes: Vote[] =
+    items.length === 0
+      ? []
+      : await db
+          .select({
+            itemId: djVotes.itemId,
+            householdId: djVotes.householdId,
+            kind: djVotes.kind,
+          })
+          .from(djVotes)
+          .where(inArray(djVotes.itemId, items.map((item) => item.id)));
+
+  const mineVoted = (itemId: number, kind: Vote["kind"]) =>
+    votes.some((v) => v.itemId === itemId && v.householdId === householdId && v.kind === kind);
+  const ups = tally(votes, "up");
+  const skips = tally(votes, "skip");
+
+  const playing = items.find((item) => item.status === "playing");
+  const song = (item: QueueItem, stage: FloorSong["stage"]): FloorSong => ({
+    id: item.id,
+    title: item.title,
+    artist: item.artist,
+    upVotes: ups.get(item.id) ?? 0,
+    votedUp: mineVoted(item.id, "up"),
+    mine: item.householdId === householdId,
+    stage,
+  });
+  const byId = (a: QueueItem, b: QueueItem) => a.id - b.id;
+
+  return {
+    nowPlaying: playing
+      ? {
+          id: playing.id,
+          title: playing.title,
+          artist: playing.artist,
+          skipVotes: skips.get(playing.id) ?? 0,
+          skipVotesNeeded: floor.skipVotesNeeded,
+          votedSkip: mineVoted(playing.id, "skip"),
+          mine: playing.householdId === householdId,
+        }
+      : null,
+    upNext: [
+      ...items.filter((i) => i.status === "cued").sort(byId).map((i) => song(i, "next")),
+      ...items.filter((i) => i.status === "needs_help").sort(byId).map((i) => song(i, "finding")),
+      ...upcoming(items, votes).map((i) => song(i, "waiting")),
+    ],
+    yourWaiting: items.filter(
+      (i) => i.householdId === householdId && (i.status === "queued" || i.status === "needs_help"),
+    ).length,
+    maxWaiting: MAX_WAITING_PER_HOUSEHOLD,
+  };
+}
+
+/**
+ * The requests `checkRequest` needs to judge a new one: everything active,
+ * and anything that went off air inside the replay gap.
+ */
+export async function getRequestContext(now: Date): Promise<QueueItem[]> {
+  return db
+    .select({
+      id: djQueueItems.id,
+      title: djQueueItems.title,
+      artist: djQueueItems.artist,
+      songKey: djQueueItems.songKey,
+      householdId: djQueueItems.householdId,
+      status: djQueueItems.status,
+      skipRequested: djQueueItems.skipRequested,
+      createdAt: djQueueItems.createdAt,
+      cuedAt: djQueueItems.cuedAt,
+      startedAt: djQueueItems.startedAt,
+      endedAt: djQueueItems.endedAt,
+    })
+    .from(djQueueItems)
+    .where(
+      or(
+        inArray(djQueueItems.status, [...ACTIVE_STATUSES]),
+        gt(djQueueItems.endedAt, new Date(now.getTime() - REPLAY_GAP_MS)),
+      ),
+    );
 }

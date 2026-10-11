@@ -32,6 +32,7 @@ const APP = join(process.cwd(), "src/app");
 const PUBLIC_ACTIONS = [
   "app/(public)/i/[token]/actions.ts",
   "app/(public)/i/[token]/photos/actions.ts",
+  "app/(public)/i/[token]/dance-floor/actions.ts",
 ];
 
 /** Actions reachable before signing in, for obvious reasons. */

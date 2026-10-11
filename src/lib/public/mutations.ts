@@ -1,8 +1,24 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
-import { guests, households, photos, publicSite, songRequests } from "@/db/schema";
+import {
+  djFloor,
+  djQueueItems,
+  djVotes,
+  guests,
+  households,
+  photos,
+  publicSite,
+  songRequests,
+} from "@/db/schema";
+import { checkRequest, type RequestRefusal, type VoteKind } from "@/lib/dj-queue";
 import { isInviteTokenShape } from "@/lib/invite-token";
-import { normaliseSongRequests, type SongRequest } from "@/lib/songs";
+import { getRequestContext } from "@/lib/public/queries";
+import {
+  cleanSongText,
+  normaliseSongRequests,
+  songKey,
+  type SongRequest,
+} from "@/lib/songs";
 
 /**
  * The only writes an unauthenticated visitor can cause.
@@ -149,4 +165,91 @@ export async function photosAreOpen(token: string): Promise<boolean> {
     .from(publicSite)
     .limit(1);
   return site?.photosEnabled ?? false;
+}
+
+// ---------------------------------------------------------------------------
+// The dance floor.
+
+/** A household whose link is good and whose dance floor is open, or null. */
+async function resolveDancingHousehold(token: string): Promise<number | null> {
+  const householdId = await resolveOpenHousehold(token);
+  if (householdId === null) return null;
+  const [floor] = await db.select({ open: djFloor.open }).from(djFloor).limit(1);
+  return floor?.open ? householdId : null;
+}
+
+export type SongRequestOutcome =
+  | { ok: true }
+  | { ok: false; reason: RequestRefusal | "closed" | "empty" };
+
+/**
+ * Add a song to the queue for a household, with its vote for it. The
+ * unique index on active song keys is the last word on duplicates: two
+ * phones adding the same song in the same second both pass the check, and
+ * the second insert finds the first already there.
+ */
+export async function requestDanceSong(
+  token: string,
+  song: SongRequest,
+): Promise<SongRequestOutcome> {
+  const householdId = await resolveDancingHousehold(token);
+  if (householdId === null) return { ok: false, reason: "closed" };
+
+  const title = cleanSongText(song.title);
+  if (title === "") return { ok: false, reason: "empty" };
+  const artist = cleanSongText(song.artist) || null;
+  const externalId = cleanSongText(song.externalId) || null;
+  const key = songKey(title, artist);
+
+  const now = new Date();
+  const verdict = checkRequest(key, householdId, await getRequestContext(now), now);
+  if (!verdict.ok) return verdict;
+
+  const added = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(djQueueItems)
+      .values({ title, artist, externalId, songKey: key, householdId })
+      .onConflictDoNothing()
+      .returning({ id: djQueueItems.id });
+    if (!row) return false;
+    await tx.insert(djVotes).values({ itemId: row.id, householdId, kind: "up" });
+    return true;
+  });
+  return added ? { ok: true } : { ok: false, reason: "already_queued" };
+}
+
+/**
+ * Cast or take back a household's vote. An up vote only counts on a song
+ * still waiting in the app, a skip only on the song on air: anything else
+ * is a stale page, and is quietly ignored rather than reported.
+ */
+export async function voteOnDanceSong(
+  token: string,
+  itemId: number,
+  kind: VoteKind,
+  on: boolean,
+): Promise<boolean> {
+  const householdId = await resolveDancingHousehold(token);
+  if (householdId === null) return false;
+  if (!Number.isSafeInteger(itemId) || itemId <= 0) return false;
+
+  const [item] = await db
+    .select({ status: djQueueItems.status })
+    .from(djQueueItems)
+    .where(eq(djQueueItems.id, itemId))
+    .limit(1);
+  const votable = kind === "up" ? "queued" : "playing";
+  if (item?.status !== votable) return false;
+
+  const mine = and(
+    eq(djVotes.itemId, itemId),
+    eq(djVotes.householdId, householdId),
+    eq(djVotes.kind, kind),
+  );
+  if (on) {
+    await db.insert(djVotes).values({ itemId, householdId, kind }).onConflictDoNothing();
+  } else {
+    await db.delete(djVotes).where(mine);
+  }
+  return true;
 }
