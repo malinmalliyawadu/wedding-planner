@@ -162,7 +162,7 @@ async function main() {
       console.log(await probe(config.app ?? "djay Pro"));
     } catch (error) {
       // To the screen, not into the file the output is usually redirected to.
-      console.error(error.message.replace(/^.*execution error: /, "").replace(/ \(-\d+\)$/, ""));
+      console.error(error.message.replace(/^.*(execution error|Error): /, "").replace(/ \(-\d+\)$/, ""));
       process.exit(1);
     }
     return;

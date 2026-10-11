@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 
 /**
@@ -171,52 +171,108 @@ export async function djayDriver(configPath) {
 }
 
 /**
- * Everything accessibility can see in djay's windows, one element a line:
- * role, name, description, value, under a heading per window. This is
- * what calibration reads - which button is Skip, which text fields hold
- * the deck titles.
+ * What accessibility can see in djay's windows, as an indented tree: one
+ * element a line with its role, name, description and value, and its
+ * position (`[3.1.2]` is UI element 2 of UI element 1 of UI element 3 of
+ * the window) - which is how a calibrated step points at it. This is
+ * what calibration reads: which button is Skip, which field is the
+ * search, which text holds the deck titles.
  *
- * djay is brought to the front first: a minimised or hidden app has no
- * windows as far as accessibility is concerned. And when there are still
- * none, it says why in words rather than as AppleScript's "Invalid index".
+ * It does not ask for `entire contents`. djay's library is a list of
+ * thousands of tracks, and that is tens of thousands of elements fetched
+ * one Apple Event at a time - the first version of this sat there for
+ * minutes and looked hung. Instead it walks the tree itself (JavaScript
+ * for Automation, for the recursion), shows only the first few rows of
+ * any list or table, stops at a depth and a total, and reports progress
+ * on stderr so it is visible while the tree goes to a file.
+ *
+ * djay is brought to the front first: a minimised app has no windows as
+ * far as accessibility is concerned. When there are still none it says
+ * why in words rather than as AppleScript's "Invalid index".
  */
-export async function probe(app = "djay Pro") {
-  const script = [
-    `tell application ${literal(app)} to activate`,
-    "delay 1",
-    `tell application "System Events" to tell process ${literal(app)}`,
-    "if (count of windows) is 0 then error NO_WINDOWS",
-    "set out to {}",
-    "repeat with w in windows",
-    "  set heading to \"=== window\"",
-    "  try",
-    "    set heading to heading & \": \" & (name of w as text)",
-    "  end try",
-    "  set end of out to heading",
-    "  repeat with el in (entire contents of w)",
-    "    set rowText to \"\"",
-    "    try",
-    "      set rowText to (role of el as text)",
-    "    end try",
-    "    try",
-    "      set rowText to rowText & \" | name: \" & (name of el as text)",
-    "    end try",
-    "    try",
-    "      set rowText to rowText & \" | desc: \" & (description of el as text)",
-    "    end try",
-    "    try",
-    "      set rowText to rowText & \" | value: \" & (value of el as text)",
-    "    end try",
-    "    set end of out to rowText",
-    "  end repeat",
-    "end repeat",
-    "set AppleScript's text item delimiters to linefeed",
-    "return out as text",
-    "end tell",
-  ]
-    .join("\n")
-    .replace("error NO_WINDOWS", `error ${literal(NO_WINDOWS)}`);
-  return osascript(script, [], 300_000);
+export function probe(app = "djay Pro", { maxDepth = 14, maxNodes = 4000, rowsPerList = 3 } = {}) {
+  const script = `
+    function run(argv) {
+      const app = argv[0];
+      const maxDepth = Number(argv[1]), maxNodes = Number(argv[2]), rowsPerList = Number(argv[3]);
+      Application(app).activate();
+      delay(1);
+      const proc = Application("System Events").processes.byName(app);
+      const windows = proc.windows();
+      if (windows.length === 0) throw new Error(${JSON.stringify(NO_WINDOWS)});
+
+      const LISTS = ["AXTable", "AXOutline", "AXList", "AXBrowser", "AXGrid"];
+      const out = [];
+      let seen = 0;
+      const read = (el, name) => {
+        try {
+          const v = el[name]();
+          return v === null || v === undefined ? "" : String(v).replace(/\\s+/g, " ").trim();
+        } catch (e) {
+          return "";
+        }
+      };
+
+      function walk(el, depth, path) {
+        if (seen >= maxNodes) return;
+        seen += 1;
+        if (seen % 250 === 0) console.log("probe: " + seen + " elements...");
+        const role = read(el, "role");
+        const parts = [role || "?"];
+        const name = read(el, "name");
+        const desc = read(el, "description");
+        const value = read(el, "value");
+        if (name) parts.push("name: " + name);
+        if (desc && desc !== name) parts.push("desc: " + desc);
+        if (value && value !== name) parts.push("value: " + value.slice(0, 120));
+        out.push("  ".repeat(depth) + "[" + path + "] " + parts.join(" | "));
+        if (depth >= maxDepth) return;
+        let kids;
+        try {
+          kids = el.uiElements();
+        } catch (e) {
+          return;
+        }
+        const limit = LISTS.includes(role) ? Math.min(kids.length, rowsPerList) : kids.length;
+        for (let i = 0; i < limit; i += 1) walk(kids[i], depth + 1, path + "." + (i + 1));
+        if (limit < kids.length) {
+          out.push("  ".repeat(depth + 1) + "... " + (kids.length - limit) + " more in this list, not shown");
+        }
+      }
+
+      windows.forEach((w, i) => {
+        out.push("=== window " + (i + 1) + ": " + read(w, "name"));
+        walk(w, 0, String(i + 1));
+      });
+      if (seen >= maxNodes) out.push("(stopped after " + maxNodes + " elements)");
+      return out.join("\\n");
+    }
+  `;
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      "osascript",
+      ["-l", "JavaScript", "-", app, String(maxDepth), String(maxNodes), String(rowsPerList)],
+      { stdio: ["pipe", "pipe", "pipe"] },
+    );
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+    });
+    // Progress lines go straight to the screen; anything else is the error.
+    child.stderr.on("data", (chunk) => {
+      for (const line of String(chunk).split("\n")) {
+        if (line.startsWith("probe: ")) process.stderr.write(line + "\n");
+        else if (line.trim()) stderr += line + "\n";
+      }
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) resolve(stdout.trim());
+      else reject(new Error(stderr.trim() || `osascript exited with ${code}`));
+    });
+    child.stdin.end(script);
+  });
 }
 
 const NO_WINDOWS = [
