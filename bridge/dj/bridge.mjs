@@ -43,6 +43,8 @@ import { fakeDriver } from "./fake.mjs";
  *                        fake: a pretend djay, for rehearsing
  *   ANTHROPIC_API_KEY    for the claude driver
  *   DJ_WATCH_SECONDS     claude driver: how often it reads the decks (default 30)
+ *   DJ_WATCH_FAST_SECONDS  how often instead while a request waits on the
+ *                        idle deck to come on (default 5)
  *   DJ_APP               claude driver: djay's app name, if the first running
  *                        app whose name starts with "djay" is the wrong one
  *   DJ_CONFIG            path to the djay config (default ./djay.config.json)
@@ -89,6 +91,14 @@ function keepAwake() {
   log("keeping the Mac awake while the bridge runs");
 }
 const POLL_MS = Number(process.env.DJ_POLL_MS ?? 3000);
+/**
+ * How often to read the decks while a request is waiting on the idle deck.
+ * The app hands over the next request only once this one is on air, so
+ * the sooner the bridge sees it start, the sooner the next one is loaded:
+ * at the slow rate a song could be half a minute in before anyone looked,
+ * and the cue after that takes tens of seconds more.
+ */
+const WATCH_FAST_MS = Number(process.env.DJ_WATCH_FAST_SECONDS ?? 5) * 1000;
 const FALLBACK_TIMEOUT_MS = 5 * 60 * 1000;
 /** Press Skip again if the song is still on this long after. */
 const SKIP_RETRY_MS = 20 * 1000;
@@ -218,6 +228,8 @@ async function main() {
   const helped = new Set();
   /** When the decks were last read, for drivers that read them on a timer. */
   let lastWatch = 0;
+  /** A request is on the idle deck and has not been seen on air yet. */
+  let awaitingAir = false;
   let wasDown = false;
 
   /**
@@ -236,6 +248,9 @@ async function main() {
     log(`on air: ${onAir ? describe(onAir) : "(nothing)"}`);
     await api("POST", { type: "on_air", song: onAir });
     reported = onAir;
+    // The deck only changes over by mixing into the idle one, which is
+    // where the request was, so any change means it has come on.
+    awaitingAir = false;
   }
 
   function nextJob(ins) {
@@ -268,7 +283,10 @@ async function main() {
             ? { type: "cued", itemId: song.id }
             : { type: "cue_failed", itemId: song.id, note: result.note },
         );
+        // What was on air while it was being loaded is not the request,
+        // so this comes after reporting it.
         await reportOnAir(result.onAir);
+        if (result.ok) awaitingAir = true;
       };
     }
     const song = fallback ? ins.help.find((item) => !helped.has(item.id)) : undefined;
@@ -284,7 +302,8 @@ async function main() {
         }
       };
     }
-    if (driver.canReadDecks && Date.now() - lastWatch >= (driver.nowPlayingEveryMs ?? 0)) {
+    const watchEvery = awaitingAir ? WATCH_FAST_MS : (driver.nowPlayingEveryMs ?? 0);
+    if (driver.canReadDecks && Date.now() - lastWatch >= watchEvery) {
       return async () => {
         lastWatch = Date.now();
         await reportOnAir(await driver.nowPlaying());
