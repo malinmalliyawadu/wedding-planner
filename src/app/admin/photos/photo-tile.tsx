@@ -1,7 +1,6 @@
 "use client";
 
 import { Eye, EyeOff } from "lucide-react";
-import Image from "next/image";
 import { useTransition } from "react";
 import { setPhotoHidden } from "./actions";
 
@@ -26,12 +25,14 @@ export function PhotoTile({
           hidden ? "opacity-35" : ""
         }`}
       >
-        <Image
-          src={`/admin/photos/${id}/image`}
+        {/* A plain <img>: next/image cannot reach a private route. See servePhoto. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`/admin/photos/${id}/thumb`}
           alt={caption ?? "A guest photograph"}
-          fill
-          sizes="(min-width: 1024px) 20vw, (min-width: 640px) 33vw, 50vw"
-          className="object-cover"
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 size-full object-cover"
         />
         <button
           type="button"

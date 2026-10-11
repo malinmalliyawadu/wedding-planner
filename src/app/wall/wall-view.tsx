@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -89,14 +88,15 @@ export function WallView({ photos }: { photos: WallPhoto[] }) {
           style={{ opacity: at === index ? 1 : 0 }}
           aria-hidden={at !== index}
         >
-          <Image
+          {/* A plain <img>: next/image cannot reach a private route. See servePhoto. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src={`/admin/photos/${photo.id}/image`}
             alt={photo.caption ?? "A photograph from the day"}
-            fill
-            sizes="100vw"
-            className="object-contain"
+            decoding="async"
             // The next one up is worth having decoded already.
-            priority={Math.abs(at - index) <= 1}
+            fetchPriority={Math.abs(at - index) <= 1 ? "high" : "low"}
+            className="absolute inset-0 size-full object-contain"
           />
         </div>
       ))}

@@ -79,6 +79,13 @@ it from inside Docker, where there is no cookie to present, so it is the
 one private-by-default path exempt from the sign-in - a probe answering
 "not signed in" would say nothing about whether Postgres is reachable.
 
+Two more paths are neither public nor behind the session, because the
+callers are machines with no browser: `/api/booth/photos` (the photo
+booth, `BOOTH_SYNC_TOKEN`, M7) and `/api/dj/bridge` (the DJ laptop,
+`DJ_BRIDGE_TOKEN`, M11). Each route checks its own bearer token
+(`src/lib/bearer.ts`); `carriesOwnCredential` in `proxy.ts` names
+exactly those two, and `proxy.test.ts` pins it.
+
 Note `src/db/index.ts` deliberately does **not** guard on
 `DATABASE_URL`: that module is evaluated during `next build`, which has
 no database. The guard lives in `migrate.ts`, which the container runs
@@ -375,7 +382,11 @@ shaped by that.
 - **Two serving routes on purpose**: `/i/photo/[id]` refuses anything
   hidden (public), `/admin/photos/[id]/image` does not (behind the
   sign-in), or the couple could not see what they had hidden in order to
-  unhide it.
+  unhide it. Each has a `/thumb` twin for grids. **`next/image` is
+  banned everywhere by lint**, the planner included: the optimiser
+  fetches its source server-side without the browser's cookie, so on a
+  private route it gets the sign-in page and answers 400 "isn't a valid
+  image". Plain `<img>`, always.
 - **The photo booth drops into the same album.** The booth at the venue
   (`~/Projects/photo-booth`, a separate project) POSTs each finished
   session's photograph and thumbnail to `/api/booth/photos` with
@@ -1195,6 +1206,66 @@ redeploy, which means a browser someone else is holding cannot change the
 credential that would lock them out.
 
 
+## The dance floor (M11)
+
+Guests queue songs and vote from their phones on the night; djay Pro
+plays them on the DJ laptop. Three parts, and the split is the design:
+
+- **`src/lib/dj-queue.ts`** is the fifth pure, tested module and holds
+  every rule: the order (`upcoming`: up votes, then first asked; asking
+  counts as your vote), whether a request is allowed (`checkRequest`:
+  one active copy of a song, matched by `songKey` as on the reply card;
+  nothing played or skipped in the last 90 minutes; two waiting per
+  household), the status machine (`transition`), when to skip
+  (`shouldSkip`), and what a report from the laptop means (`planOnAir`).
+- **The app** (`/i/[token]/dance-floor` for guests, `/admin/dance-floor`
+  for the couple, `src/lib/dj-floor.ts` for the database) keeps the
+  queue. Votes are per household, like song requests. Guests see vote
+  counts and "yours", never who asked; the planner sees names.
+  `dj_floor.open` is a kill switch and starts shut, like `published`.
+- **`bridge/dj/`** is a dependency-free Node script on the Mac running
+  djay, polling `/api/dj/bridge` with `DJ_BRIDGE_TOKEN` (a second
+  `carriesOwnCredential` door, same shape as the booth's). It is not
+  part of the image (`.dockerignore`).
+
+Decisions worth knowing before changing any of it:
+
+- **djay holds one request at a time** (`CUE_DEPTH`). Everything else
+  stays in the app, where votes still move it. Hand djay ten and the
+  order is frozen.
+- **The bridge reports what it sees, not what it did.** It sends the
+  song on air whenever that changes; the server ends what was playing
+  (`skipped` if the couple asked or the floor voted it off, else
+  `played`), starts the matching request, or adds the DJ's own choice
+  as an unrequested row so the floor can vote that off too. The DJ can
+  take over at any moment and the queue follows the room rather than
+  arguing with it.
+- **djay has no API**, so the bridge drives it with keystrokes through
+  macOS accessibility, from steps in `djay.config.json`. Those steps
+  were written blind and **must be calibrated on the laptop** (the
+  README says how; `node bridge.mjs probe` dumps what accessibility
+  sees). Reading the decks is off until calibrated, and the planner can
+  mark songs on air by hand meanwhile.
+- **A keystroke cannot report its own failure**, so a cue that silently
+  did nothing would hold djay's one slot all night. `staleCues` moves a
+  request to `needs_help` once two other songs have started since it was
+  cued - counted in songs, not minutes, so the speeches do not trip it.
+- **Claude is the fallback, not the driver.** Computer use is seconds a
+  step and has no place in the path of every skip. A song djay could not
+  find goes to `needs_help`; the bridge runs `DJ_FALLBACK_COMMAND` with
+  `fallback-prompt.md` on stdin and pauses its own keystrokes until it
+  answers `CUED` or `NOT_FOUND`. Without one, the planner settles it.
+- The `dj_queue_items_active_song` partial unique index is the real lock
+  on duplicates; `checkRequest` is what lets the page say why.
+- **Album covers are found by the server, never sent by a guest.** A
+  cover is shown on every other guest's phone, so a URL a browser could
+  choose would be a picture of anyone's choosing. `fillCoversLater`
+  (`src/lib/dj-cover.ts`) searches the reply card's catalogue after the
+  response has gone (`after`), keeps a cover only when the match is the
+  same song by `songKey` (`coverFor`) - no cover beats the wrong one -
+  and only https covers are parsed at all. The `<img>`s send no referrer,
+  so the CDN never sees an invitation link.
+
 ## Milestones
 
 M1 foundation, M2 budget & scenarios, M3 savings projection, M4 seating
@@ -1206,8 +1277,9 @@ about it touches `(public)`. M9, ranking the shortlist, was asked for
 once the list passed seventy venues and is planner-only too. M10, signing
 in, was asked for after that and is the second change to move a boundary:
 the planner now authenticates itself instead of relying on the proxy in
-front of it. Anything further is a new request, so ask before starting
-one.
+front of it. M11, the dance floor, came after that: a public page under
+`/i` and a second machine door beside the booth's. Anything further is a
+new request, so ask before starting one.
 
 The couple are Ru (side A, sage) and Malin (side B, rose); names live in
 the `settings` row and drive every side label in the UI. Edit them, the

@@ -12,6 +12,7 @@ import {
   time,
   timestamp,
   unique,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -565,6 +566,112 @@ export const photos = pgTable("photos", {
     .notNull()
     .defaultNow(),
 });
+
+/**
+ * The dance floor's request queue (see `src/lib/dj-queue.ts`, where the
+ * statuses are explained). Guests add songs and vote from their phones;
+ * the bridge on the DJ laptop hands them to djay Pro one at a time.
+ */
+export const djItemStatusEnum = pgEnum("dj_item_status", [
+  "queued",
+  "cued",
+  "needs_help",
+  "playing",
+  "played",
+  "skipped",
+  "removed",
+  "unavailable",
+]);
+
+export const djVoteKindEnum = pgEnum("dj_vote_kind", ["up", "skip"]);
+
+/**
+ * The dance floor's switches. A singleton like `public_site`, and shut by
+ * default for the same reason: a request page that opens before anyone
+ * meant it to is a queue full of jokes by the time the DJ arrives.
+ */
+export const djFloor = pgTable(
+  "dj_floor",
+  {
+    id: integer("id").primaryKey().default(1),
+    open: boolean("open").notNull().default(false),
+    /** Households that must vote to skip before the bridge presses Skip. */
+    skipVotesNeeded: integer("skip_votes_needed").notNull().default(5),
+    /** When the bridge last asked what to do: is the laptop still there? */
+    bridgeSeenAt: timestamp("bridge_seen_at", { withTimezone: true }),
+  },
+  (t) => [
+    check("dj_floor_singleton", sql`${t.id} = 1`),
+    check("dj_floor_skip_votes_positive", sql`${t.skipVotesNeeded} > 0`),
+  ],
+);
+
+export const djQueueItems = pgTable(
+  "dj_queue_items",
+  {
+    id: serial("id").primaryKey(),
+    title: text("title").notNull(),
+    artist: text("artist"),
+    /** The catalogue's track id when picked, for provenance. Never looked up. */
+    externalId: text("external_id"),
+    /** `songKey(title, artist)`: what "the same song" means. */
+    songKey: text("song_key").notNull(),
+    /**
+     * The album cover, found by the server after the row is written
+     * (`fillCover`) - never taken from a guest's browser, since every
+     * other guest sees it. Null when the catalogue had nothing it was
+     * sure was the same song.
+     */
+    coverUrl: text("cover_url"),
+    /** Who asked. Null for the couple, or a song the DJ played unasked. */
+    householdId: integer("household_id").references(() => households.id, {
+      onDelete: "set null",
+    }),
+    status: djItemStatusEnum("status").notNull().default("queued"),
+    /**
+     * The couple pressed skip, or removed it once djay already had it.
+     * The bridge presses Skip as soon as it is on air.
+     */
+    skipRequested: boolean("skip_requested").notNull().default(false),
+    /** Why the bridge (or Claude) could not cue it, in their words. */
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** When djay was given it; see `staleCues` for why it is kept. */
+    cuedAt: timestamp("cued_at", { withTimezone: true }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+  },
+  (t) => [
+    // A song is on the list once at a time. Two phones adding the same
+    // song in the same second is exactly the race this settles.
+    uniqueIndex("dj_queue_items_active_song")
+      .on(t.songKey)
+      .where(sql`${t.status} in ('queued', 'cued', 'needs_help', 'playing')`),
+  ],
+);
+
+/**
+ * One household's vote on one request. Per household, not per guest, as
+ * with song requests: the link is the identity and it is shared.
+ */
+export const djVotes = pgTable(
+  "dj_votes",
+  {
+    itemId: integer("item_id")
+      .notNull()
+      .references(() => djQueueItems.id, { onDelete: "cascade" }),
+    householdId: integer("household_id")
+      .notNull()
+      .references(() => households.id, { onDelete: "cascade" }),
+    kind: djVoteKindEnum("kind").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.itemId, t.householdId, t.kind] })],
+);
 
 /**
  * A passkey that opens the planner.

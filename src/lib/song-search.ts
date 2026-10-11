@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { cleanSongText, sameSong, type SongMatch } from "./songs";
+import { cleanSongText, coverFor, sameSong, type SongMatch } from "./songs";
 
 /**
  * The music catalogue behind the reply card's song picker.
@@ -53,6 +53,17 @@ export class SongSearchUnavailable extends Error {}
  * picker shows are named; anything else in the payload is ignored, and a
  * hit missing one of these is dropped rather than failing the search.
  */
+/**
+ * A cover image's address. https only: these are shown to every guest on
+ * the dance floor, so a cover is the one thing from the catalogue that
+ * ends up in other people's browsers, and it should not be able to be
+ * anything but an image on a secure CDN.
+ */
+const coverUrl = z
+  .string()
+  .url()
+  .refine((url) => url.startsWith("https://"));
+
 const catalogueHit = z.object({
   id: z.number().int().positive(),
   title: z.string().min(1),
@@ -60,7 +71,8 @@ const catalogueHit = z.object({
   album: z
     .object({
       title: z.string().optional(),
-      cover_small: z.string().url().optional(),
+      cover_small: coverUrl.optional().catch(undefined),
+      cover_medium: coverUrl.optional().catch(undefined),
     })
     .optional(),
 });
@@ -85,6 +97,7 @@ export function parseCatalogueResults(payload: unknown): SongMatch[] {
       artist: cleanSongText(hit.data.artist.name),
       album: cleanSongText(hit.data.album?.title) || null,
       artwork: hit.data.album?.cover_small ?? null,
+      cover: hit.data.album?.cover_medium ?? null,
     };
     // The same recording turns up under several releases; one row each.
     if (matches.some((other) => sameSong(other, song))) continue;
@@ -142,4 +155,18 @@ export async function searchSongs(rawQuery: string): Promise<SongMatch[]> {
   }
   cache.set(key, { at: now, matches });
   return matches;
+}
+
+/**
+ * The album cover for a song, or null: not found, not sure it is the same
+ * song (`coverFor`), or the catalogue is not answering. Never throws -
+ * a missing cover is not worth failing anything over.
+ */
+export async function findCover(title: string, artist: string | null): Promise<string | null> {
+  try {
+    const matches = await searchSongs([title, artist].filter(Boolean).join(" "));
+    return coverFor(matches, { title, artist });
+  } catch {
+    return null;
+  }
 }

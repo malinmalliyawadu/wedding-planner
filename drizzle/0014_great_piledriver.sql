@@ -1,0 +1,1 @@
+ALTER TABLE "dj_queue_items" ADD COLUMN "cover_url" text;

@@ -319,7 +319,8 @@ async function main() {
       run_sheet_item_recipients, run_sheet_items, run_sheet_recipients,
       seating_constraints, scenario_choices, scenarios, payments,
       contributions, item_options, budget_items, photos, guests, households,
-      tables, tasks, settings, public_site, faq_items, venues
+      tables, tasks, settings, public_site, faq_items, venues,
+      dj_votes, dj_queue_items, dj_floor
     restart identity cascade
   `);
 
