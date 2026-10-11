@@ -56,11 +56,40 @@ const TOOLSET = {
 
 const HALT = "Not executed: an earlier computer action in this turn failed.";
 
+/** How long the app switch (and the Space change, if djay is full screen) takes to finish drawing. */
+const SETTLE_MS = 800;
+
+/**
+ * Brings djay to the front and waits until it is. Finds it by name when
+ * DJ_APP says which, else as the first running app whose name starts with
+ * "djay", because the App Store build has been "djay Pro", "djay Pro AI"
+ * and plain "djay" over the years. Activates it by bundle id, which
+ * switches Spaces for a full-screen window where a bare `frontmost` does
+ * not.
+ */
+const BRING_FORWARD = `function run(argv) {
+  const wanted = argv[0] || "";
+  const se = Application("System Events");
+  const procs = se.processes.whose({
+    _and: [wanted ? { name: wanted } : { name: { _beginsWith: "djay" } }, { backgroundOnly: false }],
+  })();
+  if (procs.length === 0) return JSON.stringify({ error: (wanted || "djay") + " is not running" });
+  const proc = procs[0];
+  const name = proc.name();
+  Application(proc.bundleIdentifier()).activate();
+  for (let i = 0; i < 40; i++) {
+    if (proc.frontmost()) return JSON.stringify({ name, front: true });
+    delay(0.1);
+  }
+  return JSON.stringify({ name, front: false });
+}`;
+
 const SYSTEM = `You are running the music at a wedding reception, on a Mac with djay Pro playing in Automix through the venue's speakers. Guests are dancing. You act through computer use: screenshots, mouse and keyboard.
 
 Rules, because the music is live:
 - Never stop or pause playback, and never touch volume, EQ, effects, the crossfader or a deck except where the task says to.
-- Use only djay Pro. Do not open, quit or switch to any other app, change any setting, sign in to anything or buy anything.
+- Work only in djay Pro. If it is not in front or is behind another window, bring it forward yourself (click its window, or its icon in the Dock) and carry on. Otherwise do not open, quit or switch to any other app, change any setting, sign in to anything or buy anything.
+- Nobody is at the laptop to read your reply or answer a question, so never stop to ask for something. Do the whole task yourself, or report FAILED with one line saying what stopped you.
 - If a dialog or popup is in the way, close it with Cancel or Close, never with an option that changes something.
 - Be quick: take the most direct route, and do not explore.
 
@@ -286,7 +315,21 @@ async function createScreen(app) {
     }
   }
 
-  return { act, screenshot, activate: () => osascript(`tell application ${JSON.stringify(app)} to activate`) };
+  /** Resolves to null once djay is in front, or to why it is not. */
+  async function bringForward() {
+    let state;
+    try {
+      state = JSON.parse(await run("osascript", ["-l", "JavaScript", "-e", BRING_FORWARD, app ?? ""], 10_000));
+    } catch (error) {
+      return error.message;
+    }
+    if (state.error) return state.error;
+    if (!state.front) return `${state.name} did not come to the front`;
+    await sleep(SETTLE_MS);
+    return null;
+  }
+
+  return { act, screenshot, bringForward };
 }
 
 // ---------------------------------------------------------------------------
@@ -306,7 +349,7 @@ export function parseVerdict(text) {
   return { result, onAir };
 }
 
-export async function claudeDriver({ app = "djay Pro", log = console.log, watchSeconds = 30 } = {}) {
+export async function claudeDriver({ app, log = console.log, watchSeconds = 30 } = {}) {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is not set. Put it in bridge/dj/.env (see .env.example).");
   }
@@ -322,14 +365,24 @@ export async function claudeDriver({ app = "djay Pro", log = console.log, watchS
    */
   async function runTask(task, { effort = "medium", act = true } = {}) {
     // A job that acts brings djay forward; just looking does not, so the
-    // regular check of the decks never steals focus by itself.
-    if (act) await screen.activate().catch(() => {});
+    // regular check of the decks never steals focus by itself. If it will
+    // not come, Claude is told so and does it by hand: the first
+    // screenshot is otherwise the terminal, and a model shown the wrong
+    // app with no word of why asks for someone to fix it.
+    if (act) {
+      const problem = await screen.bringForward();
+      if (problem) {
+        log(`  djay is not in front: ${problem}`);
+        task += `\n\nThe bridge could not bring djay to the front (${problem}). Bring it forward yourself first.`;
+      }
+    }
     const messages = [
       {
         role: "user",
         content: [{ type: "text", text: task }, ...(await screen.screenshot())],
       },
     ];
+    let nudged = false;
     const deadline = Date.now() + TASK_TIMEOUT_MS;
 
     for (let step = 0; step < MAX_STEPS; step += 1) {
@@ -358,7 +411,23 @@ export async function claudeDriver({ app = "djay Pro", log = console.log, watchS
           .filter((block) => block.type === "text")
           .map((block) => block.text)
           .join("\n");
-        return { text, ...parseVerdict(text) };
+        const verdict = parseVerdict(text);
+        // No RESULT line means it stopped to talk rather than finishing.
+        // Nobody will answer, so say so once and let it carry on.
+        if (verdict.result === null && act && !nudged) {
+          nudged = true;
+          messages.push({
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Nobody is at the laptop to answer. Carry on and finish the task yourself, then end with the RESULT and NOW_PLAYING lines.",
+              },
+            ],
+          });
+          continue;
+        }
+        return { text, ...verdict };
       }
 
       // A batch runs in order and stops at the first failure; every call

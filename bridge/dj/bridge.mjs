@@ -43,6 +43,8 @@ import { fakeDriver } from "./fake.mjs";
  *                        fake: a pretend djay, for rehearsing
  *   ANTHROPIC_API_KEY    for the claude driver
  *   DJ_WATCH_SECONDS     claude driver: how often it reads the decks (default 30)
+ *   DJ_APP               claude driver: djay's app name, if the first running
+ *                        app whose name starts with "djay" is the wrong one
  *   DJ_CONFIG            path to the djay config (default ./djay.config.json)
  *   DJ_POLL_MS           how often to ask (default 3000)
  *   DJ_FALLBACK_COMMAND  optional; run for each song djay could not find,
@@ -192,7 +194,7 @@ async function main() {
       }
       throw error;
     });
-    driver = await claudeDriver({ log, watchSeconds: Number(process.env.DJ_WATCH_SECONDS ?? 30) }).catch((error) => {
+    driver = await claudeDriver({ app: process.env.DJ_APP || undefined, log, watchSeconds: Number(process.env.DJ_WATCH_SECONDS ?? 30) }).catch((error) => {
       console.error(error.message);
       process.exit(1);
     });
