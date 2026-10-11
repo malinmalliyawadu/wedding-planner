@@ -616,6 +616,13 @@ export const djQueueItems = pgTable(
     externalId: text("external_id"),
     /** `songKey(title, artist)`: what "the same song" means. */
     songKey: text("song_key").notNull(),
+    /**
+     * The album cover, found by the server after the row is written
+     * (`fillCover`) - never taken from a guest's browser, since every
+     * other guest sees it. Null when the catalogue had nothing it was
+     * sure was the same song.
+     */
+    coverUrl: text("cover_url"),
     /** Who asked. Null for the couple, or a song the DJ played unasked. */
     householdId: integer("household_id").references(() => households.id, {
       onDelete: "set null",

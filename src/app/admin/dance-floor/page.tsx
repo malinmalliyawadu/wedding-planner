@@ -111,14 +111,17 @@ export default async function DanceFloorAdminPage() {
           <h2 className="eyebrow mb-2 text-brass">On air</h2>
           {playing ? (
             <div className="flex flex-col gap-3 rounded-lg border border-hairline bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
-                <p className="font-display text-xl text-ink">{describeSong(playing)}</p>
-                <p className="mt-1 text-sm text-ink-soft">
-                  {who(playing)} ·{" "}
-                  <span className="figures">{skipVotes.get(playing.id) ?? 0}</span> of{" "}
-                  <span className="figures">{floor.skipVotesNeeded}</span> votes to skip
-                  {playing.skipRequested && <span className="text-madder"> · skipping</span>}
-                </p>
+              <div className="flex min-w-0 items-center gap-4">
+                <Cover url={playing.coverUrl} className="size-16" />
+                <div className="min-w-0">
+                  <p className="font-display text-xl text-ink">{describeSong(playing)}</p>
+                  <p className="mt-1 text-sm text-ink-soft">
+                    {who(playing)} ·{" "}
+                    <span className="figures">{skipVotes.get(playing.id) ?? 0}</span> of{" "}
+                    <span className="figures">{floor.skipVotesNeeded}</span> votes to skip
+                    {playing.skipRequested && <span className="text-madder"> · skipping</span>}
+                  </p>
+                </div>
               </div>
               <div className="flex flex-wrap gap-2">
                 <ActButton kind="skip" itemId={playing.id} variant="danger">
@@ -193,9 +196,14 @@ export default async function DanceFloorAdminPage() {
                   {cued.map((item) => (
                     <tr key={item.id} className="group">
                       <td className="px-4 py-2.5 text-ink">
-                        {describeSong(item)}{" "}
-                        <Chip tone="fern">in djay</Chip>
-                        {item.skipRequested && <Chip tone="madder">will skip</Chip>}
+                        <div className="flex items-center gap-3">
+                          <Cover url={item.coverUrl} className="size-8" />
+                          <span>
+                            {describeSong(item)}{" "}
+                            <Chip tone="fern">in djay</Chip>
+                            {item.skipRequested && <Chip tone="madder">will skip</Chip>}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-4 py-2.5 text-ink-soft">{who(item)}</td>
                       <td className="px-4 py-2.5 text-right text-ink-faint">-</td>
@@ -215,7 +223,12 @@ export default async function DanceFloorAdminPage() {
                   ))}
                   {waiting.map((item) => (
                     <tr key={item.id} className="group">
-                      <td className="px-4 py-2.5 text-ink">{describeSong(item)}</td>
+                      <td className="px-4 py-2.5 text-ink">
+                        <div className="flex items-center gap-3">
+                          <Cover url={item.coverUrl} className="size-8" />
+                          <span>{describeSong(item)}</span>
+                        </div>
+                      </td>
                       <td className="px-4 py-2.5 text-ink-soft">{who(item)}</td>
                       <td className="figures px-4 py-2.5 text-right">{item.upVotes}</td>
                       <td className="px-4 py-2.5">
@@ -274,4 +287,26 @@ function formatAgo(ms: number): string {
   const minutes = Math.round(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
   return `${Math.round(minutes / 60)}h ago`;
+}
+
+/**
+ * The album cover the server found for a song, or an empty square so the
+ * titles still line up. A plain `<img>`: see servePhoto on why not
+ * `next/image`.
+ */
+function Cover({ url, className }: { url: string | null; className: string }) {
+  if (!url) return <span aria-hidden className={`shrink-0 rounded-sm bg-paper ${className}`} />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt=""
+      width={250}
+      height={250}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      className={`shrink-0 rounded-sm bg-paper object-cover ${className}`}
+    />
+  );
 }

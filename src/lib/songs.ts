@@ -31,7 +31,26 @@ export type SongMatch = {
   album: string | null;
   /** A small cover image, for telling the single from the live album. */
   artwork: string | null;
+  /** The same cover at 250px, for the dance floor's queue. */
+  cover: string | null;
 };
+
+/**
+ * The album cover for a song, from a catalogue search for it - but only
+ * when a match is the same song by `songKey`. A search for a typed
+ * "Hallelujah" returns a dozen artists' covers, and showing the wrong one
+ * on the dance floor would be worse than showing none, so a request with
+ * no artist only gets a cover if the catalogue agrees on the words, which
+ * it rarely will. The same rule that says "already on the list".
+ */
+export function coverFor(
+  matches: readonly SongMatch[],
+  song: { title: string; artist: string | null },
+): string | null {
+  const key = songKey(song.title, song.artist);
+  const match = matches.find((m) => songKey(m.title, m.artist) === key);
+  return match ? (match.cover ?? match.artwork) : null;
+}
 
 /**
  * Version tags a catalogue hangs off a title: "(Remastered 2011)",

@@ -1257,6 +1257,14 @@ Decisions worth knowing before changing any of it:
   answers `CUED` or `NOT_FOUND`. Without one, the planner settles it.
 - The `dj_queue_items_active_song` partial unique index is the real lock
   on duplicates; `checkRequest` is what lets the page say why.
+- **Album covers are found by the server, never sent by a guest.** A
+  cover is shown on every other guest's phone, so a URL a browser could
+  choose would be a picture of anyone's choosing. `fillCoversLater`
+  (`src/lib/dj-cover.ts`) searches the reply card's catalogue after the
+  response has gone (`after`), keeps a cover only when the match is the
+  same song by `songKey` (`coverFor`) - no cover beats the wrong one -
+  and only https covers are parsed at all. The `<img>`s send no referrer,
+  so the CDN never sees an invitation link.
 
 ## Milestones
 

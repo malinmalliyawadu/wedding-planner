@@ -388,6 +388,8 @@ export type FloorSong = {
   votedUp: boolean;
   /** Your household asked for it. */
   mine: boolean;
+  /** The album cover, found by the server (`dj-cover.ts`); null when unsure. */
+  coverUrl: string | null;
   /**
    * `next`: djay has it and it is coming. `finding`: djay could not find
    * it and someone is looking. `waiting`: still in the app; votes move it.
@@ -403,6 +405,7 @@ export type FloorNowPlaying = {
   skipVotesNeeded: number;
   votedSkip: boolean;
   mine: boolean;
+  coverUrl: string | null;
 };
 
 export type DanceFloor = {
@@ -434,11 +437,13 @@ export async function getDanceFloor(token: string): Promise<DanceFloor | null> {
     .limit(1);
   if (!floor?.open) return null;
 
-  const items: QueueItem[] = await db
+  type FloorItem = QueueItem & { coverUrl: string | null };
+  const items: FloorItem[] = await db
     .select({
       id: djQueueItems.id,
       title: djQueueItems.title,
       artist: djQueueItems.artist,
+      coverUrl: djQueueItems.coverUrl,
       songKey: djQueueItems.songKey,
       householdId: djQueueItems.householdId,
       status: djQueueItems.status,
@@ -469,10 +474,11 @@ export async function getDanceFloor(token: string): Promise<DanceFloor | null> {
   const skips = tally(votes, "skip");
 
   const playing = items.find((item) => item.status === "playing");
-  const song = (item: QueueItem, stage: FloorSong["stage"]): FloorSong => ({
+  const song = (item: FloorItem, stage: FloorSong["stage"]): FloorSong => ({
     id: item.id,
     title: item.title,
     artist: item.artist,
+    coverUrl: item.coverUrl,
     upVotes: ups.get(item.id) ?? 0,
     votedUp: mineVoted(item.id, "up"),
     mine: item.householdId === householdId,
@@ -490,6 +496,7 @@ export async function getDanceFloor(token: string): Promise<DanceFloor | null> {
           skipVotesNeeded: floor.skipVotesNeeded,
           votedSkip: mineVoted(playing.id, "skip"),
           mine: playing.householdId === householdId,
+          coverUrl: playing.coverUrl,
         }
       : null,
     upNext: [

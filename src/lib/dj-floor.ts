@@ -2,6 +2,7 @@ import { and, desc, eq, gt, inArray, or } from "drizzle-orm";
 import { db } from "@/db";
 import { djFloor, djQueueItems, djVotes, songRequests } from "@/db/schema";
 import { verifyBearerToken } from "./bearer";
+import { fillCoversLater } from "./dj-cover";
 import {
   ACTIVE_STATUSES,
   REPLAY_GAP_MS,
@@ -140,7 +141,7 @@ export async function recordOnAir(seen: OnAir | null): Promise<void> {
   const plan = planOnAir(items, seen, votedOff);
   const now = new Date();
 
-  await db.transaction(async (tx) => {
+  const created = await db.transaction(async (tx) => {
     for (const ended of plan.end) {
       await tx
         .update(djQueueItems)
@@ -153,22 +154,23 @@ export async function recordOnAir(seen: OnAir | null): Promise<void> {
         .set({ status: "playing", startedAt: now })
         .where(eq(djQueueItems.id, plan.start));
     }
-    if (plan.create !== null) {
-      await tx
-        .insert(djQueueItems)
-        .values({
-          title: plan.create.title,
-          artist: plan.create.artist,
-          songKey: songKey(plan.create.title, plan.create.artist),
-          householdId: null,
-          status: "playing",
-          startedAt: now,
-        })
-        // The same song cannot be active twice; if it somehow is, the
-        // row that is already there stands for it.
-        .onConflictDoNothing();
-    }
+    if (plan.create === null) return [];
+    return tx
+      .insert(djQueueItems)
+      .values({
+        title: plan.create.title,
+        artist: plan.create.artist,
+        songKey: songKey(plan.create.title, plan.create.artist),
+        householdId: null,
+        status: "playing",
+        startedAt: now,
+      })
+      // The same song cannot be active twice; if it somehow is, the
+      // row that is already there stands for it.
+      .onConflictDoNothing()
+      .returning({ id: djQueueItems.id });
   });
+  fillCoversLater(created.map((row) => row.id));
 }
 
 /**
@@ -208,6 +210,7 @@ export async function addCoupleSong(song: {
     })
     .onConflictDoNothing()
     .returning({ id: djQueueItems.id });
+  fillCoversLater(rows.map((row) => row.id));
   return rows.length > 0 ? "added" : "already_queued";
 }
 
@@ -231,7 +234,7 @@ export async function importReplyCardSongs(): Promise<number> {
   const { items } = await loadQueue();
   const taken = new Set(items.map((item) => item.songKey));
 
-  let added = 0;
+  const added: number[] = [];
   for (const entry of buildPlaylist(requests)) {
     const key = songKey(entry.title, entry.artist);
     if (taken.has(key)) continue;
@@ -247,14 +250,15 @@ export async function importReplyCardSongs(): Promise<number> {
         .onConflictDoNothing()
         .returning({ id: djQueueItems.id });
       if (!row) return;
-      added += 1;
+      added.push(row.id);
       await tx
         .insert(djVotes)
         .values(entry.householdIds.map((householdId) => ({ itemId: row.id, householdId, kind: "up" as const })))
         .onConflictDoNothing();
     });
   }
-  return added;
+  fillCoversLater(added);
+  return added.length;
 }
 
 /**

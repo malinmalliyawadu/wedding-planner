@@ -140,7 +140,14 @@ function NowPlaying({
   return (
     <div className="text-center">
       <p className="eyebrow text-brass">On now</p>
-      <p className="mt-3 font-display text-[clamp(1.6rem,6vw,2.25rem)] leading-tight text-ink">
+      {song.coverUrl && (
+        // A print laid on the card, like the album's fanned photographs.
+        // Keyed by song so a new one fades in rather than swapping.
+        <div key={song.id} className="mx-auto mt-5 w-44 -rotate-2 bg-card p-1.5 shadow-overlay animate-fade sm:w-52">
+          <Cover url={song.coverUrl} className="aspect-square w-full" />
+        </div>
+      )}
+      <p className="mt-5 font-display text-[clamp(1.6rem,6vw,2.25rem)] leading-tight text-ink">
         {song.title}
       </p>
       {song.artist && <p className="mt-1 text-ink-soft">{song.artist}</p>}
@@ -378,7 +385,12 @@ function UpNext({
         <ol className="mt-2">
           {songs.map((song) => (
             <li key={song.id} className="flex items-center justify-between gap-3 border-b border-hairline py-3">
-              <div className="min-w-0">
+              {song.coverUrl ? (
+                <Cover url={song.coverUrl} className="size-11 shrink-0" />
+              ) : (
+                <span aria-hidden className="size-11 shrink-0 bg-paper" />
+              )}
+              <div className="min-w-0 flex-1">
                 <p className="truncate font-display text-[1.1rem] leading-snug text-ink">{song.title}</p>
                 {song.artist && <p className="truncate text-sm text-ink-soft">{song.artist}</p>}
                 {(song.stage !== "waiting" || song.mine) && (
@@ -414,5 +426,27 @@ function UpNext({
         </ol>
       )}
     </div>
+  );
+}
+
+/**
+ * An album cover from the catalogue's CDN. Decorative - the title beside
+ * it says what it is - and sent with no referrer, so the CDN is not told
+ * which invitation link it was loaded from. A plain `<img>`: `next/image`
+ * is banned on the public pages because `/_next/image` is not public.
+ */
+function Cover({ url, className }: { url: string; className: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt=""
+      width={250}
+      height={250}
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      className={`bg-paper object-cover ${className}`}
+    />
   );
 }

@@ -6,7 +6,11 @@ describe("parseCatalogueResults", () => {
     id,
     title,
     artist: { name: artist, id: 180 },
-    album: { title: "Gold", cover_small: "https://cdn.example/56.jpg" },
+    album: {
+      title: "Gold",
+      cover_small: "https://cdn.example/56.jpg",
+      cover_medium: "https://cdn.example/250.jpg",
+    },
   });
 
   it("maps the fields the picker shows and nothing else", () => {
@@ -17,6 +21,7 @@ describe("parseCatalogueResults", () => {
         artist: "ABBA",
         album: "Gold",
         artwork: "https://cdn.example/56.jpg",
+        cover: "https://cdn.example/250.jpg",
       },
     ]);
   });
@@ -40,9 +45,26 @@ describe("parseCatalogueResults", () => {
     expect(parseCatalogueResults({ error: { code: 4 } })).toEqual([]);
   });
 
+  it("keeps a hit but drops a cover that is not https", () => {
+    // Covers are shown to every guest on the dance floor.
+    const out = parseCatalogueResults({
+      data: [
+        {
+          id: 7,
+          title: "T",
+          artist: { name: "A" },
+          album: { cover_small: "http://cdn.example/56.jpg", cover_medium: "javascript:alert(1)" },
+        },
+      ],
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0].artwork).toBeNull();
+    expect(out[0].cover).toBeNull();
+  });
+
   it("copes with a hit that has no album", () => {
     expect(parseCatalogueResults({ data: [{ id: 5, title: "T", artist: { name: "A" } }] })).toEqual([
-      { externalId: "5", title: "T", artist: "A", album: null, artwork: null },
+      { externalId: "5", title: "T", artist: "A", album: null, artwork: null, cover: null },
     ]);
   });
 });

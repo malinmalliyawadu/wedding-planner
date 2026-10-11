@@ -10,6 +10,7 @@ import {
   publicSite,
   songRequests,
 } from "@/db/schema";
+import { fillCoversLater } from "@/lib/dj-cover";
 import { checkRequest, type RequestRefusal, type VoteKind } from "@/lib/dj-queue";
 import { isInviteTokenShape } from "@/lib/invite-token";
 import { getRequestContext } from "@/lib/public/queries";
@@ -211,11 +212,14 @@ export async function requestDanceSong(
       .values({ title, artist, externalId, songKey: key, householdId })
       .onConflictDoNothing()
       .returning({ id: djQueueItems.id });
-    if (!row) return false;
+    if (!row) return null;
     await tx.insert(djVotes).values({ itemId: row.id, householdId, kind: "up" });
-    return true;
+    return row.id;
   });
-  return added ? { ok: true } : { ok: false, reason: "already_queued" };
+  if (added === null) return { ok: false, reason: "already_queued" };
+  // Looked up here, never taken from the form: see dj-cover.ts.
+  fillCoversLater([added]);
+  return { ok: true };
 }
 
 /**
