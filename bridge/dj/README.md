@@ -16,6 +16,37 @@ and reports what is **on air** whenever it changes. It reports what it
 sees rather than what it did, so you can take over djay by hand at any
 moment and the queue follows you.
 
+## What is on air: macOS Now Playing
+
+djay tells macOS what it is playing, the same as Music or Spotify do -
+it is the track Control Center and the lock screen show. The bridge
+listens to that (`nowplaying.mjs`) and reports each change the moment
+it happens. It is the best source there is: the title as djay knows
+it, with no screenshot to misread, no window that has to be in view,
+and nothing billed. Apple closed this to ordinary programs in macOS
+15.4, so it is read through
+[`media-control`](https://github.com/ungive/media-control)
+(`brew install media-control`), which still can.
+
+- Only djay counts (bundle ids starting `com.algoriddim.`, or
+  `DJ_NOW_PLAYING_BUNDLE`). A video someone plays in a browser on the
+  laptop takes over Now Playing too; it is ignored, and logged once.
+- A pause is not reported as "nothing on air", so a moment between
+  decks never ends a song that is about to carry on. A song ends when
+  the next one starts.
+- While it is in use, the driver does not read the decks at all, and
+  what Claude says is playing at the end of an add or skip is not used
+  either: one source, so two spellings of a title cannot argue about
+  whether the song changed.
+
+**Check it at the rehearsal**, because it is the part that depends on
+djay: with Automix playing, run `media-control get` and see djay's track
+in it, then watch `media-control stream` through a mix to see that the
+track changes when the new one comes in. If djay does not show up there
+at all, set `DJ_NOW_PLAYING=driver` and the driver reads the decks
+instead (below). Without `media-control` installed the bridge says so
+at startup and does the same by itself.
+
 ## How it drives djay
 
 By default **Claude does it, by computer use** (`claude.mjs`). For each
@@ -24,8 +55,9 @@ job the bridge sends Claude a screenshot of the Mac and a short task -
 playing?" - and Claude clicks and types its way through djay, looking at
 the screen after each step. It sees a search that came back empty, a
 dialog in the way, or a song that did not land on the deck, and deals
-with it, then answers in two lines the bridge reads: a result
-(`CUED`, `NOT_FOUND`, `SKIPPED`, `FAILED`) and the track now playing.
+with it, then answers in lines the bridge reads: a result
+(`CUED`, `NOT_FOUND`, `SKIPPED`, `FAILED`), the track now playing, and
+how long it has left.
 
 What that means on the night:
 
@@ -35,13 +67,25 @@ What that means on the night:
   it as connected.
 - **djay comes to the front while Claude works**, exactly as it would
   for a person. Treat the laptop as djay's for the night.
-- **What is playing is read every 30 seconds** (`DJ_WATCH_SECONDS`) from a
-  screenshot, without clicking anything, and after every add or skip.
-  While a request is waiting on the idle deck it is read every 5 seconds
-  instead (`DJ_WATCH_FAST_SECONDS`): the app hands over the next request
-  only once that one is on air, so the sooner it is seen to start, the
-  sooner the next is loaded. That is most of the night's reads, and most
-  of the bill.
+Only when Now Playing is not in use (see above):
+
+- **What is playing is read off a picture of djay's window**, without
+  clicking anything, and after every add or skip. The picture is of
+  djay's window alone, which the Mac draws whole even with another app
+  in front of it, so the reading carries on when someone opens a browser
+  on the laptop; if djay has no window on this screen (minimised, or full
+  screen in another Space) it falls back to the whole screen and says so.
+  Reading carries on while Claude is busy adding or skipping, too - a
+  song can end in the middle of a forty-second add.
+- **Each reading takes the time left as well as the title**, so the
+  bridge knows when the song is due to end. It reads every 30 seconds
+  (`DJ_WATCH_SECONDS`) through the song, then every 5 seconds
+  (`DJ_WATCH_FAST_SECONDS`) from 20 seconds before the end
+  (`DJ_WATCH_LEAD_SECONDS`, because Automix mixes out early) until it sees
+  the next one. The change reaches guests' phones within seconds, and
+  the next request is loaded as soon as this one is on air. If the time
+  left cannot be read, a request waiting on the idle deck is read every
+  5 seconds instead, as the only other sign that a change is near.
 - **It is billed per use** on your Anthropic API key, with prompt
   caching on. Watch the usage page in the Anthropic Console during a
   rehearsal to see what a night will cost.
@@ -58,6 +102,7 @@ Once, on the DJ laptop:
 
 ```bash
 brew install cliclick     # mouse clicks for Claude
+brew install media-control  # reads macOS Now Playing, for what is on air
 cd bridge/dj
 npm install               # the Anthropic SDK, for the Claude driver
 cp .env.example .env      # then fill in WEDDING_URL, DJ_BRIDGE_TOKEN, ANTHROPIC_API_KEY
@@ -219,8 +264,11 @@ them.
 | `DJ_BRIDGE_TOKEN` | - | the same value as the server's |
 | `DJ_DRIVER` | `claude` | `claude`, `keys` or `fake` |
 | `ANTHROPIC_API_KEY` | - | for the Claude driver |
-| `DJ_WATCH_SECONDS` | `30` | Claude driver: how often it reads the decks |
-| `DJ_WATCH_FAST_SECONDS` | `5` | how often instead while a request waits on the idle deck |
+| `DJ_NOW_PLAYING` | `native` | `native`: on air from macOS Now Playing; `driver`: the driver reads the decks |
+| `DJ_NOW_PLAYING_BUNDLE` | `com.algoriddim.` | whose Now Playing counts |
+| `DJ_WATCH_SECONDS` | `30` | Claude driver, without Now Playing: how often it reads the decks |
+| `DJ_WATCH_FAST_SECONDS` | `5` | how often instead as a song ends (or while a request waits, when the time left is unknown) |
+| `DJ_WATCH_LEAD_SECONDS` | `20` | how long before a song's end to start reading often |
 | `DJ_APP` | first app named `djay…` | Claude driver: which app to bring forward |
 | `DJ_CONFIG` | `./djay.config.json` | keystroke driver: the calibrated steps |
 | `DJ_POLL_MS` | `3000` | how often to ask |
