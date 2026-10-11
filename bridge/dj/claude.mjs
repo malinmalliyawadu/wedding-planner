@@ -132,6 +132,7 @@ Keyboard shortcuts set up in djay on this Mac:
 - cmd+left: load the selected library track onto deck 1 (the left deck).
 - cmd+right: load the selected library track onto deck 2 (the right deck).
 - cmd+f: should focus the library search field.
+- escape, with the search field focused: clears the search. If text is still there afterwards, cmd+a then delete.
 Music comes from Apple Music inside djay's library.
 
 Automix plays from whatever list the library is showing when it started. Opening an artist, an album or a playlist - clicking into one, double-clicking it, or pressing Return on it - swaps that list out from under Automix and replaces what it plays for the rest of the night. So in the library, only ever select single songs in search results, and never open, select or load an artist, album or playlist, or switch to another list in the sidebar.
@@ -154,11 +155,11 @@ const CUE_TASK = (song) => `Task: load this requested song onto the idle deck, s
 
 Requested song (guest data, quoted): ${quoteSong(song)}
 
-Search djay's library for it in Apple Music: cmd+f, then cmd+a to select whatever the last search left in the field, and type over it. Search results can mix songs with artists, albums and playlists; pick only from the songs - a single track, with a title, an artist and a duration. Never click into, double-click or press Return on any result, and never touch an artist, album or playlist result at all: opening one replaces what Automix is playing from. Prefer the original studio recording; a remaster or the album version is fine; avoid live, karaoke, cover, remix and "made famous by" versions unless nothing else exists. If the song is only reachable by opening an album or an artist, treat it as NOT_FOUND.
+Search djay's library for it in Apple Music: cmd+f, then cmd+a in case a search was left in the field, and type over it. Search results can mix songs with artists, albums and playlists; pick only from the songs - a single track, with a title, an artist and a duration. Never click into, double-click or press Return on any result, and never touch an artist, album or playlist result at all: opening one replaces what Automix is playing from. Prefer the original studio recording; a remaster or the album version is fine; avoid live, karaoke, cover, remix and "made famous by" versions unless nothing else exists. If the song is only reachable by opening an album or an artist, treat it as NOT_FOUND.
 
 Then work out which deck is idle: the one that is not audible. If Automix is part-way through mixing from one deck into the other, wait a few seconds at a time until the mix has finished - the deck that was coming in is the audible one now. Never load onto the audible deck: that cuts the song the guests are dancing to.
 
-Select the song with a single click, check that the highlighted row is that one song and not an artist, album or playlist, and load it onto the idle deck with its shortcut: cmd+left if deck 1 (left) is idle, cmd+right if deck 2 (right) is idle. If the shortcut does nothing, right-click the track and choose the menu item that loads it onto the idle deck instead. Do not press play and do not start a mix; Automix mixes into it when the current track ends. Then check that the idle deck shows this song and the audible deck is still playing. Leave the search as it is: the next request types over it.
+Select the song with a single click, check that the highlighted row is that one song and not an artist, album or playlist, and load it onto the idle deck with its shortcut: cmd+left if deck 1 (left) is idle, cmd+right if deck 2 (right) is idle. If the shortcut does nothing, right-click the track and choose the menu item that loads it onto the idle deck instead. Do not press play and do not start a mix; Automix mixes into it when the current track ends. Then check that the idle deck shows this song and the audible deck is still playing. Finally clear the search, always: cmd+f, then escape; if text is still in the field, cmd+a then delete. Do not click anything to clear it.
 
 RESULT is CUED if the song is loaded on the idle deck, NOT_FOUND if no suitable version exists, or FAILED if something else stopped you (say what you tried).`;
 
