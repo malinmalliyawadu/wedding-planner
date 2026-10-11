@@ -60,7 +60,6 @@ export default async function DanceFloorAdminPage() {
   const skipVotes = tally(votes, "skip");
   const playing = items.find((item) => item.status === "playing") ?? null;
   const cued = items.filter((item) => item.status === "cued").sort((a, b) => a.id - b.id);
-  const help = items.filter((item) => item.status === "needs_help").sort((a, b) => a.id - b.id);
   const waiting = upcoming(items, votes);
 
   const bridge = bridgeHealth(floor);
@@ -72,8 +71,8 @@ export default async function DanceFloorAdminPage() {
         <p className="mt-3 max-w-2xl text-sm text-ink-soft">
           Guests ask for songs and vote from their invitation links. The
           bridge on the DJ laptop hands djay Pro one request at a time and
-          presses Skip when enough of them vote a song off. Anything djay
-          cannot find waits here, and for Claude, under “Needs a hand”.
+          presses Skip when enough of them vote a song off. A song djay
+          cannot find is dropped, and whoever wanted it can ask again.
         </p>
       </PageHeader>
 
@@ -137,33 +136,6 @@ export default async function DanceFloorAdminPage() {
             </p>
           )}
         </section>
-
-        {help.length > 0 && (
-          <section>
-            <h2 className="eyebrow mb-2 text-madder">Needs a hand</h2>
-            <ul className="divide-y divide-hairline rounded-lg border border-madder/30 bg-madder-tint/30">
-              {help.map((item) => (
-                <li key={item.id} className="flex flex-col gap-2 p-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-ink">{describeSong(item)}</p>
-                    <p className="mt-0.5 text-xs text-ink-soft">
-                      {who(item)}
-                      {item.note && <> · {item.note}</>}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <ActButton kind="found" itemId={item.id}>
-                      It&rsquo;s on djay&rsquo;s deck
-                    </ActButton>
-                    <ActButton kind="giveUp" itemId={item.id} variant="danger">
-                      Give up
-                    </ActButton>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
 
         <section>
           <div className="mb-2 flex flex-wrap items-end justify-between gap-2">

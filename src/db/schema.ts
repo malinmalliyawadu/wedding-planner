@@ -575,7 +575,6 @@ export const photos = pgTable("photos", {
 export const djItemStatusEnum = pgEnum("dj_item_status", [
   "queued",
   "cued",
-  "needs_help",
   "playing",
   "played",
   "skipped",
@@ -648,7 +647,7 @@ export const djQueueItems = pgTable(
     // song in the same second is exactly the race this settles.
     uniqueIndex("dj_queue_items_active_song")
       .on(t.songKey)
-      .where(sql`${t.status} in ('queued', 'cued', 'needs_help', 'playing')`),
+      .where(sql`${t.status} in ('queued', 'cued', 'playing')`),
   ],
 );
 

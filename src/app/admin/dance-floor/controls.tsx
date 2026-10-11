@@ -8,7 +8,6 @@ import { idleResult, type ActionResult } from "@/lib/action-result";
 import {
   addSong,
   importFromReplyCards,
-  resolveHelp,
   setFloorOpen,
   setOnAir,
   setSkipVotesNeeded,
@@ -72,8 +71,6 @@ export function OpenToggle({ open }: { open: boolean }) {
 
 const RUN = {
   skip: (id: number) => skipOrRemove(id),
-  found: (id: number) => resolveHelp(id, true),
-  giveUp: (id: number) => resolveHelp(id, false),
   onAir: (id: number) => setOnAir(id),
   nothingOn: () => setOnAir(null),
   importReplies: () => importFromReplyCards(),

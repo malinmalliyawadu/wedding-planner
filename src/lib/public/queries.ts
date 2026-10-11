@@ -391,10 +391,10 @@ export type FloorSong = {
   /** The album cover, found by the server (`dj-cover.ts`); null when unsure. */
   coverUrl: string | null;
   /**
-   * `next`: djay has it and it is coming. `finding`: djay could not find
-   * it and someone is looking. `waiting`: still in the app; votes move it.
+   * `next`: djay has it and it is coming. `waiting`: still in the app;
+   * votes move it.
    */
-  stage: "next" | "finding" | "waiting";
+  stage: "next" | "waiting";
 };
 
 export type FloorNowPlaying = {
@@ -501,11 +501,10 @@ export async function getDanceFloor(token: string): Promise<DanceFloor | null> {
       : null,
     upNext: [
       ...items.filter((i) => i.status === "cued").sort(byId).map((i) => song(i, "next")),
-      ...items.filter((i) => i.status === "needs_help").sort(byId).map((i) => song(i, "finding")),
       ...upcoming(items, votes).map((i) => song(i, "waiting")),
     ],
     yourWaiting: items.filter(
-      (i) => i.householdId === householdId && (i.status === "queued" || i.status === "needs_help"),
+      (i) => i.householdId === householdId && i.status === "queued",
     ).length,
     maxWaiting: MAX_WAITING_PER_HOUSEHOLD,
   };

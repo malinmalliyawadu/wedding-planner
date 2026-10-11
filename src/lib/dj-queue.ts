@@ -20,15 +20,14 @@ import { cleanSongText, songKey } from "./songs";
  *
  * - `queued`: waiting in the app; votes still move it.
  * - `cued`: loaded onto djay's idle deck, to play next. Its place is djay's now.
- * - `needs_help`: the bridge could not find it in djay. Claude (or a
- *   person at the laptop) looks for it; it ends `cued` or `unavailable`.
  * - `playing`: what the bridge last saw on air.
- * - `played`, `skipped`, `removed`, `unavailable`: over.
+ * - `played`, `skipped`, `removed`, `unavailable`: over. `unavailable`
+ *   is a request djay could not be given; it is simply dropped, and
+ *   anyone who still wants it asks again.
  */
 export const QUEUE_STATUSES = [
   "queued",
   "cued",
-  "needs_help",
   "playing",
   "played",
   "skipped",
@@ -41,7 +40,6 @@ export type QueueStatus = (typeof QUEUE_STATUSES)[number];
 export const ACTIVE_STATUSES = [
   "queued",
   "cued",
-  "needs_help",
   "playing",
 ] as const satisfies readonly QueueStatus[];
 
@@ -150,9 +148,7 @@ export function checkRequest(
     }
   }
   const waiting = items.filter(
-    (item) =>
-      item.householdId === householdId &&
-      (item.status === "queued" || item.status === "needs_help"),
+    (item) => item.householdId === householdId && item.status === "queued",
   ).length;
   if (waiting >= MAX_WAITING_PER_HOUSEHOLD) {
     return { ok: false, reason: "household_limit" };
@@ -172,9 +168,7 @@ export function shouldSkip(
 
 /**
  * The request the bridge should hand djay next, or null when djay is
- * already holding enough. A request waiting on help does not count
- * against the depth: the music must not stop while Claude hunts for one
- * awkward song.
+ * already holding enough.
  */
 export function nextToCue<I extends QueueItem>(
   items: readonly I[],
@@ -198,8 +192,8 @@ export type QueueEvent = "cued" | "cue_failed" | "started" | "ended" | "removed"
  * there. A late or repeated report from the bridge is therefore ignored
  * rather than dragging a finished song back to life.
  *
- * `cue_failed` twice is the fallback failing too: the first sends it to
- * Claude, the second gives up on it.
+ * `cue_failed` drops the request rather than holding it for someone to
+ * hunt for: whoever wanted it can ask again, and nothing waits behind it.
  *
  * `started` is allowed from any waiting status, because the DJ is a
  * person and may simply play a requested song from djay's own library
@@ -211,21 +205,17 @@ export function transition(
 ): QueueStatus | null {
   switch (event) {
     case "cued":
-      return status === "queued" || status === "needs_help" ? "cued" : null;
+      return status === "queued" ? "cued" : null;
     case "cue_failed":
-      if (status === "queued") return "needs_help";
-      if (status === "needs_help") return "unavailable";
-      return null;
+      return status === "queued" ? "unavailable" : null;
     case "started":
-      return status === "queued" || status === "cued" || status === "needs_help"
-        ? "playing"
-        : null;
+      return status === "queued" || status === "cued" ? "playing" : null;
     case "ended":
       return status === "playing" ? "played" : null;
     case "removed":
       // A cued song is on djay's deck, where the app cannot reach in and
       // take it out; it is skipped when it comes on instead (`removal`).
-      return status === "queued" || status === "needs_help" ? "removed" : null;
+      return status === "queued" ? "removed" : null;
   }
 }
 
@@ -256,8 +246,9 @@ export function removal(
  * start after it was cued should be it; allow one more for a crossfade
  * djay had already lined up before the bridge got there. Two songs
  * starting after it and still no sign of it means it is not coming, and
- * it goes to Claude to find - who may well find it was there all along,
- * in which case it goes back to `cued` and the count starts again.
+ * it is dropped as `unavailable`, the same as a cue that failed outright,
+ * so the next request can go. If it was on a deck after all and comes
+ * on, `planOnAir` adds it back as the DJ's own choice.
  *
  * Counted in songs rather than minutes on purpose: half an hour of
  * speeches with the music down is not evidence of anything.
@@ -333,7 +324,7 @@ export function planOnAir(
   }
 
   // Prefer what djay was given; then anything else of ours with that key.
-  const preference: QueueStatus[] = ["cued", "queued", "needs_help"];
+  const preference: QueueStatus[] = ["cued", "queued"];
   for (const status of preference) {
     const match = items.find((item) => item.status === status && item.songKey === key);
     if (match) return { end, start: match.id, create: null };

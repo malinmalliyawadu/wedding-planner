@@ -118,7 +118,7 @@ export async function applyEvent(
     .set({
       status: next,
       ...(next === "cued" ? { cuedAt: now, note: null } : {}),
-      ...(next === "needs_help" || next === "unavailable" ? { note } : {}),
+      ...(next === "unavailable" ? { note } : {}),
       ...(next === "removed" || next === "unavailable" ? { endedAt: now } : {}),
     })
     .where(and(eq(djQueueItems.id, itemId), eq(djQueueItems.status, row.status)));
@@ -184,7 +184,7 @@ export async function removeOrSkip(itemId: number): Promise<void> {
     .where(eq(djQueueItems.id, itemId))
     .limit(1);
   if (!row) return;
-  if (row.status === "queued" || row.status === "needs_help") {
+  if (row.status === "queued") {
     await applyEvent(itemId, "removed");
     return;
   }
@@ -310,8 +310,6 @@ export type BridgeInstructions = {
   cue: BridgeSong | null;
   /** Press Skip: this is on air and has been voted (or asked) off. */
   skip: BridgeSong | null;
-  /** Songs djay could not find. The fallback (Claude) looks for these. */
-  help: (BridgeSong & { note: string | null })[];
   /** What the app believes is on air, so the bridge can tell when it changed. */
   onAir: BridgeSong | null;
 };
@@ -325,7 +323,7 @@ const asSong = (row: QueueItem): BridgeSong => ({
 /**
  * Work out what the bridge should do, and record that it asked - the
  * planner shows when the laptop was last heard from. A cue that has
- * evidently not landed is sent to help first (`staleCues`), so the next
+ * evidently not landed is dropped first (`staleCues`), so the next
  * request is not held up behind it.
  */
 export async function bridgeInstructions(): Promise<BridgeInstructions> {
@@ -339,8 +337,9 @@ export async function bridgeInstructions(): Promise<BridgeInstructions> {
       await db
         .update(djQueueItems)
         .set({
-          status: "needs_help",
-          note: "djay was given this but two other songs have played since. Did it make it onto a deck?",
+          status: "unavailable",
+          note: "djay was given this but two other songs have played since",
+          endedAt: now,
         })
         .where(and(eq(djQueueItems.id, id), eq(djQueueItems.status, "cued")));
     }
@@ -358,10 +357,6 @@ export async function bridgeInstructions(): Promise<BridgeInstructions> {
       playing && shouldSkip(playing, skipVotes.get(playing.id) ?? 0, floor.skipVotesNeeded)
         ? asSong(playing)
         : null,
-    help: items
-      .filter((item) => item.status === "needs_help")
-      .sort((a, b) => a.id - b.id)
-      .map((item) => ({ ...asSong(item), note: item.note })),
     onAir: playing ? asSong(playing) : null,
   };
 }

@@ -15,8 +15,9 @@ import { nativeNowPlaying } from "./nowplaying.mjs";
  * do (`GET /api/dj/bridge`) and does it:
  *
  *   - `cue`  : load this request onto djay's idle deck, report how it went
- *   - `skip` : the song on air was voted off - move on to the next track
- *   - `help` : djay could not find these - run DJ_FALLBACK_COMMAND, if set
+ *              (one djay cannot find is dropped; whoever wanted it asks again)
+ *   - `skip` : the song on air was voted off - press the media key's
+ *              next-track, or have the driver skip if that does not take
  *
  * and tells the app what is on air whenever that changes. It reports what
  * it sees rather than what it did, so the DJ can take over at any moment
@@ -60,8 +61,6 @@ import { nativeNowPlaying } from "./nowplaying.mjs";
  *                        app whose name starts with "djay" is the wrong one
  *   DJ_CONFIG            path to the djay config (default ./djay.config.json)
  *   DJ_POLL_MS           how often to ask (default 3000)
- *   DJ_FALLBACK_COMMAND  optional; run for each song djay could not find,
- *                        with the prompt on stdin. See README.md.
  *   FAKE_SONG_SECONDS    the fake driver's song length (default 20)
  *   DJ_KEEP_AWAKE        0 to let the Mac sleep (default: keep it awake)
  */
@@ -124,9 +123,12 @@ const WATCH_LEAD_MS = Number(process.env.DJ_WATCH_LEAD_SECONDS ?? 20) * 1000;
  * all night.
  */
 const WATCH_OVERRUN_MS = 60 * 1000;
-const FALLBACK_TIMEOUT_MS = 5 * 60 * 1000;
-/** Press Skip again if the song is still on this long after. */
-const SKIP_RETRY_MS = 20 * 1000;
+/**
+ * Skip again if the song is still on this long after. The media key is
+ * either taken at once or not at all, so its wait is short; a skip by the
+ * driver includes the driver finding the button.
+ */
+const SKIP_RETRY_MS = { key: 8 * 1000, driver: 20 * 1000 };
 const SKIP_ATTEMPTS = 3;
 
 function log(...parts) {
@@ -162,40 +164,6 @@ const describe = (song) => (song.artist ? `${song.title} - ${song.artist}` : son
 const sameAir = (a, b) =>
   (a === null && b === null) ||
   (a !== null && b !== null && a.title === b.title && (a.artist ?? null) === (b.artist ?? null));
-
-/**
- * The prompt for the fallback. Written for Claude with computer use on
- * this Mac, but it is only text on stdin: any command that reads it and
- * ends its output with CUED or NOT_FOUND will do.
- */
-async function fallbackPrompt(song) {
-  const template = await readFile(join(here, "fallback-prompt.md"), "utf8");
-  return template
-    .replaceAll("{title}", song.title)
-    .replaceAll("{artist}", song.artist ?? "(artist unknown)")
-    .replaceAll("{note}", song.note ?? "none");
-}
-
-function runFallback(command, prompt, song) {
-  return new Promise((resolve) => {
-    const child = spawn("/bin/sh", ["-c", command], {
-      env: { ...process.env, SONG_TITLE: song.title, SONG_ARTIST: song.artist ?? "" },
-      stdio: ["pipe", "pipe", "inherit"],
-    });
-    let out = "";
-    const timer = setTimeout(() => child.kill("SIGTERM"), FALLBACK_TIMEOUT_MS);
-    child.stdout.on("data", (chunk) => {
-      out += chunk;
-      process.stdout.write(chunk);
-    });
-    child.on("close", () => {
-      clearTimeout(timer);
-      const last = out.trim().split(/\r?\n/).pop()?.trim().toUpperCase() ?? "";
-      resolve(last.includes("NOT_FOUND") ? "not_found" : last.includes("CUED") ? "cued" : "unsure");
-    });
-    child.stdin.end(prompt);
-  });
-}
 
 async function main() {
   if (process.argv[2] === "probe") {
@@ -237,17 +205,14 @@ async function main() {
     console.error(`DJ_DRIVER must be claude, keys or fake, not "${driverName}".`);
     process.exit(1);
   }
-  const fallback = process.env.DJ_FALLBACK_COMMAND ?? "";
 
   keepAwake();
   log(`bridge up: driver ${driver.name}, polling every ${POLL_MS}ms`);
 
   /** What we last told the app was on air (undefined: never said). */
   let reported;
-  /** Skip attempts per item: { at, count }. */
+  /** Skip attempts per item: { at, count, how }, how being "key" or "driver". */
   const skips = new Map();
-  /** Songs already handed to the fallback this run. */
-  const helped = new Set();
   /**
    * macOS Now Playing, when it can be read. Then it alone says what is on
    * air: the driver's own readings - a look at the decks, the line at the
@@ -271,8 +236,8 @@ async function main() {
   let wasDown = false;
 
   /**
-   * One thing at a time touches djay - a skip, a cue, the fallback - in
-   * that order of urgency; looking at the decks is kept apart (`watch`).
+   * One thing at a time touches djay - a skip, then a cue, in that order
+   * of urgency; looking at the decks is kept apart (`watch`).
    * With the Claude driver one of these takes tens of seconds, so it runs
    * alongside the poll rather than inside it: the bridge keeps checking
    * in, the planner keeps showing it as connected, and the next
@@ -333,11 +298,19 @@ async function main() {
   function nextJob(ins) {
     if (ins.skip) {
       const tried = skips.get(ins.skip.id);
-      if (!tried || (tried.count < SKIP_ATTEMPTS && Date.now() - tried.at > SKIP_RETRY_MS)) {
+      if (!tried || (tried.count < SKIP_ATTEMPTS && Date.now() - tried.at > SKIP_RETRY_MS[tried.how])) {
         const song = ins.skip;
         return async () => {
           log(`skip: ${describe(song)}`);
-          skips.set(song.id, { at: Date.now(), count: (tried?.count ?? 0) + 1 });
+          const count = (tried?.count ?? 0) + 1;
+          // The media key first, once: if the song is still on after
+          // that, it did not take, and the driver does it the long way.
+          if (!tried && native && (await native.next())) {
+            log("  next-track sent");
+            skips.set(song.id, { at: Date.now(), count, how: "key" });
+            return;
+          }
+          skips.set(song.id, { at: Date.now(), count, how: "driver" });
           try {
             await fromJob(await driver.skip(song));
           } catch (error) {
@@ -352,7 +325,7 @@ async function main() {
         log(`cue: ${describe(song)}`);
         const result = await driver.cue(song);
         if (result.ok) log("  on the deck");
-        else log(`  not added: ${result.note}`);
+        else log(`  not added, dropped from the queue: ${result.note}`);
         await api(
           "POST",
           result.ok
@@ -363,19 +336,6 @@ async function main() {
         // so this comes after reporting it.
         await fromJob(result);
         if (result.ok) awaitingAir = true;
-      };
-    }
-    const song = fallback ? ins.help.find((item) => !helped.has(item.id)) : undefined;
-    if (song) {
-      return async () => {
-        helped.add(song.id);
-        log(`fallback: looking for ${describe(song)}`);
-        const verdict = await runFallback(fallback, await fallbackPrompt(song), song);
-        log(`fallback: ${describe(song)} -> ${verdict}`);
-        if (verdict === "cued") await api("POST", { type: "cued", itemId: song.id });
-        if (verdict === "not_found") {
-          await api("POST", { type: "cue_failed", itemId: song.id, note: "The fallback could not find it either" });
-        }
       };
     }
     return null;

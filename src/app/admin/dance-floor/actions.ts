@@ -6,7 +6,6 @@ import type { ActionResult } from "@/lib/action-result";
 import { requireAdmin } from "@/lib/auth/session";
 import {
   addCoupleSong,
-  applyEvent,
   importReplyCardSongs,
   markOnAir,
   removeOrSkip,
@@ -51,15 +50,6 @@ export async function skipOrRemove(itemId: number): Promise<ActionResult> {
   await requireAdmin();
 
   await removeOrSkip(itemId);
-  return done();
-}
-
-/** Settle a song djay could not find: it is on djay's deck after all, or give up. */
-export async function resolveHelp(itemId: number, found: boolean): Promise<ActionResult> {
-  await requireAdmin();
-
-  const changed = await applyEvent(itemId, found ? "cued" : "cue_failed", found ? null : "Given up on from the planner");
-  if (!changed) return { status: "error", message: "That song has already moved on." };
   return done();
 }
 

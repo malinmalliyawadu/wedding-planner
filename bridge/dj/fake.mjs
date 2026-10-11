@@ -28,7 +28,7 @@ export function fakeDriver({ songSeconds = 20, log = console.log } = {}) {
     watchWhileBusy: true,
     nowPlayingEveryMs: songSeconds * 1000,
     async cue(song) {
-      // A song called "missing" is never found, to exercise the fallback.
+      // A song called "missing" is never found, to exercise a failed cue.
       if (/missing/i.test(song.title)) return { ok: false, note: "fake djay never finds a song called missing" };
       queue.push({ title: song.title, artist: song.artist });
       log(`[fake] queued: ${song.title}`);
