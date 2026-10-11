@@ -13,7 +13,7 @@ import { fakeDriver } from "./fake.mjs";
  * Runs on the Mac running djay. Every few seconds it asks the app what to
  * do (`GET /api/dj/bridge`) and does it:
  *
- *   - `cue`  : hand this request to djay's Automix queue, report how it went
+ *   - `cue`  : load this request onto djay's idle deck, report how it went
  *   - `skip` : the song on air was voted off - move on to the next track
  *   - `help` : djay could not find these - run DJ_FALLBACK_COMMAND, if set
  *
@@ -260,7 +260,7 @@ async function main() {
       return async () => {
         log(`cue: ${describe(song)}`);
         const result = await driver.cue(song);
-        if (result.ok) log("  in the queue");
+        if (result.ok) log("  on the deck");
         else log(`  not added: ${result.note}`);
         await api(
           "POST",

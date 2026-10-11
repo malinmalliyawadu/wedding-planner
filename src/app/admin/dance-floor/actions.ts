@@ -54,7 +54,7 @@ export async function skipOrRemove(itemId: number): Promise<ActionResult> {
   return done();
 }
 
-/** Settle a song djay could not find: it is in djay's queue after all, or give up. */
+/** Settle a song djay could not find: it is on djay's deck after all, or give up. */
 export async function resolveHelp(itemId: number, found: boolean): Promise<ActionResult> {
   await requireAdmin();
 

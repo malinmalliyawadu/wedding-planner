@@ -1231,9 +1231,11 @@ plays them on the DJ laptop. Three parts, and the split is the design:
 
 Decisions worth knowing before changing any of it:
 
-- **djay holds one request at a time** (`CUE_DEPTH`). Everything else
-  stays in the app, where votes still move it. Hand djay ten and the
-  order is frozen.
+- **djay holds one request at a time** (`CUE_DEPTH`), loaded onto the
+  idle deck from the library's right-click menu, so Automix mixes into
+  it next. The deck holds one song, so a second would replace the
+  first; djay's Queue is not used, because Automix does not play from
+  it. Everything else stays in the app, where votes still move it.
 - **The bridge reports what it sees, not what it did.** It sends the
   song on air whenever that changes; the server ends what was playing
   (`skipped` if the couple asked or the floor voted it off, else
