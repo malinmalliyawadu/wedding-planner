@@ -14,8 +14,8 @@ import { fakeDriver } from "./fake.mjs";
  * do (`GET /api/dj/bridge`) and does it:
  *
  *   - `cue`  : hand this request to djay's Automix queue, report how it went
- *   - `skip` : the song on air was voted off - press Skip
- *   - `help` : djay could not find these - run the fallback (Claude) on them
+ *   - `skip` : the song on air was voted off - move on to the next track
+ *   - `help` : djay could not find these - run DJ_FALLBACK_COMMAND, if set
  *
  * and tells the app what is on air whenever that changes. It reports what
  * it sees rather than what it did, so the DJ can take over at any moment
@@ -37,7 +37,12 @@ import { fakeDriver } from "./fake.mjs";
  * Settings:
  *   WEDDING_URL          the app, e.g. https://wedding.example.com
  *   DJ_BRIDGE_TOKEN      the same value as on the server
- *   DJ_DRIVER            djay (default) or fake
+ *   DJ_DRIVER            claude (default): Claude operates djay by computer
+ *                        use (claude.mjs; needs `npm install` here once);
+ *                        keys: fixed keyboard shortcuts (djay.mjs);
+ *                        fake: a pretend djay, for rehearsing
+ *   ANTHROPIC_API_KEY    for the claude driver
+ *   DJ_WATCH_SECONDS     claude driver: how often it reads the decks (default 30)
  *   DJ_CONFIG            path to the djay config (default ./djay.config.json)
  *   DJ_POLL_MS           how often to ask (default 3000)
  *   DJ_FALLBACK_COMMAND  optional; run for each song djay could not find,
@@ -172,10 +177,29 @@ async function main() {
   required("WEDDING_URL");
   required("DJ_BRIDGE_TOKEN");
 
-  const driver =
-    (process.env.DJ_DRIVER ?? "djay") === "fake"
-      ? fakeDriver({ songSeconds: Number(process.env.FAKE_SONG_SECONDS ?? 20), log })
-      : await djayDriver(process.env.DJ_CONFIG ?? join(here, "djay.config.json"));
+  const driverName = process.env.DJ_DRIVER ?? "claude";
+  let driver;
+  if (driverName === "fake") {
+    driver = fakeDriver({ songSeconds: Number(process.env.FAKE_SONG_SECONDS ?? 20), log });
+  } else if (driverName === "keys" || driverName === "djay") {
+    driver = await djayDriver(process.env.DJ_CONFIG ?? join(here, "djay.config.json"));
+  } else if (driverName === "claude") {
+    // Loaded only here, so the other drivers need nothing installed.
+    const { claudeDriver } = await import("./claude.mjs").catch((error) => {
+      if (error.code === "ERR_MODULE_NOT_FOUND") {
+        console.error("The Claude driver needs its package: run `npm install` in bridge/dj.");
+        process.exit(1);
+      }
+      throw error;
+    });
+    driver = await claudeDriver({ log, watchSeconds: Number(process.env.DJ_WATCH_SECONDS ?? 30) }).catch((error) => {
+      console.error(error.message);
+      process.exit(1);
+    });
+  } else {
+    console.error(`DJ_DRIVER must be claude, keys or fake, not "${driverName}".`);
+    process.exit(1);
+  }
   const fallback = process.env.DJ_FALLBACK_COMMAND ?? "";
 
   keepAwake();
@@ -183,71 +207,104 @@ async function main() {
   if (!driver.canReadDecks) {
     log("this driver cannot read djay's decks: mark songs on air from the planner, or calibrate nowPlaying");
   }
-  if (!fallback) log("no DJ_FALLBACK_COMMAND: songs djay cannot find will wait in the planner");
 
   /** What we last told the app was on air (undefined: never said). */
   let reported;
-  /** Skip presses per item: { at, count }. */
+  /** Skip attempts per item: { at, count }. */
   const skips = new Map();
   /** Songs already handed to the fallback this run. */
   const helped = new Set();
-  /** While the fallback has the screen, the bridge keeps its hands off. */
-  let fallbackBusy = false;
+  /** When the decks were last read, for drivers that read them on a timer. */
+  let lastWatch = 0;
   let wasDown = false;
+
+  /**
+   * One thing at a time touches djay - a skip, a cue, the fallback, a look
+   * at the decks - in that order of urgency. With the Claude driver one of
+   * these takes tens of seconds, so it runs alongside the poll rather
+   * than inside it: the bridge keeps checking in, the planner keeps
+   * showing it as connected, and the next instructions are waiting when
+   * the job is done.
+   */
+  let busy = false;
+
+  async function reportOnAir(onAir) {
+    if (onAir === undefined) return;
+    if (reported !== undefined && sameAir(onAir, reported)) return;
+    log(`on air: ${onAir ? describe(onAir) : "(nothing)"}`);
+    await api("POST", { type: "on_air", song: onAir });
+    reported = onAir;
+  }
+
+  function nextJob(ins) {
+    if (ins.skip) {
+      const tried = skips.get(ins.skip.id);
+      if (!tried || (tried.count < SKIP_ATTEMPTS && Date.now() - tried.at > SKIP_RETRY_MS)) {
+        const song = ins.skip;
+        return async () => {
+          log(`skip: ${describe(song)}`);
+          skips.set(song.id, { at: Date.now(), count: (tried?.count ?? 0) + 1 });
+          try {
+            const outcome = await driver.skip(song);
+            await reportOnAir(outcome?.onAir);
+          } catch (error) {
+            log(`  skip failed: ${error.message}`);
+          }
+        };
+      }
+    }
+    if (ins.cue) {
+      const song = ins.cue;
+      return async () => {
+        log(`cue: ${describe(song)}`);
+        const result = await driver.cue(song);
+        if (result.ok) log("  in the queue");
+        else log(`  not added: ${result.note}`);
+        await api(
+          "POST",
+          result.ok
+            ? { type: "cued", itemId: song.id }
+            : { type: "cue_failed", itemId: song.id, note: result.note },
+        );
+        await reportOnAir(result.onAir);
+      };
+    }
+    const song = fallback ? ins.help.find((item) => !helped.has(item.id)) : undefined;
+    if (song) {
+      return async () => {
+        helped.add(song.id);
+        log(`fallback: looking for ${describe(song)}`);
+        const verdict = await runFallback(fallback, await fallbackPrompt(song), song);
+        log(`fallback: ${describe(song)} -> ${verdict}`);
+        if (verdict === "cued") await api("POST", { type: "cued", itemId: song.id });
+        if (verdict === "not_found") {
+          await api("POST", { type: "cue_failed", itemId: song.id, note: "The fallback could not find it either" });
+        }
+      };
+    }
+    if (driver.canReadDecks && Date.now() - lastWatch >= (driver.nowPlayingEveryMs ?? 0)) {
+      return async () => {
+        lastWatch = Date.now();
+        await reportOnAir(await driver.nowPlaying());
+      };
+    }
+    return null;
+  }
 
   for (;;) {
     try {
-      let ins = await api("GET");
+      const ins = await api("GET");
       if (wasDown) log("app reachable again");
       wasDown = false;
 
-      if (!fallbackBusy && ins.skip) {
-        const tried = skips.get(ins.skip.id);
-        if (!tried || (tried.count < SKIP_ATTEMPTS && Date.now() - tried.at > SKIP_RETRY_MS)) {
-          log(`skip: ${describe(ins.skip)}`);
-          skips.set(ins.skip.id, { at: Date.now(), count: (tried?.count ?? 0) + 1 });
-          await driver.skip().catch((error) => log(`skip failed: ${error.message}`));
-        }
-      }
-
-      if (!fallbackBusy && ins.cue) {
-        log(`cue: ${describe(ins.cue)}`);
-        const result = await driver.cue(ins.cue);
-        ins = result.ok
-          ? await api("POST", { type: "cued", itemId: ins.cue.id })
-          : await api("POST", { type: "cue_failed", itemId: ins.cue.id, note: result.note });
-        if (!result.ok) log(`  not found: ${result.note}`);
-      }
-
-      if (!fallbackBusy && fallback) {
-        const song = ins.help.find((item) => !helped.has(item.id));
-        if (song) {
-          helped.add(song.id);
-          fallbackBusy = true;
-          log(`fallback: looking for ${describe(song)}`);
-          // Not awaited: the bridge keeps polling and reporting while the
-          // fallback works, but presses nothing until it is done.
-          fallbackPrompt(song)
-            .then((prompt) => runFallback(fallback, prompt, song))
-            .then(async (verdict) => {
-              log(`fallback: ${describe(song)} -> ${verdict}`);
-              if (verdict === "cued") await api("POST", { type: "cued", itemId: song.id });
-              if (verdict === "not_found") {
-                await api("POST", { type: "cue_failed", itemId: song.id, note: "Claude could not find it either" });
-              }
-            })
-            .catch((error) => log(`fallback failed: ${error.message}`))
-            .finally(() => {
-              fallbackBusy = false;
-            });
-        }
-      }
-
-      const onAir = await driver.nowPlaying();
-      if (onAir !== undefined && (reported === undefined || !sameAir(onAir, reported))) {
-        log(`on air: ${onAir ? describe(onAir) : "(nothing)"}`);
-        await api("POST", { type: "on_air", song: onAir });
-        reported = onAir;
+      const job = busy ? null : nextJob(ins);
+      if (job) {
+        busy = true;
+        job()
+          .catch((error) => log(`error: ${error.message}`))
+          .finally(() => {
+            busy = false;
+          });
       }
     } catch (error) {
       if (!wasDown) log(`app unreachable: ${error.message}`);

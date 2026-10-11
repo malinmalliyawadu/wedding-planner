@@ -9,23 +9,61 @@ touches djay. Every few seconds it asks the app what to do and does it:
 | The app says | The bridge does |
 |---|---|
 | `cue` | adds that song to djay's **Automix queue** (one at a time, so votes keep moving the rest) |
-| `skip` | presses **Skip** - the floor voted the song off, or you did |
-| `help` | hands a song djay could not find to the fallback (Claude, below) |
+| `skip` | moves on to the next track - the floor voted the song off, or you did |
+| `help` | hands a song djay could not find to the fallback, if you set one |
 
 and reports what is **on air** whenever it changes. It reports what it
 sees rather than what it did, so you can take over djay by hand at any
 moment and the queue follows you.
 
-Plain Node 20+, no dependencies, no build step.
+## How it drives djay
+
+By default **Claude does it, by computer use** (`claude.mjs`). For each
+job the bridge sends Claude a screenshot of the Mac and a short task -
+"add this song to the Queue", "the floor voted this one off", "what is
+playing?" - and Claude clicks and types its way through djay, looking at
+the screen after each step. It sees a search that came back empty, a
+dialog in the way, or a song that did not land in the Queue, and deals
+with it, then answers in two lines the bridge reads: a result
+(`CUED`, `NOT_FOUND`, `SKIPPED`, `FAILED`) and the track now playing.
+
+What that means on the night:
+
+- **It is slow by computer standards.** Adding a song or skipping one
+  takes tens of seconds; one job runs at a time, skips first. The bridge
+  keeps checking in with the app meanwhile, so the planner still shows
+  it as connected.
+- **djay comes to the front while Claude works**, exactly as it would
+  for a person. Treat the laptop as djay's for the night.
+- **What is playing is read every 30 seconds** (`DJ_WATCH_SECONDS`) from a
+  screenshot, without clicking anything, and after every add or skip.
+- **It is billed per use** on your Anthropic API key, with prompt
+  caching on. Watch the usage page in the Anthropic Console during a
+  rehearsal to see what a night will cost.
+- **Song titles are guests' text**, so the task quotes them as data and
+  tells Claude never to follow instructions inside one. The couple can
+  still remove anything odd from the planner.
+
+`DJ_DRIVER=keys` swaps in the fixed keyboard-shortcut driver below
+(fast, but blind), and `DJ_DRIVER=fake` a pretend djay for rehearsing.
 
 ## Running it
 
-Once, put the settings in a `.env` beside the script (it is gitignored):
+Once, on the DJ laptop:
 
 ```bash
+brew install cliclick     # mouse clicks for Claude
 cd bridge/dj
-cp .env.example .env      # then fill in WEDDING_URL and DJ_BRIDGE_TOKEN
+npm install               # the Anthropic SDK, for the Claude driver
+cp .env.example .env      # then fill in WEDDING_URL, DJ_BRIDGE_TOKEN, ANTHROPIC_API_KEY
 ```
+
+and give the terminal app you run it from two permissions, then quit
+and reopen it (System Settings > Privacy & Security):
+
+- **Accessibility** - for keys and clicks.
+- **Screen & System Audio Recording** - for screenshots. Without it the
+  screenshots show the desktop and no windows, and Claude is blind.
 
 After that, on the night, from `bridge/dj`:
 
@@ -39,14 +77,12 @@ set in the shell still wins over the file, which is handy for a one-off
 
 The bridge keeps the Mac awake while it runs (it starts `caffeinate`
 itself, tied to its own process, so nothing is left holding the Mac
-awake once it stops). `DJ_KEEP_AWAKE=0` turns that off. Keep the laptop
-plugged in and on Do Not Disturb all the same: a notification that takes
-focus swallows the bridge's keystrokes.
+awake once it stops). `DJ_KEEP_AWAKE=0` turns that off. Also set the
+lock screen and screen saver to never, keep the laptop plugged in, and
+turn on Do Not Disturb: nothing can be clicked behind a lock screen, and
+a notification that takes focus gets in the way.
 
-The terminal it runs in needs **Accessibility** permission (System
-Settings > Privacy & Security > Accessibility), or every keystroke fails
-with "not allowed assistive access". djay should be in **Automix** with
-Apple Music signed in.
+djay should be in **Automix** with Apple Music signed in.
 
 ### Trying it without djay
 
@@ -60,7 +96,12 @@ and it plays "DJ's choice N" when its queue runs dry. A song with
 exercised too. Run it against a local `pnpm dev` with requests open and
 two phones on two invitation links.
 
-## Calibrating against djay - do this before the night
+## The keystroke driver (`DJ_DRIVER=keys`)
+
+The alternative to Claude: fixed keystrokes, no screenshots, no API key,
+near-instant - and blind, so it cannot tell when a step did nothing.
+It only needs Accessibility, and nothing installed. Calibrate it before
+trusting it:
 
 djay has no API and no AppleScript dictionary, so the bridge drives it
 the way a person would: keystrokes and clicks through macOS
@@ -144,14 +185,14 @@ A cue can fail two ways:
   hand" too (`staleCues`). It counts songs rather than minutes, so the
   speeches do not trigger it.
 
-Then the fallback. Set `DJ_FALLBACK_COMMAND` to a command that runs
-Claude with computer use on this Mac. The bridge runs it once per song,
-with the prompt from `fallback-prompt.md` on stdin and `SONG_TITLE` and
-`SONG_ARTIST` in the environment, and reads the **last line** of its
-output: `CUED` marks the song cued, `NOT_FOUND` gives up on it, anything
-else leaves it under "Needs a hand" for you. While the fallback runs the
-bridge presses nothing, so the two never fight over the keyboard; it
-keeps reporting what is on air.
+With the Claude driver a `NOT_FOUND` already means Claude looked at
+the screen and could not find it, so there is no further fallback by
+default. With the keystroke driver, `DJ_FALLBACK_COMMAND` can name a
+command to run once per song needing a hand, with the prompt from
+`fallback-prompt.md` on stdin and `SONG_TITLE` and `SONG_ARTIST` in the
+environment; the **last line** of its output decides: `CUED` marks the
+song cued, `NOT_FOUND` gives up on it, anything else leaves it under
+"Needs a hand". While it runs the bridge presses nothing else.
 
 Without a fallback command, songs that need a hand wait on
 `/admin/dance-floor`, where "It's in djay's queue" and "Give up" settle
@@ -163,8 +204,10 @@ them.
 |---|---|---|
 | `WEDDING_URL` | - | the app |
 | `DJ_BRIDGE_TOKEN` | - | the same value as the server's |
-| `DJ_DRIVER` | `djay` | or `fake` |
-| `DJ_CONFIG` | `./djay.config.json` | the calibrated steps |
+| `DJ_DRIVER` | `claude` | `claude`, `keys` or `fake` |
+| `ANTHROPIC_API_KEY` | - | for the Claude driver |
+| `DJ_WATCH_SECONDS` | `30` | Claude driver: how often it reads the decks |
+| `DJ_CONFIG` | `./djay.config.json` | keystroke driver: the calibrated steps |
 | `DJ_POLL_MS` | `3000` | how often to ask |
 | `DJ_FALLBACK_COMMAND` | none | see above |
 | `FAKE_SONG_SECONDS` | `20` | the fake driver's song length |
