@@ -1223,10 +1223,11 @@ plays them on the DJ laptop. Three parts, and the split is the design:
   queue. Votes are per household, like song requests. Guests see vote
   counts and "yours", never who asked; the planner sees names.
   `dj_floor.open` is a kill switch and starts shut, like `published`.
-- **`bridge/dj/`** is a dependency-free Node script on the Mac running
-  djay, polling `/api/dj/bridge` with `DJ_BRIDGE_TOKEN` (a second
-  `carriesOwnCredential` door, same shape as the booth's). It is not
-  part of the image (`.dockerignore`).
+- **`bridge/dj/`** is a Node script on the Mac running djay, polling
+  `/api/dj/bridge` with `DJ_BRIDGE_TOKEN` (a second
+  `carriesOwnCredential` door, same shape as the booth's). It has its
+  own `package.json` (the Anthropic SDK, for the Claude driver only) and
+  is not part of the image (`.dockerignore`).
 
 Decisions worth knowing before changing any of it:
 
@@ -1240,21 +1241,32 @@ Decisions worth knowing before changing any of it:
   as an unrequested row so the floor can vote that off too. The DJ can
   take over at any moment and the queue follows the room rather than
   arguing with it.
-- **djay has no API**, so the bridge drives it with keystrokes through
-  macOS accessibility, from steps in `djay.config.json`. Those steps
-  were written blind and **must be calibrated on the laptop** (the
-  README says how; `node bridge.mjs probe` dumps what accessibility
-  sees). Reading the decks is off until calibrated, and the planner can
-  mark songs on air by hand meanwhile.
-- **A keystroke cannot report its own failure**, so a cue that silently
-  did nothing would hold djay's one slot all night. `staleCues` moves a
-  request to `needs_help` once two other songs have started since it was
-  cued - counted in songs, not minutes, so the speeches do not trip it.
-- **Claude is the fallback, not the driver.** Computer use is seconds a
-  step and has no place in the path of every skip. A song djay could not
-  find goes to `needs_help`; the bridge runs `DJ_FALLBACK_COMMAND` with
-  `fallback-prompt.md` on stdin and pauses its own keystrokes until it
-  answers `CUED` or `NOT_FOUND`. Without one, the planner settles it.
+- **djay has no API, so Claude drives it by computer use** (`claude.mjs`,
+  the default `DJ_DRIVER`). Each job - add this song, skip this one,
+  what is playing - is a short task with a screenshot, and Claude ends
+  its reply with `RESULT:` and `NOW_PLAYING:` lines the bridge parses.
+  It was chosen over fixed keystrokes because it can *see*: an empty
+  search, a dialog in the way, a song that did not land. The price is
+  tens of seconds a job, per-use API billing, and djay in front while it
+  works - which the keystroke driver needs too, so the laptop is djay's
+  for the night either way. The computer toolset is
+  `computer_toolset_20260801` (the only form Claude Opus 5.5 takes);
+  zoom, scroll, middle click and hold key are switched off because the
+  Mac side (screencapture, sips, osascript, cliclick) does not do them.
+  History is resent whole each turn, never pruned, and cached.
+- **Guests' song titles reach Claude's prompt.** The tasks quote them as
+  JSON data and the system prompt says never to follow instructions
+  inside one; the planner can remove a request that tries.
+- **One job at a time, alongside the poll** (`busy` in `bridge.mjs`),
+  skips before cues: a forty-second job must not stop the bridge
+  checking in, or the planner would show the laptop as gone.
+- `DJ_DRIVER=keys` (`djay.mjs`, `djay.config.json`) is the blind
+  alternative: djay's own shortcuts, near-instant, no API key. Its steps
+  were written against djay's exported key bindings but not run.
+- **A blind cue can fail silently**, so a cue that did nothing would hold
+  djay's one slot all night. `staleCues` moves a request to `needs_help`
+  once two other songs have started since it was cued - counted in
+  songs, not minutes, so the speeches do not trip it.
 - The `dj_queue_items_active_song` partial unique index is the real lock
   on duplicates; `checkRequest` is what lets the page say why.
 - **Album covers are found by the server, never sent by a guest.** A

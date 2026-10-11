@@ -1,0 +1,16 @@
+{
+  "name": "dj-bridge",
+  "private": true,
+  "description": "Plays the wedding app's dance floor through djay Pro. See README.md.",
+  "type": "module",
+  "scripts": {
+    "start": "node bridge.mjs",
+    "probe": "node bridge.mjs probe"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0"
+  }
+}
