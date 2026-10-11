@@ -1232,7 +1232,7 @@ plays them on the DJ laptop. Three parts, and the split is the design:
 Decisions worth knowing before changing any of it:
 
 - **djay holds one request at a time** (`CUE_DEPTH`), loaded onto the
-  idle deck from the library's right-click menu, so Automix mixes into
+  idle deck (⌘←/⌘→, or the library's right-click menu), so Automix mixes into
   it next. The deck holds one song, so a second would replace the
   first; djay's Queue is not used, because Automix does not play from
   it. Everything else stays in the app, where votes still move it.

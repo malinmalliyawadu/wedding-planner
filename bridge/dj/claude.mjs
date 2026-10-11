@@ -93,10 +93,12 @@ Rules, because the music is live:
 - If a dialog or popup is in the way, close it with Cancel or Close, never with an option that changes something.
 - Be quick: take the most direct route, and do not explore.
 
-How a request gets played: djay has two decks. Automix plays one (the audible deck) and, when that track ends, mixes into whatever is loaded on the other one (the idle deck). So a request is cued by loading it onto the idle deck, from the right-click menu on the track in the library; Automix then plays it next by itself. djay's Queue and Automix's playlist are not used for requests.
+How a request gets played: djay has two decks. Automix plays one (the audible deck) and, when that track ends, mixes into whatever is loaded on the other one (the idle deck). So a request is cued by loading it onto the idle deck; Automix then plays it next by itself. djay's Queue and Automix's playlist are not used for requests.
 
 Keyboard shortcuts set up in djay on this Mac:
 - cmd+shift+Return: mix from the audible deck into the idle deck - this is how to move on to the next track smoothly.
+- cmd+left: load the selected library track onto deck 1 (the left deck).
+- cmd+right: load the selected library track onto deck 2 (the right deck).
 - cmd+f: should focus the library search field.
 Music comes from Apple Music inside djay's library.
 
@@ -120,7 +122,7 @@ Search djay's library for it in Apple Music. Prefer the original studio recordin
 
 Then work out which deck is idle: the one that is not audible. If Automix is part-way through mixing from one deck into the other, wait a few seconds at a time until the mix has finished - the deck that was coming in is the audible one now. Never load onto the audible deck: that cuts the song the guests are dancing to.
 
-Right-click the track in the library and choose the menu item that loads it onto the idle deck (something like "Load on Deck 2"). Do not press play and do not start a mix; Automix mixes into it when the current track ends. Then check that the idle deck shows this song and the audible deck is still playing, and clear the search field if you can do so harmlessly.
+Select the track in the library and load it onto the idle deck with its shortcut: cmd+left if deck 1 (left) is idle, cmd+right if deck 2 (right) is idle. If the shortcut does nothing, right-click the track and choose the menu item that loads it onto the idle deck instead. Do not press play and do not start a mix; Automix mixes into it when the current track ends. Then check that the idle deck shows this song and the audible deck is still playing, and clear the search field if you can do so harmlessly.
 
 RESULT is CUED if the song is loaded on the idle deck, NOT_FOUND if no suitable version exists, or FAILED if something else stopped you (say what you tried).`;
 

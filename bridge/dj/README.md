@@ -84,7 +84,8 @@ a notification that takes focus gets in the way.
 
 djay should be in **Automix** with Apple Music signed in, started on a
 playlist long enough to fill the gaps between requests. Each request is
-loaded onto the idle deck from the library's right-click menu, replacing
+loaded onto the idle deck (⌘← for deck 1, ⌘→ for deck 2, or the
+library's right-click menu), replacing
 whatever Automix had lined up there, and Automix mixes into it when the
 playing track ends. The app only hands over the next request once that
 one is on air, so a waiting request is never loaded over. djay's Queue
@@ -125,6 +126,7 @@ and the config already uses them:
 |---|---|---|
 | ⌘↩ | `musicLibrary.markSelectedSongs` | `cue`: add the selected track to the Queue |
 | ⇧⌘↩ | `mixer.transitionActiveToInactive` | `skip`: mix into the next deck |
+| ⌘← / ⌘→ | `musicLibrary.load1` / `load2` | the Claude driver's `cue`: load onto whichever deck is idle |
 | ⌘K | `musicLibrary.focusQueue` | checking the Queue by hand |
 | ⇧⌘A | `application.automix` | Automix on and off |
 
