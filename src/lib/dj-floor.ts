@@ -306,7 +306,7 @@ export type BridgeSong = { id: number; title: string; artist: string | null };
 
 /** Everything the bridge needs to know on each poll. */
 export type BridgeInstructions = {
-  /** Hand this to djay's Automix queue, then report `cued` or `cue_failed`. */
+  /** Load this onto djay's idle deck, then report `cued` or `cue_failed`. */
   cue: BridgeSong | null;
   /** Press Skip: this is on air and has been voted (or asked) off. */
   skip: BridgeSong | null;
@@ -340,7 +340,7 @@ export async function bridgeInstructions(): Promise<BridgeInstructions> {
         .update(djQueueItems)
         .set({
           status: "needs_help",
-          note: "djay was given this but two other songs have played since. Is it in the Automix queue?",
+          note: "djay was given this but two other songs have played since. Did it make it onto a deck?",
         })
         .where(and(eq(djQueueItems.id, id), eq(djQueueItems.status, "cued")));
     }

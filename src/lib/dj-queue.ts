@@ -19,7 +19,7 @@ import { cleanSongText, songKey } from "./songs";
  * Where a request is in its life.
  *
  * - `queued`: waiting in the app; votes still move it.
- * - `cued`: handed to djay's Automix queue. Its place is djay's now.
+ * - `cued`: loaded onto djay's idle deck, to play next. Its place is djay's now.
  * - `needs_help`: the bridge could not find it in djay. Claude (or a
  *   person at the laptop) looks for it; it ends `cued` or `unavailable`.
  * - `playing`: what the bridge last saw on air.
@@ -66,9 +66,10 @@ export const REPLAY_GAP_MS = 90 * 60 * 1000;
 export const DEFAULT_SKIP_VOTES_NEEDED = 5;
 
 /**
- * How many requests djay holds at once. One: djay always has the next
- * song ready to mix into, and every other request stays in the app where
- * votes can still move it. Handing djay ten would freeze the order.
+ * How many requests djay holds at once. One, and it has to be: a request
+ * is cued by loading it onto the idle deck, which holds exactly one song,
+ * so a second would replace the first. Every other request stays in the
+ * app where votes can still move it.
  */
 export const CUE_DEPTH = 1;
 
@@ -222,7 +223,7 @@ export function transition(
     case "ended":
       return status === "playing" ? "played" : null;
     case "removed":
-      // A cued song is in djay's queue, where the app cannot reach in and
+      // A cued song is on djay's deck, where the app cannot reach in and
       // take it out; it is skipped when it comes on instead (`removal`).
       return status === "queued" || status === "needs_help" ? "removed" : null;
   }

@@ -8,7 +8,7 @@ touches djay. Every few seconds it asks the app what to do and does it:
 
 | The app says | The bridge does |
 |---|---|
-| `cue` | makes that song the **next track Automix plays** (one at a time, so votes keep moving the rest) |
+| `cue` | loads that song onto djay's **idle deck**, so Automix plays it next (one at a time, so votes keep moving the rest) |
 | `skip` | moves on to the next track - the floor voted the song off, or you did |
 | `help` | hands a song djay could not find to the fallback, if you set one |
 
@@ -23,7 +23,7 @@ job the bridge sends Claude a screenshot of the Mac and a short task -
 "play this song next", "the floor voted this one off", "what is
 playing?" - and Claude clicks and types its way through djay, looking at
 the screen after each step. It sees a search that came back empty, a
-dialog in the way, or a song that did not land in Automix, and deals
+dialog in the way, or a song that did not land on the deck, and deals
 with it, then answers in two lines the bridge reads: a result
 (`CUED`, `NOT_FOUND`, `SKIPPED`, `FAILED`) and the track now playing.
 
@@ -84,9 +84,12 @@ a notification that takes focus gets in the way.
 
 djay should be in **Automix** with Apple Music signed in, started on a
 playlist long enough to fill the gaps between requests. Each request is
-put into Automix's own list straight after the playing track. djay's
-Queue (⌘↩) is a separate list that Automix only plays if it was started
-on it, which is why the Claude driver does not use it.
+loaded onto the idle deck (⌘← for deck 1, ⌘→ for deck 2, or the
+library's right-click menu), replacing
+whatever Automix had lined up there, and Automix mixes into it when the
+playing track ends. The app only hands over the next request once that
+one is on air, so a waiting request is never loaded over. djay's Queue
+(⌘↩) is not used: Automix does not play from it.
 
 ### Trying it without djay
 
@@ -123,6 +126,7 @@ and the config already uses them:
 |---|---|---|
 | ⌘↩ | `musicLibrary.markSelectedSongs` | `cue`: add the selected track to the Queue |
 | ⇧⌘↩ | `mixer.transitionActiveToInactive` | `skip`: mix into the next deck |
+| ⌘← / ⌘→ | `musicLibrary.load1` / `load2` | the Claude driver's `cue`: load onto whichever deck is idle |
 | ⌘K | `musicLibrary.focusQueue` | checking the Queue by hand |
 | ⇧⌘A | `application.automix` | Automix on and off |
 

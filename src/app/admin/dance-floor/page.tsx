@@ -153,7 +153,7 @@ export default async function DanceFloorAdminPage() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <ActButton kind="found" itemId={item.id}>
-                      It&rsquo;s in djay&rsquo;s queue
+                      It&rsquo;s on djay&rsquo;s deck
                     </ActButton>
                     <ActButton kind="giveUp" itemId={item.id} variant="danger">
                       Give up
