@@ -8,7 +8,7 @@ touches djay. Every few seconds it asks the app what to do and does it:
 
 | The app says | The bridge does |
 |---|---|
-| `cue` | adds that song to djay's **Automix queue** (one at a time, so votes keep moving the rest) |
+| `cue` | makes that song the **next track Automix plays** (one at a time, so votes keep moving the rest) |
 | `skip` | moves on to the next track - the floor voted the song off, or you did |
 | `help` | hands a song djay could not find to the fallback, if you set one |
 
@@ -20,10 +20,10 @@ moment and the queue follows you.
 
 By default **Claude does it, by computer use** (`claude.mjs`). For each
 job the bridge sends Claude a screenshot of the Mac and a short task -
-"add this song to the Queue", "the floor voted this one off", "what is
+"play this song next", "the floor voted this one off", "what is
 playing?" - and Claude clicks and types its way through djay, looking at
 the screen after each step. It sees a search that came back empty, a
-dialog in the way, or a song that did not land in the Queue, and deals
+dialog in the way, or a song that did not land in Automix, and deals
 with it, then answers in two lines the bridge reads: a result
 (`CUED`, `NOT_FOUND`, `SKIPPED`, `FAILED`) and the track now playing.
 
@@ -82,7 +82,11 @@ lock screen and screen saver to never, keep the laptop plugged in, and
 turn on Do Not Disturb: nothing can be clicked behind a lock screen, and
 a notification that takes focus gets in the way.
 
-djay should be in **Automix** with Apple Music signed in.
+djay should be in **Automix** with Apple Music signed in, started on a
+playlist long enough to fill the gaps between requests. Each request is
+put into Automix's own list straight after the playing track. djay's
+Queue (⌘↩) is a separate list that Automix only plays if it was started
+on it, which is why the Claude driver does not use it.
 
 ### Trying it without djay
 
