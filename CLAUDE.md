@@ -1276,12 +1276,15 @@ Decisions worth knowing before changing any of it:
   is never reported as nothing on air. While it is in use it is the only
   source - the driver's own readings are ignored, so two spellings of a
   title cannot argue about whether the song changed.
-- **Skips press the media key first.** With Now Playing in use, a skip
-  is `media-control next-track` - instant, where Claude finding djay's
-  button takes tens of seconds - sent only while djay holds Now Playing,
-  so a browser video on the laptop is never what gets skipped. If the
-  song is still on air eight seconds later the key did not take, and the
-  driver skips it instead.
+- **Skips press the media key first, and at once.** It is pressed the
+  moment the app asks, outside `busy`, because it touches no screen: a
+  skip must never wait behind a forty-second add. With Now Playing in
+  use it is `media-control next-track`, sent only while djay holds Now
+  Playing, so a browser video on the laptop is never what gets skipped.
+  Without media-control the bridge posts the key event itself
+  (`pressNextTrackKey`), blind - a skip that always went to Claude was
+  the worse failure. If the song is still on air afterwards (8 seconds,
+  or 30 when blind, since the driver has to look) the driver skips it.
 - **Without it, the driver reads the decks, and that is not a job.**
   Claude screenshots djay's window alone (`screencapture -l`), so it
   works with another app in front, alongside an add or skip. Each

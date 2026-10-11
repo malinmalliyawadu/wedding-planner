@@ -43,13 +43,20 @@ and nothing billed. Apple closed this to ordinary programs in macOS
 
 ### Skipping: the media key
 
-Now Playing is also how the bridge skips. It presses macOS's own
-next-track (`media-control next-track`, the ⏭ key) - instant and free,
-where the driver finding djay's button takes Claude tens of seconds. It
-is only pressed while djay holds Now Playing, so a browser video on the
-laptop is never what gets skipped. If the song is still on air eight
-seconds later the key did not take, and the driver skips it the long
-way (up to two more tries).
+A skip is the ⏭ key: macOS's own next-track, instant and free, where
+the driver finding djay's button takes Claude tens of seconds. It is
+pressed the moment the app asks, even while Claude is in the middle of
+adding a song - it touches no screen, so it waits for nothing.
+
+With `media-control` it is `media-control next-track`, pressed only
+while djay holds Now Playing, so a browser video on the laptop is never
+what gets skipped; if the song is still on air eight seconds later the
+key did not take, and the driver skips it the long way (up to two more
+tries). Without `media-control` the bridge posts the key itself, as the
+keyboard would, but blind: it cannot tell who holds Now Playing. On the
+night that is djay; if it was not, the song is still on air and the
+driver skips it, after a look at the decks to see whether it went (30
+seconds).
 
 **Check it at the rehearsal**, because it is the part that depends on
 djay: with Automix playing, run `media-control get` and see djay's track
