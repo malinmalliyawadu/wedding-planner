@@ -20,14 +20,28 @@ Plain Node 20+, no dependencies, no build step.
 
 ## Running it
 
+Once, put the settings in a `.env` beside the script (it is gitignored):
+
 ```bash
 cd bridge/dj
-export WEDDING_URL=https://wedding.yourdomain.nz
-export DJ_BRIDGE_TOKEN=...        # the same value as on the server
+cp .env.example .env      # then fill in WEDDING_URL and DJ_BRIDGE_TOKEN
+```
+
+After that, on the night, from `bridge/dj`:
+
+```bash
 node bridge.mjs
 ```
 
-`/admin/dance-floor` shows "Connected" within a few seconds.
+`/admin/dance-floor` shows "Connected" within a few seconds. A variable
+set in the shell still wins over the file, which is handy for a one-off
+`DJ_DRIVER=fake node bridge.mjs`.
+
+The bridge keeps the Mac awake while it runs (it starts `caffeinate`
+itself, tied to its own process, so nothing is left holding the Mac
+awake once it stops). `DJ_KEEP_AWAKE=0` turns that off. Keep the laptop
+plugged in and on Do Not Disturb all the same: a notification that takes
+focus swallows the bridge's keystrokes.
 
 The terminal it runs in needs **Accessibility** permission (System
 Settings > Privacy & Security > Accessibility), or every keystroke fails
@@ -130,3 +144,6 @@ them.
 | `DJ_POLL_MS` | `3000` | how often to ask |
 | `DJ_FALLBACK_COMMAND` | none | see above |
 | `FAKE_SONG_SECONDS` | `20` | the fake driver's song length |
+| `DJ_KEEP_AWAKE` | on | `0` lets the Mac sleep while the bridge runs |
+
+All of these can live in `.env` beside the script (see `.env.example`).
