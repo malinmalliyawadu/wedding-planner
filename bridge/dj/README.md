@@ -37,6 +37,11 @@ What that means on the night:
   for a person. Treat the laptop as djay's for the night.
 - **What is playing is read every 30 seconds** (`DJ_WATCH_SECONDS`) from a
   screenshot, without clicking anything, and after every add or skip.
+  While a request is waiting on the idle deck it is read every 5 seconds
+  instead (`DJ_WATCH_FAST_SECONDS`): the app hands over the next request
+  only once that one is on air, so the sooner it is seen to start, the
+  sooner the next is loaded. That is most of the night's reads, and most
+  of the bill.
 - **It is billed per use** on your Anthropic API key, with prompt
   caching on. Watch the usage page in the Anthropic Console during a
   rehearsal to see what a night will cost.
@@ -215,6 +220,7 @@ them.
 | `DJ_DRIVER` | `claude` | `claude`, `keys` or `fake` |
 | `ANTHROPIC_API_KEY` | - | for the Claude driver |
 | `DJ_WATCH_SECONDS` | `30` | Claude driver: how often it reads the decks |
+| `DJ_WATCH_FAST_SECONDS` | `5` | how often instead while a request waits on the idle deck |
 | `DJ_APP` | first app named `djay…` | Claude driver: which app to bring forward |
 | `DJ_CONFIG` | `./djay.config.json` | keystroke driver: the calibrated steps |
 | `DJ_POLL_MS` | `3000` | how often to ask |
