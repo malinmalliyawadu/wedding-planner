@@ -158,7 +158,13 @@ function runFallback(command, prompt, song) {
 async function main() {
   if (process.argv[2] === "probe") {
     const config = JSON.parse(await readFile(process.env.DJ_CONFIG ?? join(here, "djay.config.json"), "utf8"));
-    console.log(await probe(config.app ?? "djay Pro"));
+    try {
+      console.log(await probe(config.app ?? "djay Pro"));
+    } catch (error) {
+      // To the screen, not into the file the output is usually redirected to.
+      console.error(error.message.replace(/^.*execution error: /, "").replace(/ \(-\d+\)$/, ""));
+      process.exit(1);
+    }
     return;
   }
 

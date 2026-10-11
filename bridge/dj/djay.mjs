@@ -171,33 +171,58 @@ export async function djayDriver(configPath) {
 }
 
 /**
- * Everything accessibility can see in djay's front window, one element a
- * line: role, name, description, value. This is what calibration reads -
- * which button is Skip, which text fields hold the deck titles.
+ * Everything accessibility can see in djay's windows, one element a line:
+ * role, name, description, value, under a heading per window. This is
+ * what calibration reads - which button is Skip, which text fields hold
+ * the deck titles.
+ *
+ * djay is brought to the front first: a minimised or hidden app has no
+ * windows as far as accessibility is concerned. And when there are still
+ * none, it says why in words rather than as AppleScript's "Invalid index".
  */
 export async function probe(app = "djay Pro") {
   const script = [
+    `tell application ${literal(app)} to activate`,
+    "delay 1",
     `tell application "System Events" to tell process ${literal(app)}`,
+    "if (count of windows) is 0 then error NO_WINDOWS",
     "set out to {}",
-    "repeat with el in (entire contents of front window)",
-    "  set rowText to \"\"",
+    "repeat with w in windows",
+    "  set heading to \"=== window\"",
     "  try",
-    "    set rowText to (role of el as text)",
+    "    set heading to heading & \": \" & (name of w as text)",
     "  end try",
-    "  try",
-    "    set rowText to rowText & \" | name: \" & (name of el as text)",
-    "  end try",
-    "  try",
-    "    set rowText to rowText & \" | desc: \" & (description of el as text)",
-    "  end try",
-    "  try",
-    "    set rowText to rowText & \" | value: \" & (value of el as text)",
-    "  end try",
-    "  set end of out to rowText",
+    "  set end of out to heading",
+    "  repeat with el in (entire contents of w)",
+    "    set rowText to \"\"",
+    "    try",
+    "      set rowText to (role of el as text)",
+    "    end try",
+    "    try",
+    "      set rowText to rowText & \" | name: \" & (name of el as text)",
+    "    end try",
+    "    try",
+    "      set rowText to rowText & \" | desc: \" & (description of el as text)",
+    "    end try",
+    "    try",
+    "      set rowText to rowText & \" | value: \" & (value of el as text)",
+    "    end try",
+    "    set end of out to rowText",
+    "  end repeat",
     "end repeat",
     "set AppleScript's text item delimiters to linefeed",
     "return out as text",
     "end tell",
-  ].join("\n");
-  return osascript(script, [], 120_000);
+  ]
+    .join("\n")
+    .replace("error NO_WINDOWS", `error ${literal(NO_WINDOWS)}`);
+  return osascript(script, [], 300_000);
 }
+
+const NO_WINDOWS = [
+  "djay is running, but macOS is not showing this script any of its windows.",
+  "Almost always: the app you ran this from has no Accessibility permission.",
+  "System Settings > Privacy & Security > Accessibility: turn on the terminal you are",
+  "using (Terminal, iTerm, Warp, VS Code...), then quit it completely and reopen it.",
+  "Otherwise: make sure djay has a window open and it is not minimised.",
+].join(" ");
