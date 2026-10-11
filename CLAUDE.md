@@ -1312,6 +1312,11 @@ Decisions worth knowing before changing any of it:
   zoom, scroll, middle click and hold key are switched off because the
   Mac side (screencapture, sips, osascript, cliclick) does not do them.
   History is resent whole each turn, never pruned, and cached.
+  `DJ_CLAUDE_MODEL` picks Opus (default) or Sonnet - same toolset,
+  Sonnet's turns about a third quicker. Haiku was tried and dropped (no
+  answer on two of three looks at the decks, for half a second saved),
+  and so was Opus fast mode (a turn is mostly screenshot in, and its
+  rate limit refused screenshot-sized requests).
 - **Guests' song titles reach Claude's prompt.** The tasks quote them as
   JSON data and the system prompt says never to follow instructions
   inside one; the planner can remove a request that tries.

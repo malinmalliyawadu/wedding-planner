@@ -30,7 +30,24 @@ import { osascript } from "./djay.mjs";
  * screenshots show the desktop and no windows) as well as Accessibility.
  */
 
-const MODEL = "claude-opus-5-5";
+/**
+ * The models the driver can run on, chosen by DJ_CLAUDE_MODEL. Both take
+ * the same computer toolset, so the choice is only speed against
+ * judgement: each step of a job is one model turn, and Sonnet's turns are
+ * shorter.
+ *
+ * Two more were tried and left out. Haiku was barely quicker than Sonnet
+ * and gave no answer on two of three looks at the decks. Opus's fast mode
+ * speeds up output, and a turn here is a screenshot in and a click or two
+ * out, so there is little output to speed up - and its own rate limit
+ * turned away every screenshot-sized request, so each turn paid for a
+ * refusal first.
+ */
+const MODELS = {
+  opus: "claude-opus-5-5",
+  sonnet: "claude-sonnet-5-5",
+};
+const DEFAULT_MODEL = "opus";
 
 /** Long edge of the screenshots Claude sees. Well inside the model's image limits. */
 const SCREENSHOT_LONG_EDGE = 1280;
@@ -436,10 +453,12 @@ export function parseVerdict(text) {
   return { result, onAir, remainingMs: remainingMs !== undefined && remainingMs <= 30 * 60 * 1000 ? remainingMs : undefined };
 }
 
-export async function claudeDriver({ app, log = console.log, watchSeconds = 30 } = {}) {
+export async function claudeDriver({ app, log = console.log, watchSeconds = 30, model: choice = DEFAULT_MODEL } = {}) {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is not set. Put it in bridge/dj/.env (see .env.example).");
   }
+  const model = MODELS[choice];
+  if (!model) throw new Error(`DJ_CLAUDE_MODEL must be ${Object.keys(MODELS).join(" or ")}, not "${choice}".`);
   const client = new Anthropic();
   const screen = await createScreen(app, log);
 
@@ -475,12 +494,13 @@ export async function claudeDriver({ app, log = console.log, watchSeconds = 30 }
       },
     ];
     let nudged = false;
-    const deadline = Date.now() + TASK_TIMEOUT_MS;
+    const started = Date.now();
+    const deadline = started + TASK_TIMEOUT_MS;
 
     for (let step = 0; step < MAX_STEPS; step += 1) {
       if (Date.now() > deadline) throw new Error("Claude took too long");
       const response = await client.beta.messages.create({
-        model: MODEL,
+        model,
         max_tokens: 16000,
         // A safety classifier that declines (it should not, for a song
         // request, but titles are guests' text) re-runs on another model
@@ -519,6 +539,7 @@ export async function claudeDriver({ app, log = console.log, watchSeconds = 30 }
           });
           continue;
         }
+        if (act) log(`  ${model}: ${step + 1} turns, ${((Date.now() - started) / 1000).toFixed(1)}s`);
         return { text, ...verdict, seenAt };
       }
 
@@ -548,7 +569,7 @@ export async function claudeDriver({ app, log = console.log, watchSeconds = 30 }
   }
 
   return {
-    name: `claude (${MODEL})`,
+    name: `claude (${model})`,
     canReadDecks: true,
     /** Reading the decks costs a model call, so it is done on a timer, not every poll. */
     nowPlayingEveryMs: watchSeconds * 1000,
