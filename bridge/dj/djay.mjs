@@ -145,26 +145,29 @@ export async function djayDriver(configPath) {
     },
 
     /**
-     * What is on air, `null` for nothing, or `undefined` when this driver
-     * cannot tell - in which case the bridge says nothing rather than
-     * guessing, and the planner marks songs on air by hand.
+     * A reading of the decks: `onAir` is what is on air, `null` for
+     * nothing, or `undefined` when this driver cannot tell - in which case
+     * the bridge says nothing rather than guessing, and the planner marks
+     * songs on air by hand. Accessibility gives no time left, so the
+     * bridge reads on its steady timer.
      *
      * The configured script returns "title" and "artist" on two lines,
      * or an empty string when nothing is playing.
      */
     async nowPlaying() {
-      if (!config.nowPlaying) return undefined;
+      if (!config.nowPlaying) return { onAir: undefined };
       const script = config.nowPlaying.applescript
         ? compile([{ applescript: config.nowPlaying.applescript }], app)
         : null;
-      if (!script) return undefined;
+      if (!script) return { onAir: undefined };
+      const seenAt = Date.now();
       try {
         const out = await osascript(script, [], 10_000);
-        if (out === "") return null;
+        if (out === "") return { onAir: null, seenAt };
         const [title, artist] = out.split(/\r?\n/);
-        return { title: title.trim(), artist: artist?.trim() || null };
+        return { onAir: { title: title.trim(), artist: artist?.trim() || null }, seenAt };
       } catch {
-        return undefined;
+        return { onAir: undefined };
       }
     },
   };

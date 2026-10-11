@@ -1262,6 +1262,19 @@ Decisions worth knowing before changing any of it:
 - **One job at a time, alongside the poll** (`busy` in `bridge.mjs`),
   skips before cues: a forty-second job must not stop the bridge
   checking in, or the planner would show the laptop as gone.
+- **What is on air comes from macOS Now Playing**, which djay fills in
+  itself (`nowplaying.mjs`, through `media-control`, because Apple shut
+  the framework to ordinary programs in macOS 15.4). Instant, free, and
+  nothing to misread; only `com.algoriddim.*` entries count, and a pause
+  is never reported as nothing on air. While it is in use it is the only
+  source - the driver's own readings are ignored, so two spellings of a
+  title cannot argue about whether the song changed.
+- **Without it, the driver reads the decks, and that is not a job.**
+  Claude screenshots djay's window alone (`screencapture -l`), so it
+  works with another app in front, alongside an add or skip. Each
+  reading carries the time left, and the bridge reads often only around
+  a song's end. Readings are ordered by when they were *seen*
+  (`seenAt`), so a long job finishing late cannot undo a newer look.
 - `DJ_DRIVER=keys` (`djay.mjs`, `djay.config.json`) is the blind
   alternative: djay's own shortcuts, near-instant, no API key. Its steps
   were written against djay's exported key bindings but not run.
