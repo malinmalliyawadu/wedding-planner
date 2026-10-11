@@ -69,6 +69,30 @@ and have not been run against djay.** The right ones depend on your djay
 version and its keyboard shortcuts (djay > Settings > Keyboard
 Shortcuts), so they have to be checked on this laptop:
 
+**Start from djay's own shortcuts.** djay > Settings > Keyboard
+Shortcuts can export them (a `.djayKeyBindings` file: each `#N` is a macOS
+key code). Two of them do the bridge's main jobs with no clicking at all,
+and the config already uses them:
+
+| Shortcut | djay action | Used for |
+|---|---|---|
+| ⌘↩ | `musicLibrary.markSelectedSongs` | `cue`: add the selected track to the Queue |
+| ⇧⌘↩ | `mixer.transitionActiveToInactive` | `skip`: mix into the next deck |
+| ⌘K | `musicLibrary.focusQueue` | checking the Queue by hand |
+| ⇧⌘A | `application.automix` | Automix on and off |
+
+There is no shortcut for the search field in that file, and none for
+reading the decks, which a shortcut cannot do. So check the `cue` steps
+by hand, in djay, before trusting them:
+
+- ⌘F, type a song, wait for the Apple Music results. Does ↓ highlight
+  the first result? Does ⌘↩ then put it in the Queue (⌘K to look)?
+- With Automix playing, does ⇧⌘↩ mix into the next track?
+
+If ⌘F does nothing, find the search field with the probe below and use
+a `click`-style step, or bind a key to it in djay's shortcuts. The probe
+is also the only way to set up `nowPlaying`.
+
 1. **See what accessibility can see.** With djay open:
 
    ```bash
@@ -85,10 +109,10 @@ Shortcuts), so they have to be checked on this laptop:
    selection to the queue, Escape. Change the steps until a song lands
    at the end of the Automix queue every time.
 
-3. **`skip`** - pressing Automix's Skip. The guess clicks a button whose
-   name or description is "Skip". If djay names it differently, change
-   it; if you map a key to it in djay's shortcuts, use a `key` step
-   instead, which is faster.
+3. **`skip`** - ⇧⌘↩ (`mixer.transitionActiveToInactive`), so the floor
+   gets a mix into the next song rather than a hard cut. If you would
+   rather it pressed Automix's own Skip button, use
+   `{ "click": "Skip" }` with whatever name the probe shows for it.
 
 4. **`nowPlaying`** - reading the decks. `null` until calibrated, and
    while it is `null` the bridge never reports what is on air: mark
