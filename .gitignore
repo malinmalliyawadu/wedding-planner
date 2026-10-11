@@ -41,3 +41,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 !.env.example
+
+# The DJ bridge installs its own package (the Claude driver).
+/bridge/dj/node_modules

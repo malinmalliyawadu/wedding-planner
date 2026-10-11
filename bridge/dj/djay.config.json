@@ -1,5 +1,5 @@
 {
-  "$comment": "How the bridge drives djay Pro. NOT YET CALIBRATED: these steps are a starting guess and must be checked on the DJ laptop (see README.md, 'Calibrating'). {query} is replaced with 'title artist'.",
+  "$comment": "How the bridge drives djay Pro, by keyboard shortcut. Cmd-Return (musicLibrary.markSelectedSongs, adds the selection to the Queue) and Shift-Cmd-Return (mixer.transitionActiveToInactive, mixes into the next deck) are taken from djay's own key bindings on the DJ laptop. Still to confirm by hand: that Cmd-F focuses the library search, and that Down then selects the first result (see README.md, 'Calibrating'). {query} is replaced with 'title artist'.",
   "app": "djay Pro",
   "cue": [
     { "activate": true },
@@ -7,8 +7,7 @@
     { "delay": 0.4 },
     { "keystroke": "a", "using": ["command"] },
     { "paste": "{query}" },
-    { "key": "return" },
-    { "delay": 3 },
+    { "delay": 2.5 },
     { "key": "down" },
     { "delay": 0.3 },
     { "key": "return", "using": ["command"] },
@@ -17,7 +16,7 @@
   ],
   "skip": [
     { "activate": true },
-    { "click": "Skip" }
+    { "key": "return", "using": ["shift", "command"] }
   ],
   "nowPlaying": null
 }
