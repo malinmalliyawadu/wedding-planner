@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { readPhoneKey } from "@/lib/public/dance-phone";
-import { getDanceFloorForShareCode, getSiteContent } from "@/lib/public/queries";
+import { getCouple, getDanceFloorForShareCode } from "@/lib/public/queries";
 import { danceViewport, DanceFloorScreen } from "../../../_dance-floor/screen";
 import { requestSong, voteOnSong } from "./actions";
 
@@ -9,7 +9,9 @@ import { requestSong, voteOnSong } from "./actions";
  * The dance floor through the QR code at the venue - on the tables, the
  * bar, the wall. The code is a secret like an invite token (`dj_floor.
  * share_code`), so this is no more open than an invitation, and the
- * couple can retire a printed one by making another.
+ * couple can retire a printed one by making another. It is also the one
+ * public door that an unpublished site leaves open (`isDanceShareCode`),
+ * and the floor's own switch can open it alone (`venue`).
  *
  * Nobody is named by it, so the guest is known by their phone: its cookie
  * is minted by the first poll of `./state`, not here, because a page
@@ -28,15 +30,12 @@ export default async function SharedDanceFloorPage({
   params,
 }: PageProps<"/i/dance/[code]">) {
   const { code } = await params;
-  const [site, floor] = await Promise.all([
-    getSiteContent(),
-    getDanceFloorForShareCode(code, await readPhoneKey()),
-  ]);
-  if (!site || !floor) notFound();
+  const floor = await getDanceFloorForShareCode(code, await readPhoneKey());
+  if (!floor) notFound();
 
   return (
     <DanceFloorScreen
-      couple={{ a: site.partnerAName, b: site.partnerBName }}
+      couple={await getCouple()}
       initial={floor}
       statePath={`/i/dance/${code}/state`}
       searchPath={`/i/dance/${code}/songs`}

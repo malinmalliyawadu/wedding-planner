@@ -16,10 +16,10 @@ import { tally, upcoming } from "@/lib/dj-queue";
 import { requestOrigin } from "@/lib/request-origin";
 import { describeSong } from "@/lib/songs";
 import {
+  AccessSwitch,
   ActButton,
   AddSongForm,
   AutoRefresh,
-  OpenToggle,
   ShareCodeCard,
   ThresholdForm,
 } from "./controls";
@@ -96,7 +96,7 @@ export default async function DanceFloorAdminPage() {
       </PageHeader>
 
       <div className="space-y-8">
-        <OpenToggle open={floor.open} />
+        <AccessSwitch access={floor.access} />
 
         <section className="rounded-lg border border-hairline bg-card p-5">
           <ShareCodeCard url={shareUrl} svg={shareSvg} />

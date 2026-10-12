@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   CUE_DEPTH,
+  FLOOR_ACCESS,
   MAX_WAITING,
   askerColumns,
   QUEUE_STATUSES,
   SKIP_GAP_MS,
   checkRequest,
+  doorOf,
+  floorIsOpen,
   isAsker,
   nextToCue,
   planOnAir,
@@ -154,6 +157,34 @@ describe("checkRequest", () => {
     expect(checkRequest(songKey("One more", null), { householdId: 3 }, mine, T0)).toEqual({ ok: true });
     // Asking again for the one that failed is allowed straight away.
     expect(checkRequest(mine[0].songKey, { householdId: 3 }, mine, T0)).toEqual({ ok: true });
+  });
+});
+
+describe("floorIsOpen", () => {
+  it("shuts both doors while closed", () => {
+    expect(floorIsOpen("closed", "invitation")).toBe(false);
+    expect(floorIsOpen("closed", "venue")).toBe(false);
+  });
+
+  it("opens only the QR code at venue, so invitations still hide the floor", () => {
+    expect(floorIsOpen("venue", "venue")).toBe(true);
+    expect(floorIsOpen("venue", "invitation")).toBe(false);
+  });
+
+  it("opens both doors for everyone", () => {
+    expect(floorIsOpen("everyone", "invitation")).toBe(true);
+    expect(floorIsOpen("everyone", "venue")).toBe(true);
+  });
+
+  it("never opens an invitation link without also opening the QR code", () => {
+    for (const access of FLOOR_ACCESS) {
+      if (floorIsOpen(access, "invitation")) expect(floorIsOpen(access, "venue")).toBe(true);
+    }
+  });
+
+  it("knows a household by its invitation and a phone by the QR code", () => {
+    expect(doorOf({ householdId: 3 })).toBe("invitation");
+    expect(doorOf({ phoneKey: "abc" })).toBe("venue");
   });
 });
 

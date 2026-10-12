@@ -4,12 +4,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { daysUntilNZ, formatDateFull, formatDateLong } from "@/lib/dates";
 import {
-  getDanceFloorOpen,
   getFaq,
   getGallery,
   getGuestSchedule,
   getInvitation,
   getSiteContent,
+  isDanceFloorOpen,
 } from "@/lib/public/queries";
 import { formatTime, formatTimeRange } from "@/lib/run-sheet";
 import { Envelope } from "./envelope";
@@ -65,7 +65,7 @@ export default async function InvitationPage({
     getFaq(),
     site.photosEnabled ? getGallery() : Promise.resolve([]),
     cookies(),
-    getDanceFloorOpen(),
+    isDanceFloorOpen("invitation"),
   ]);
   // Opened before on this browser: the envelope never enters the HTML,
   // so there is nothing to flash up and dismiss.

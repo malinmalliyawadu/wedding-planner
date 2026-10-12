@@ -352,7 +352,9 @@ shaped by that.
 - **`public_site.published` is a kill switch and defaults to off.** An
   unpublished site 404s every link, including ones already sent. A
   wedding site that goes live before anyone meant it to is the failure
-  worth engineering against, so the safe state is the default.
+  worth engineering against, so the safe state is the default. The one
+  exception is the dance floor's venue QR code (M11), which has its own
+  secret and its own switch.
 - **`src/lib/public/` is the only way in.** `queries.ts` names every
   column a guest may read; `mutations.ts` holds the only writes a
   stranger can cause, and each one re-resolves the household **from the
@@ -1224,7 +1226,10 @@ plays them on the DJ laptop. Three parts, and the split is the design:
   the database) keeps the queue. Votes are per household through an
   invitation link, like song requests, and per phone through the QR code. Guests see vote
   counts and "yours", never who asked; the planner sees names.
-  `dj_floor.open` is a kill switch and starts shut, like `published`.
+  `dj_floor.access` is its switch and starts `closed`, like `published`
+  starts off. It has a setting in between: `venue` opens the QR code
+  alone while every invitation link still hides the floor, and
+  `everyone` opens both (`floorIsOpen` in `dj-queue.ts`).
 - **`bridge/dj/`** is a Node script on the Mac running djay, polling
   `/api/dj/bridge` with `DJ_BRIDGE_TOKEN` (a second
   `carriesOwnCredential` door, same shape as the booth's). It has its
@@ -1252,8 +1257,14 @@ stationery, on purpose - see below.
   is a guest being cheeky, and the couple can overrule anything.
 - **The code is a secret like an invite token** (`dj_floor.share_code`,
   same generator). The couple make it, print it and can replace it from
-  `/admin/dance-floor`, which retires every printed copy at once; an
-  unpublished site shuts this door as it does every link.
+  `/admin/dance-floor`, which retires every printed copy at once.
+- **The QR code is the one public door `published` does not shut.**
+  The couple asked to run (and try) the floor at the venue without
+  putting the invitation online, and nothing behind this door is the
+  invitation: the floor, the couple's names (`getCouple`, not
+  `getSiteContent`) and a song search. It still needs a code someone
+  made on purpose, and the floor's own switch set to `venue` or
+  `everyone`. The invitation-link door keeps the `published` check.
 - **A good link with the floor shut is told when it opens** and polls
   until it does. Only a bad link 404s - a guest who scans the table's
   code during dinner should not meet "page not found".

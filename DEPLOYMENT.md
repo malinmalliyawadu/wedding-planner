@@ -554,7 +554,9 @@ it against djay.
    curl -s -H "Authorization: Bearer $DJ_BRIDGE_TOKEN" https://wedding.yourdomain.nz/api/dj/bridge
    ```
 
-Requests stay closed until you press "Open requests" on that page.
+Requests stay closed until you choose who may make them on that page:
+"Venue only" opens the QR code alone - even while the invitation site
+is unpublished - and "Everyone" adds the link on every invitation.
 Without a bridge at all the queue still works: mark songs on air and
 skip them by hand from the same page.
 
