@@ -1265,8 +1265,16 @@ stationery, on purpose - see below.
 **Its design is the room, not the card.** Guests are in a dark marquee
 holding a drink, so the page is aubergine night (`dance-floor.css`, its
 own tokens), lit by what is playing - the cover blurred huge behind
-everything - and swept by mirror-ball flecks: a strip twice the screen's
-width sliding by one copy, transform only. That is the one flourish.
+everything - under a drifting starfield (`galaxy.tsx`, React Bits'
+`<Galaxy />` ported to TypeScript, in the room's colours and deaf to
+the pointer, since every tap here is meant for a button). That is the
+one flourish. It makes its canvas per effect run: upstream renders one
+and calls `loseContext()` on cleanup, and `getContext` then hands the
+next mount the dead context. **The room fades to black at the top and
+bottom** (`--edge`), and the theme colour and the document behind the
+page are black too, so the strips round a dynamic island and under
+the home indicator meet it with no band; the bottom bar and the search
+sheet carry the same black edges, since they cover the room.
 Everything else is thumb-first: one primary action in a bar at the
 bottom ("Request a song", a full-screen search sheet on a native
 `<dialog>`), 56px vote buttons, votes applied at once with
@@ -1275,8 +1283,12 @@ to their new places when the room reorders the list (FLIP, measured
 against the list so scrolling is not mistaken for a reorder). Titles
 are Sofia Sans Extra Condensed, which keeps a long title large on a
 phone; the couple's names stay in Marcellus as the one tie back to the
-stationery. The drawn `MirrorBall` stands in for a missing cover and
-for the closed and between-songs states, deterministic like the seal.
+stationery. The `MirrorBall` stands in for a missing cover and for the
+closed and between-songs states: Bojan's CSS 3D disco ball
+(codepen.io/bojan-c/pen/VxbLmX) - mirrors on a sphere, turning, each
+shimmering on its own beat - hashed rather than random so it is
+deterministic like the seal, sized in `cqw` so one drawing is a hero
+or a thumbnail, and `coarse` (fewer tiles, no shimmer) in list rows.
 
 Decisions worth knowing before changing any of it:
 
