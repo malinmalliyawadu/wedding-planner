@@ -14,7 +14,8 @@ import { Check, ChevronDown, ChevronUp, Disc3, Search, SkipForward } from "lucid
 import type { DanceFloor, DanceFloorState, FloorSong } from "@/lib/public/queries";
 import { songKey } from "@/lib/songs";
 import type { FloorActionResult, FloorSongInput } from "./action-results";
-import { MirrorBall, Room } from "./mirror-ball";
+import { MirrorBall } from "./mirror-ball";
+import { Room } from "./room";
 import { SearchSheet, type QueuedState } from "./search-sheet";
 
 /**
@@ -637,7 +638,7 @@ function Cover({ url }: { url: string | null }) {
   if (!url) {
     return (
       <span className="flex size-13 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-(--night-raised)" aria-hidden>
-        <MirrorBall className="size-full scale-125" />
+        <MirrorBall coarse className="size-full scale-125" />
       </span>
     );
   }
@@ -681,7 +682,7 @@ function HowItWorks({ floor }: { floor: DanceFloor }) {
 function RequestBar({ floor, onOpen }: { floor: DanceFloor; onOpen: () => void }) {
   const full = floor.yourWaiting >= floor.maxWaiting;
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 bg-linear-to-t from-(--night) from-45% to-transparent px-4 pt-12 pb-[calc(env(safe-area-inset-bottom)+0.875rem)]">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 bg-linear-to-t from-(--edge) from-45% to-transparent px-4 pt-12 pb-[calc(env(safe-area-inset-bottom)+0.875rem)]">
       <div className="pointer-events-auto mx-auto max-w-[28rem]">
         {full ? (
           <p className="rounded-2xl border border-(--line-strong) bg-(--night-raised) px-4 py-3.5 text-center text-[0.9375rem] leading-snug">

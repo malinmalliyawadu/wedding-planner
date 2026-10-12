@@ -5,9 +5,9 @@
  * from a QR code on the night, in a dark marquee, phone in one hand and a
  * drink in the other - a bright ivory sheet would be a torch in their
  * face. So the page is the room: aubergine night, lit by whatever is
- * playing (its cover, blurred huge behind everything) and swept by the
- * mirror ball's flecks of light. That is the one flourish; everything
- * else is plain, large and within reach of a thumb.
+ * playing (its cover, blurred huge behind everything) under a slow drift
+ * of stars, going to black at the top and bottom. That is the one
+ * flourish; everything else is plain, large and within reach of a thumb.
  *
  * Self-contained on purpose: these tokens exist for this page only, so
  * they live here rather than in `globals.css`'s `@theme`.
@@ -15,6 +15,13 @@
 
 .dance {
   --night: #17121f;
+  /*
+   * What the room fades to at the top and bottom, and what the browser's
+   * bars are set to (`danceViewport`): true black, because that is the
+   * colour round the dynamic island and under the home indicator, and
+   * anything else meets it as a band.
+   */
+  --edge: #000;
   --night-raised: #231b2e;
   --night-high: #2e2539;
   --moon: #fbf4ea;
@@ -74,7 +81,7 @@
 }
 
 /* ------------------------------------------------------------------ *
- * The room: the playing cover's light, and the mirror ball's flecks.
+ * The room: the playing cover's light, and the stars over it.
  * ------------------------------------------------------------------ */
 
 .dance-room {
@@ -107,49 +114,49 @@
   opacity: 0.62;
   transform: scale(1.15);
 }
-/* No cover: the warm wash of a marquee's lights instead. */
-.dance-glow-plain {
-  background:
-    radial-gradient(60% 50% at 30% 30%, rgb(243 217 164 / 0.22), transparent 70%),
-    radial-gradient(55% 45% at 75% 40%, rgb(242 167 180 / 0.18), transparent 70%);
+
+/*
+ * The starfield (`Galaxy`, React Bits). One canvas, drawn by a shader;
+ * it sits over the cover's glow and is transparent between the stars.
+ */
+.galaxy-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+.galaxy-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.dance-stars {
+  position: absolute;
+  inset: 0;
+  animation: dance-fade-in 1.4s var(--ease-out) both;
 }
 
 /*
- * The mirror ball. A strip twice the screen's width, carrying the same
- * scatter of light twice, slides left by exactly one copy and repeats, so
- * the flecks sweep across the room like the real thing turning above the
- * floor. Transform only, so the compositor does all of it.
+ * The room going to black at both ends, over the stars as well as the
+ * glow. The solid part covers the safe area exactly, so the strip
+ * round the notch and under the home indicator is the same black as
+ * the browser's own, and the fade happens below it where it can be seen.
  */
-.dance-flecks {
+.dance-room::after {
+  content: "";
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 200%;
-  animation: dance-sweep var(--sweep, 80s) linear infinite;
-  will-change: transform;
-}
-.dance-flecks-far {
-  --sweep: 130s;
-  opacity: 0.55;
-}
-/*
- * A hot white core going to the tint at the edge, as a mirror's
- * reflection is: bright where it lands, coloured by the light it carries.
- */
-.dance-fleck {
-  position: absolute;
-  border-radius: 9999px;
-  background: radial-gradient(
-    closest-side,
-    #fff 0%,
-    var(--tint, #fff) 45%,
-    transparent 100%
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    var(--edge) 0,
+    var(--edge) env(safe-area-inset-top),
+    transparent calc(env(safe-area-inset-top) + 6rem),
+    transparent calc(100% - env(safe-area-inset-bottom) - 8rem),
+    var(--edge) calc(100% - env(safe-area-inset-bottom)),
+    var(--edge) 100%
   );
-}
-
-@keyframes dance-sweep {
-  to {
-    transform: translate3d(-50%, 0, 0);
-  }
 }
 
 @keyframes dance-fade-in {
@@ -304,6 +311,18 @@
   top: var(--sheet-top, 0px);
   bottom: auto;
   height: var(--sheet-height, 100dvh);
+  /*
+   * The sheet covers the room, so it carries the room's black edges
+   * itself, over its own night: otherwise the notch and the home
+   * indicator meet a band of night against the browser's black.
+   */
+  background-image: linear-gradient(
+    to bottom,
+    var(--edge) env(safe-area-inset-top),
+    transparent calc(env(safe-area-inset-top) + 2.5rem),
+    transparent calc(100% - env(safe-area-inset-bottom) - 2.5rem),
+    var(--edge) calc(100% - env(safe-area-inset-bottom))
+  );
 }
 
 /*
@@ -329,7 +348,123 @@ html:has(.dance-sheet[open]) {
   }
 }
 
-/* The drawn mirror ball's glints, for when there is no cover to show. */
+/*
+ * The mirror ball, for when there is no cover to show (`MirrorBall`).
+ *
+ * Every length inside it is in `cqw` of the ball's own box, which is the
+ * container, so the same markup is a hero or a thumbnail. Each mirror
+ * is placed by turning to its longitude, tilting to its latitude and
+ * stepping out by the radius - so it ends up tangent to the sphere and
+ * facing out, and `backface-visibility` hides the far side for free.
+ * Nothing here filters or blends, because a filter would flatten the
+ * 3D; and the pen's blurred light behind the ball is left out, because
+ * over the starfield any glow reads as haze.
+ */
+.dance-ball {
+  container-type: inline-size;
+  position: relative;
+  pointer-events: none;
+}
+.dance-ball > * {
+  position: absolute;
+}
+.dance-ball-wire {
+  left: calc(50cqw - 0.25cqw);
+  top: 0;
+  width: 0.5cqw;
+  height: 16cqw;
+  background: rgb(251 244 234 / 0.35);
+}
+.dance-ball-cap {
+  left: 48cqw;
+  top: 13.8cqw;
+  width: 4cqw;
+  height: 3cqw;
+  border-radius: 0.6cqw;
+  background: #3a3046;
+}
+/* The ball is 76% of the box, centred a little low so the wire shows. */
+.dance-ball-body {
+  --r: 38cqw;
+  --tile: 4.94cqw;
+  left: 12cqw;
+  top: 16cqw;
+  width: 76cqw;
+  height: 76cqw;
+}
+.dance-ball-coarse .dance-ball-body {
+  --tile: 9.88cqw;
+}
+.dance-ball-core,
+.dance-ball-shade {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+/* The grout between the mirrors: the room's own dark, never grey. */
+.dance-ball-core {
+  background: linear-gradient(to bottom, #120e18, #2e2539);
+}
+.dance-ball-spin,
+.dance-ball-band {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+.dance-ball-spin {
+  animation: dance-ball-spin 18s linear infinite;
+}
+@keyframes dance-ball-spin {
+  to {
+    transform: rotateY(-360deg);
+  }
+}
+.dance-ball-band > i {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--tile);
+  height: var(--tile);
+  margin: calc(var(--tile) / -2);
+  background: hsl(268 10% calc(var(--l) * 1%));
+  backface-visibility: hidden;
+  transform: rotateY(calc(var(--i) * var(--step))) rotateX(var(--lat)) translateZ(var(--r));
+  animation: dance-ball-reflect 2s linear var(--d) infinite;
+}
+.dance-ball-band > i[data-tint="champagne"] {
+  background: var(--champagne);
+}
+.dance-ball-band > i[data-tint="rose"] {
+  background: var(--rose);
+}
+.dance-ball-band > i[data-tint="lilac"] {
+  background: #e3d6ff;
+}
+.dance-ball-coarse .dance-ball-band > i {
+  animation: none;
+}
+@keyframes dance-ball-reflect {
+  50% {
+    opacity: 0.4;
+  }
+}
+/*
+ * The light is the room's and stays put while the ball turns under it:
+ * a sheen upper left, and the far edge going to dark, which is what
+ * makes a ring of flat squares read as round.
+ */
+.dance-ball-shade {
+  background:
+    radial-gradient(circle at 34% 30%, rgb(255 250 240 / 0.3) 0%, transparent 40%),
+    radial-gradient(circle closest-side, transparent 55%, rgb(18 14 24 / 0.7) 100%);
+}
+.dance-ball-glints {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
 .dance-glint {
   transform-box: fill-box;
   transform-origin: center;

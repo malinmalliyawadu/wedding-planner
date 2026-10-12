@@ -22,9 +22,13 @@ const display = Sofia_Sans_Extra_Condensed({
   display: "swap",
 });
 
-/** The page's own night: the browser's bars match it, and the notch is ours to pad around. */
+/**
+ * Black, not the page's night: the room fades to black at the top and
+ * bottom (`--edge` in `dance-floor.css`), so the browser's bars, the
+ * strip round the notch and the home indicator all meet it with no seam.
+ */
 export const danceViewport: Viewport = {
-  themeColor: "#17121f",
+  themeColor: "#000000",
   colorScheme: "dark",
   viewportFit: "cover",
 };
@@ -35,8 +39,9 @@ export function DanceFloorScreen(props: ComponentProps<typeof Floor>) {
       {/*
        * The document behind the page is the invitation's paper; without
        * this, pulling past the top or bottom on a phone flashes ivory.
+       * Black, to carry on from the room's faded edges.
        */}
-      <style>{"html,body{background-color:#17121f}"}</style>
+      <style>{"html,body{background-color:#000}"}</style>
       <Floor {...props} />
     </div>
   );

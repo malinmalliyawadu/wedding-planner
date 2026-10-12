@@ -1,5 +1,5 @@
 /**
- * The mirror ball, drawn, and the light it throws.
+ * The mirror ball, for when there is no cover to show.
  *
  * Deterministic like the wax seal and the sprig: no RNG, because this
  * renders on the server and again on the client, and the two must agree.
@@ -13,96 +13,90 @@ function hash(a: number, b: number): number {
   return x - Math.floor(x);
 }
 
-const DEG = Math.PI / 180;
-const R = 38;
-const CX = 50;
-const CY = 54;
-/** Light from the upper left and a little in front, as from a spotlight on the rig. */
-const LIGHT = (() => {
-  const v = [-0.55, 0.62, 0.56];
-  const length = Math.hypot(...v);
-  return v.map((n) => n / length);
-})();
+/**
+ * The ball is the CSS 3D disco ball from Bojan's pen
+ * (codepen.io/bojan-c/pen/VxbLmX): square mirrors laid on a sphere in
+ * bands of latitude, the whole thing turning on its wire, each mirror
+ * dimming and catching on its own beat. Changed from the pen in three
+ * ways: the scatter is hashed rather than random, the tiles are the
+ * room's silver with the odd champagne, rose or lilac one rather than
+ * grey, and every length is a fraction of the ball's width (`cqw`), so
+ * one drawing serves a hero, an empty state and a 52px list row.
+ */
+type Tile = { i: number; l: number; d: number; tint: string | null };
+type Band = { lat: number; step: number; tiles: Tile[] };
 
-type Facet = { points: string; fill: string };
+const BALL_TINTS = ["champagne", "rose", "lilac"];
+
+function bands(count: number): Band[] {
+  return Array.from({ length: count }, (_, k) => {
+    const lat = -90 + ((k + 0.5) * 180) / count;
+    // As many as fit round this latitude at the same pitch as the bands.
+    const fit = Math.max(1, Math.floor(2 * count * Math.cos((lat * Math.PI) / 180)));
+    // The pen's equator is brighter than the rest: it is the band facing the room.
+    const equator = Math.abs(lat) < 16;
+    return {
+      lat: round(lat),
+      step: round(360 / fit),
+      tiles: Array.from({ length: fit }, (_, i) => {
+        const a = hash(k + 1, i + 1);
+        const b = hash(i * 5 + 3, k * 7 + 2);
+        return {
+          i,
+          l: Math.round(equator ? 52 + a * 44 : 40 + a * 30),
+          d: round(-b * 2),
+          tint: b > 0.94 ? BALL_TINTS[Math.floor(hash(k, i * 11) * BALL_TINTS.length)] : null,
+        };
+      }),
+    };
+  });
+}
+
+const FINE = bands(20);
+const COARSE = bands(10);
 
 /**
- * The facets of the front hemisphere, in bands of latitude and longitude,
- * each shaded by how squarely it faces the light. A few that face it
- * well catch it outright and flash champagne - those are what make it a
- * mirror ball rather than a golf ball.
+ * `coarse` is for a thumbnail: a quarter of the tiles, each twice the
+ * size, and no shimmer, because at 52px a mirror is three pixels and a
+ * list can hold a dozen of them.
  */
-const FACETS: Facet[] = (() => {
-  const facets: Facet[] = [];
-  const step = 10;
-  const project = (lat: number, lon: number) =>
-    `${(CX + R * Math.cos(lat * DEG) * Math.sin(lon * DEG)).toFixed(2)},${(CY - R * Math.sin(lat * DEG)).toFixed(2)}`;
-  for (let lat = -90; lat < 90; lat += step) {
-    for (let lon = -90; lon < 90; lon += step) {
-      const midLat = (lat + step / 2) * DEG;
-      const midLon = (lon + step / 2) * DEG;
-      const normal = [
-        Math.cos(midLat) * Math.sin(midLon),
-        Math.sin(midLat),
-        Math.cos(midLat) * Math.cos(midLon),
-      ];
-      const lit = Math.max(0, normal[0] * LIGHT[0] + normal[1] * LIGHT[1] + normal[2] * LIGHT[2]);
-      const jitter = hash(lat, lon);
-      let fill: string;
-      if (lit > 0.55 && jitter > 0.86) {
-        fill = jitter > 0.95 ? "#fffaf0" : "#f3d9a4";
-      } else {
-        // Silver going to the room's own dark at the edges, never to grey.
-        const light = Math.round(16 + lit * 58 + (jitter - 0.5) * 14);
-        fill = `hsl(268 ${Math.round(10 + lit * 6)}% ${light}%)`;
-      }
-      facets.push({
-        points: [
-          project(lat, lon),
-          project(lat, lon + step),
-          project(lat + step, lon + step),
-          project(lat + step, lon),
-        ].join(" "),
-        fill,
-      });
-    }
-  }
-  return facets;
-})();
-
-export function MirrorBall({ className = "" }: { className?: string }) {
+export function MirrorBall({ className = "", coarse = false }: { className?: string; coarse?: boolean }) {
   return (
-    <svg viewBox="0 0 100 100" className={className} aria-hidden>
-      <defs>
-        <radialGradient id="dance-ball-halo" cx="50%" cy="54%" r="50%">
-          <stop offset="0%" stopColor="#f3d9a4" stopOpacity="0.28" />
-          <stop offset="55%" stopColor="#f2a7b4" stopOpacity="0.08" />
-          <stop offset="100%" stopColor="#17121f" stopOpacity="0" />
-        </radialGradient>
-        <radialGradient id="dance-ball-sheen" cx="34%" cy="36%" r="60%">
-          <stop offset="0%" stopColor="#fff" stopOpacity="0.32" />
-          <stop offset="100%" stopColor="#fff" stopOpacity="0" />
-        </radialGradient>
-        <clipPath id="dance-ball-clip">
-          <circle cx={CX} cy={CY} r={R} />
-        </clipPath>
-      </defs>
-      <circle cx={CX} cy={CY} r={48} fill="url(#dance-ball-halo)" />
-      {/* The wire it hangs from. */}
-      <line x1={CX} y1={0} x2={CX} y2={CY - R} stroke="#fbf4ea" strokeOpacity="0.35" strokeWidth="0.5" />
-      <rect x={CX - 2} y={CY - R - 2.2} width={4} height={3} rx={0.6} fill="#3a3046" />
-      <g clipPath="url(#dance-ball-clip)">
-        <circle cx={CX} cy={CY} r={R} fill="#120e18" />
-        {FACETS.map((facet, i) => (
-          <polygon key={i} points={facet.points} fill={facet.fill} stroke="#120e18" strokeWidth="0.45" />
-        ))}
-        <circle cx={CX} cy={CY} r={R} fill="url(#dance-ball-sheen)" />
-      </g>
-      <circle cx={CX} cy={CY} r={R} fill="none" stroke="#fbf4ea" strokeOpacity="0.12" strokeWidth="0.4" />
+    <div className={`dance-ball ${coarse ? "dance-ball-coarse" : ""} ${className}`} aria-hidden>
+      {/* The wire it hangs from, and the cap it hangs by. */}
+      <span className="dance-ball-wire" />
+      <span className="dance-ball-cap" />
+      <div className="dance-ball-body">
+        <span className="dance-ball-core" />
+        <div className="dance-ball-spin">
+          {(coarse ? COARSE : FINE).map((band) => (
+            <div
+              key={band.lat}
+              className="dance-ball-band"
+              style={{ ["--lat" as string]: `${band.lat}deg`, ["--step" as string]: `${band.step}deg` }}
+            >
+              {band.tiles.map((tile) => (
+                <i
+                  key={tile.i}
+                  data-tint={tile.tint ?? undefined}
+                  style={{
+                    ["--i" as string]: tile.i,
+                    ["--l" as string]: tile.l,
+                    ["--d" as string]: `${tile.d}s`,
+                  }}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+        <span className="dance-ball-shade" />
+      </div>
       {/* Two four-point glints where the light catches hardest. */}
-      <Glint x={33} y={38} size={7} />
-      <Glint x={58} y={30} size={5} />
-    </svg>
+      <svg viewBox="0 0 100 100" className="dance-ball-glints">
+        <Glint x={33} y={38} size={7} />
+        <Glint x={58} y={30} size={5} />
+      </svg>
+    </div>
   );
 }
 
@@ -118,81 +112,10 @@ function Glint({ x, y, size }: { x: number; y: number; size: number }) {
   );
 }
 
-type Fleck = { x: number; y: number; w: number; h: number; o: number; tint: string };
-
-const TINTS = ["#ffffff", "#ffffff", "#fff3dc", "#f3d9a4", "#f2a7b4", "#e3d6ff"];
-
-/**
- * One copy of the scatter, as percentages of the strip's half. Elongated
- * a little, as the reflection of a square mirror on a wall is, and laid
- * out by hash so the server and client agree.
- */
-function scatter(count: number, seed: number, scale: number): Fleck[] {
-  return Array.from({ length: count }, (_, i) => {
-    const a = hash(i, seed);
-    const b = hash(seed, i * 3 + 1);
-    const c = hash(i * 7 + 2, seed + 5);
-    const size = (4 + c * 7) * scale;
-    return {
-      x: round(a * 100),
-      y: round(b * 100),
-      w: round(size * (1.2 + c * 0.6)),
-      h: round(size),
-      o: round(0.3 + hash(i + 11, seed * 2) * 0.55),
-      tint: TINTS[Math.floor(hash(i, seed + 9) * TINTS.length)],
-    };
-  });
-}
-
 /**
  * Rounded so that a last-digit difference between one engine's `Math.sin`
  * and another's cannot make the server's markup and the client's disagree.
  */
 function round(n: number): number {
   return Math.round(n * 1000) / 1000;
-}
-
-const NEAR = scatter(18, 3, 1);
-const FAR = scatter(28, 17, 0.55);
-
-function Strip({ flecks, className }: { flecks: Fleck[]; className: string }) {
-  // Two identical halves, so sliding left by one is seamless.
-  return (
-    <div className={className}>
-      {[0, 50].map((offset) =>
-        flecks.map((fleck, i) => (
-          <span
-            key={`${offset}-${i}`}
-            className="dance-fleck"
-            style={{
-              left: `${offset + fleck.x / 2}%`,
-              top: `${fleck.y}%`,
-              width: `${fleck.w}px`,
-              height: `${fleck.h}px`,
-              opacity: fleck.o,
-              ["--tint" as string]: fleck.tint,
-            }}
-          />
-        )),
-      )}
-    </div>
-  );
-}
-
-/** The light the room is lit by: what is playing, and the ball turning above it. */
-export function Room({ coverUrl }: { coverUrl: string | null }) {
-  return (
-    <div className="dance-room" aria-hidden>
-      {coverUrl ? (
-        <div key={coverUrl} className="dance-glow">
-          {/* eslint-disable-next-line @next/next/no-img-element -- the catalogue's CDN; `/_next/image` is not public */}
-          <img src={coverUrl} alt="" referrerPolicy="no-referrer" decoding="async" />
-        </div>
-      ) : (
-        <div className="dance-glow dance-glow-plain" />
-      )}
-      <Strip flecks={FAR} className="dance-flecks dance-flecks-far" />
-      <Strip flecks={NEAR} className="dance-flecks" />
-    </div>
-  );
 }
