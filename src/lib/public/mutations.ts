@@ -14,6 +14,8 @@ import { fillCoversLater } from "@/lib/dj-cover";
 import {
   askerColumns,
   checkRequest,
+  doorOf,
+  floorIsOpen,
   type Asker,
   type RequestRefusal,
   type VoteKind,
@@ -188,7 +190,7 @@ export async function photosAreOpen(token: string): Promise<boolean> {
  */
 export type DanceCredential = { token: string } | { shareCode: string };
 
-/** The asker behind a credential, when it is good and the dance floor is open; else null. */
+/** The asker behind a credential, when it is good and the floor is open to its door; else null. */
 async function resolveDancer(credential: DanceCredential): Promise<Asker | null> {
   let asker: Asker;
   if ("token" in credential) {
@@ -199,8 +201,8 @@ async function resolveDancer(credential: DanceCredential): Promise<Asker | null>
     if (!(await isDanceShareCode(credential.shareCode))) return null;
     asker = { phoneKey: await ensurePhoneKey() };
   }
-  const [floor] = await db.select({ open: djFloor.open }).from(djFloor).limit(1);
-  return floor?.open ? asker : null;
+  const [floor] = await db.select({ access: djFloor.access }).from(djFloor).limit(1);
+  return floor && floorIsOpen(floor.access, doorOf(asker)) ? asker : null;
 }
 
 export type SongRequestOutcome =

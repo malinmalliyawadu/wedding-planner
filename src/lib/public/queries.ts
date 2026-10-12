@@ -20,12 +20,14 @@ import {
   ACTIVE_STATUSES,
   MAX_WAITING,
   SKIP_GAP_MS,
+  floorIsOpen,
   isAsker,
   tally,
   upcoming,
   waitingFor,
   type Asker,
   type AskerColumns,
+  type FloorDoor,
   type QueueItem,
   type Vote,
 } from "@/lib/dj-queue";
@@ -437,21 +439,42 @@ export type DanceFloor = {
  */
 export type DanceFloorState = ({ open: true } & DanceFloor) | { open: false };
 
-/** Whether the request page is open, for the invitation's link to it. */
-export const getDanceFloorOpen = cache(async (): Promise<boolean> => {
-  const [floor] = await db.select({ open: djFloor.open }).from(djFloor).limit(1);
-  return floor?.open ?? false;
+/**
+ * Whether the floor takes requests through this door: the invitation's
+ * link to it, or the QR code's song search.
+ */
+export const isDanceFloorOpen = cache(async (door: FloorDoor): Promise<boolean> => {
+  const [floor] = await db.select({ access: djFloor.access }).from(djFloor).limit(1);
+  return floor ? floorIsOpen(floor.access, door) : false;
 });
 
 /**
- * Whether this is the venue QR code's secret. Also false while the site
- * is unpublished: the kill switch covers this door as it does every link.
+ * Whether this is the venue QR code's secret.
+ *
+ * The one public door that `published` does not shut. The code is a
+ * secret of its own, made on purpose from the planner and printed for the
+ * venue, and the floor behind it has its own switch that starts closed -
+ * so the couple can try it on a phone, or run the floor on the night,
+ * without putting the invitation online. Retiring the code is how a
+ * printed copy is shut, as it always was.
  */
 export const isDanceShareCode = cache(async (code: string): Promise<boolean> => {
   if (!isInviteTokenShape(code)) return false;
-  if (!(await getSiteContent())) return false;
   const [floor] = await db.select({ code: djFloor.shareCode }).from(djFloor).limit(1);
   return floor?.code === code;
+});
+
+/**
+ * The two of you, for the dance floor's title. Unlike `getSiteContent`
+ * this reads while the site is unpublished, because the QR code works
+ * then too; names are all it reads, and the caller has checked the code.
+ */
+export const getCouple = cache(async (): Promise<{ a: string; b: string }> => {
+  const [couple] = await db
+    .select({ a: settings.partnerAName, b: settings.partnerBName })
+    .from(settings)
+    .limit(1);
+  return { a: couple?.a ?? "", b: couple?.b ?? "" };
 });
 
 /**
@@ -461,7 +484,7 @@ export const isDanceShareCode = cache(async (code: string): Promise<boolean> => 
 export async function getDanceFloorForHousehold(token: string): Promise<DanceFloorState | null> {
   const householdId = await getHouseholdIdForToken(token);
   if (householdId === null) return null;
-  return readDanceFloor({ householdId });
+  return readDanceFloor({ householdId }, "invitation");
 }
 
 /**
@@ -474,7 +497,7 @@ export async function getDanceFloorForShareCode(
   phoneKey: string | null,
 ): Promise<DanceFloorState | null> {
   if (!(await isDanceShareCode(code))) return null;
-  return readDanceFloor(phoneKey === null ? null : { phoneKey });
+  return readDanceFloor(phoneKey === null ? null : { phoneKey }, "venue");
 }
 
 /**
@@ -489,12 +512,12 @@ const COVER_SMALL_PX = 144;
  * seconds, so it reads only what it shows - and no asker column leaves
  * this function except as "mine".
  */
-async function readDanceFloor(asker: Asker | null): Promise<DanceFloorState> {
+async function readDanceFloor(asker: Asker | null, door: FloorDoor): Promise<DanceFloorState> {
   const [floor] = await db
-    .select({ open: djFloor.open, skipVotesNeeded: djFloor.skipVotesNeeded })
+    .select({ access: djFloor.access, skipVotesNeeded: djFloor.skipVotesNeeded })
     .from(djFloor)
     .limit(1);
-  if (!floor?.open) return { open: false };
+  if (!floor || !floorIsOpen(floor.access, door)) return { open: false };
 
   type FloorItem = QueueItem & { coverUrl: string | null };
   const items: FloorItem[] = await db

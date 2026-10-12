@@ -105,6 +105,28 @@ export function isAsker(row: AskerColumns, asker: Asker): boolean {
     : row.phoneKey === asker.phoneKey;
 }
 
+/**
+ * Who the dance floor takes requests from - the couple's one switch, with
+ * a setting between shut and open. `venue` opens the QR code alone, so
+ * the floor can run for the room (or be tried out on a phone) while every
+ * invitation link still hides it; `everyone` opens both doors.
+ */
+export const FLOOR_ACCESS = ["closed", "venue", "everyone"] as const;
+export type FloorAccess = (typeof FLOOR_ACCESS)[number];
+
+/** The two ways onto the floor: an invitation link, or the venue's QR code. */
+export type FloorDoor = "invitation" | "venue";
+
+/** Whether the floor takes requests and votes through this door. */
+export function floorIsOpen(access: FloorAccess, door: FloorDoor): boolean {
+  return access === "everyone" || (access === "venue" && door === "venue");
+}
+
+/** The door an asker came in by: a household holds an invitation, a phone scanned the code. */
+export function doorOf(asker: Asker): FloorDoor {
+  return "householdId" in asker ? "invitation" : "venue";
+}
+
 export type QueueItem = {
   id: number;
   title: string;

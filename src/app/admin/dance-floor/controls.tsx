@@ -1,16 +1,24 @@
 "use client";
 
-import { useActionState, useEffect, useTransition, type ReactNode } from "react";
+import {
+  useActionState,
+  useEffect,
+  useOptimistic,
+  useState,
+  useTransition,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Check, Copy, Disc3, Download, Lock, RefreshCw } from "lucide-react";
+import { Check, Copy, Disc3, Download, Lock, QrCode, RefreshCw } from "lucide-react";
 import { Button, Field, inputClass } from "@/components/ui";
 import { idleResult, type ActionResult } from "@/lib/action-result";
+import { FLOOR_ACCESS, type FloorAccess } from "@/lib/dj-queue";
 import {
   addSong,
   importFromReplyCards,
   newShareCode,
-  setFloorOpen,
+  setFloorAccess,
   setOnAir,
   setSkipVotesNeeded,
   skipOrRemove,
@@ -32,40 +40,112 @@ export function AutoRefresh({ everyMs = 5000 }: { everyMs?: number }) {
   return null;
 }
 
-export function OpenToggle({ open }: { open: boolean }) {
+const ACCESS: Record<
+  FloorAccess,
+  { label: string; heading: string; body: string; icon: typeof Lock; tone: string; iconTone: string }
+> = {
+  closed: {
+    label: "Closed",
+    heading: "Requests are closed",
+    body: "Invitations hide the link, and the QR code says requests open later. The bridge still plays what is already on the list.",
+    icon: Lock,
+    tone: "border-hairline-strong bg-card",
+    iconTone: "text-ink-faint",
+  },
+  venue: {
+    label: "Venue only",
+    heading: "Open at the venue",
+    body: "The QR code takes requests and votes, even while the invitation site is unpublished. Invitations still hide the link.",
+    icon: QrCode,
+    tone: "border-brass/30 bg-brass-tint/50",
+    iconTone: "text-brass",
+  },
+  everyone: {
+    label: "Everyone",
+    heading: "Open to everyone",
+    body: "Every invitation shows a “Request a song” link, and guests can add and vote - from it or from the venue QR code.",
+    icon: Disc3,
+    tone: "border-fern/30 bg-fern-tint/50",
+    iconTone: "text-fern",
+  },
+};
+
+/**
+ * Who the floor takes requests from. Three settings rather than a toggle,
+ * so the QR code can open on its own: the floor runs for the room, or is
+ * tried on a phone, while every invitation link still hides it. A radio
+ * group by the APG pattern - arrows move and choose, Tab leaves.
+ */
+export function AccessSwitch({ access }: { access: FloorAccess }) {
+  const [shown, setShown] = useOptimistic(access);
   const [pending, startTransition] = useTransition();
+  const current = ACCESS[shown];
+  const Icon = current.icon;
+
+  function choose(next: FloorAccess) {
+    if (next === shown) return;
+    startTransition(async () => {
+      setShown(next);
+      const result = await setFloorAccess(next);
+      if (result.status === "error") alert(result.message);
+    });
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const step =
+      event.key === "ArrowRight" || event.key === "ArrowDown"
+        ? 1
+        : event.key === "ArrowLeft" || event.key === "ArrowUp"
+          ? -1
+          : 0;
+    if (step === 0) return;
+    event.preventDefault();
+    const index = FLOOR_ACCESS.indexOf(shown);
+    const next = FLOOR_ACCESS[(index + step + FLOOR_ACCESS.length) % FLOOR_ACCESS.length];
+    choose(next);
+    event.currentTarget.querySelector<HTMLElement>(`[data-access="${next}"]`)?.focus();
+  }
+
   return (
-    <div
-      className={`rounded-lg border p-5 ${
-        open ? "border-fern/30 bg-fern-tint/50" : "border-hairline-strong bg-card"
-      }`}
-    >
+    <div className={`rounded-lg border p-5 transition-colors duration-150 ${current.tone}`}>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3">
-          {open ? (
-            <Disc3 className="mt-0.5 size-5 shrink-0 text-fern" aria-hidden />
-          ) : (
-            <Lock className="mt-0.5 size-5 shrink-0 text-ink-faint" aria-hidden />
-          )}
+          <Icon className={`mt-0.5 size-5 shrink-0 ${current.iconTone}`} aria-hidden />
           <div>
-            <p className="font-medium text-ink">
-              {open ? "Requests are open" : "Requests are closed"}
+            <p id="floor-access-heading" className="font-medium text-ink">
+              {current.heading}
             </p>
-            <p className="mt-0.5 text-sm text-ink-soft">
-              {open
-                ? "Every invitation shows a “Request a song” link, and guests can add and vote - from it or from the venue QR code."
-                : "Invitations hide the link, and the QR code says requests open later. The bridge still plays what is already on the list."}
-            </p>
+            <p className="mt-0.5 max-w-xl text-sm text-ink-soft">{current.body}</p>
           </div>
         </div>
-        <Button
-          variant={open ? "subtle" : "primary"}
-          disabled={pending}
-          onClick={() => startTransition(() => void setFloorOpen(!open))}
-          className="shrink-0"
+        <div
+          role="radiogroup"
+          aria-label="Who can ask for songs"
+          aria-describedby="floor-access-heading"
+          aria-busy={pending}
+          onKeyDown={onKeyDown}
+          className="inline-flex shrink-0 self-start rounded-md border border-hairline-strong bg-card p-0.5 sm:self-auto"
         >
-          {open ? "Close requests" : "Open requests"}
-        </Button>
+          {FLOOR_ACCESS.map((option) => {
+            const checked = option === shown;
+            return (
+              <button
+                key={option}
+                type="button"
+                role="radio"
+                aria-checked={checked}
+                tabIndex={checked ? 0 : -1}
+                data-access={option}
+                onClick={() => choose(option)}
+                className={`rounded-[5px] px-3 py-1.5 text-xs font-medium whitespace-nowrap transition-colors duration-150 pointer-coarse:min-h-11 pointer-coarse:text-sm ${
+                  checked ? "bg-ink text-paper" : "text-ink-soft hover:text-ink"
+                }`}
+              >
+                {ACCESS[option].label}
+              </button>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -255,7 +335,8 @@ export function ShareCodeCard({
         <p className="mt-2 max-w-xl text-sm text-ink-soft">
           Put it on the tables, the bar or the wall. Anyone who scans it can
           ask for songs and vote without their invitation link; votes from it
-          count once per phone. It works only while requests are open.
+          count once per phone. It works while requests are open at the venue
+          or to everyone, whether or not the invitation site is published.
         </p>
         <p className="mt-3 truncate font-mono text-xs text-ink-faint">{url}</p>
         <div className="mt-3 flex flex-wrap gap-2">

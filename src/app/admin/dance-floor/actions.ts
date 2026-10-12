@@ -12,6 +12,7 @@ import {
   replaceShareCode,
   updateFloor,
 } from "@/lib/dj-floor";
+import { FLOOR_ACCESS, type FloorAccess } from "@/lib/dj-queue";
 import { cleanSongText } from "@/lib/songs";
 
 /**
@@ -23,10 +24,11 @@ function done(): ActionResult {
   return { status: "success" };
 }
 
-export async function setFloorOpen(open: boolean): Promise<ActionResult> {
+export async function setFloorAccess(access: FloorAccess): Promise<ActionResult> {
   await requireAdmin();
 
-  await updateFloor({ open: open === true });
+  if (!FLOOR_ACCESS.includes(access)) return { status: "error", message: "Unknown setting." };
+  await updateFloor({ access });
   return done();
 }
 

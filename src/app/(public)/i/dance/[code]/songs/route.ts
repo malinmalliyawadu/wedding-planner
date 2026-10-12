@@ -1,6 +1,6 @@
 import { recordAttempt, type ThrottleStore } from "@/lib/auth/throttle";
 import { readPhoneKey } from "@/lib/public/dance-phone";
-import { getDanceFloorOpen, isDanceShareCode } from "@/lib/public/queries";
+import { isDanceFloorOpen, isDanceShareCode } from "@/lib/public/queries";
 import {
   MIN_QUERY_LENGTH,
   normaliseQuery,
@@ -40,7 +40,7 @@ function answer(body: SongSearchResponse, init?: ResponseInit): Response {
 
 export async function GET(request: Request, context: RouteContext<"/i/dance/[code]/songs">) {
   const { code } = await context.params;
-  if (!(await isDanceShareCode(code)) || !(await getDanceFloorOpen())) {
+  if (!(await isDanceShareCode(code)) || !(await isDanceFloorOpen("venue"))) {
     return answer({ error: "not_found" }, { status: 404 });
   }
 

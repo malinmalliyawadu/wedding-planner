@@ -32,7 +32,7 @@ export type QueueRow = typeof djQueueItems.$inferSelect;
 
 const DEFAULT_FLOOR: FloorSettings = {
   id: 1,
-  open: false,
+  access: "closed",
   skipVotesNeeded: 5,
   bridgeSeenAt: null,
   shareCode: null,
@@ -44,7 +44,7 @@ export async function getFloor(): Promise<FloorSettings> {
 }
 
 export async function updateFloor(
-  values: Partial<Pick<FloorSettings, "open" | "skipVotesNeeded" | "bridgeSeenAt" | "shareCode">>,
+  values: Partial<Pick<FloorSettings, "access" | "skipVotesNeeded" | "bridgeSeenAt" | "shareCode">>,
 ): Promise<void> {
   await db
     .insert(djFloor)

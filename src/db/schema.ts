@@ -584,6 +584,9 @@ export const djItemStatusEnum = pgEnum("dj_item_status", [
 
 export const djVoteKindEnum = pgEnum("dj_vote_kind", ["up", "skip"]);
 
+/** Who the floor takes requests from: `FLOOR_ACCESS` in dj-queue.ts. */
+export const djFloorAccessEnum = pgEnum("dj_floor_access", ["closed", "venue", "everyone"]);
+
 /**
  * The dance floor's switches. A singleton like `public_site`, and shut by
  * default for the same reason: a request page that opens before anyone
@@ -593,7 +596,11 @@ export const djFloor = pgTable(
   "dj_floor",
   {
     id: integer("id").primaryKey().default(1),
-    open: boolean("open").notNull().default(false),
+    /**
+     * Who may ask and vote: nobody, the venue's QR code only, or every
+     * invitation link as well (`floorIsOpen`).
+     */
+    access: djFloorAccessEnum("access").notNull().default("closed"),
     /** Households that must vote to skip before the bridge presses Skip. */
     skipVotesNeeded: integer("skip_votes_needed").notNull().default(5),
     /** When the bridge last asked what to do: is the laptop still there? */

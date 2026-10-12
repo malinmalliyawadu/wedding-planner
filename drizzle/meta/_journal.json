@@ -120,6 +120,20 @@
       "when": 1791702102082,
       "tag": "0016_dance_floor_qr",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791780176559,
+      "tag": "0017_dance_floor_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791780181041,
+      "tag": "0018_dance_floor_drop_open",
+      "breakpoints": true
     }
   ]
 }
