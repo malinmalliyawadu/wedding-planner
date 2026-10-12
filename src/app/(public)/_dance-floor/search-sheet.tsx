@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, type RefObject } from "react";
+import { useEffect, useId, useRef, useState, type RefObject } from "react";
 import { Check, ChevronUp, Disc3, Plus, Search, X } from "lucide-react";
 import {
   MAX_SONG_TEXT,
@@ -46,6 +46,7 @@ export function SearchSheet({
   const [results, setResults] = useState<SongSearchResult[]>([]);
   const [status, setStatus] = useState<Status>("idle");
   const titleId = useId();
+  const listRef = useRef<HTMLDivElement>(null);
   const trimmed = query.trim();
 
   useEffect(() => {
@@ -78,9 +79,13 @@ export function SearchSheet({
     };
   }, [trimmed, searchPath]);
 
-  // Fit the sheet to the part of the screen the keyboard leaves. iOS
-  // shrinks the visual viewport for the keyboard (and may scroll it),
-  // while anything sized in viewport units carries on behind it.
+  // Keep the results clear of the keyboard. iOS shrinks the visual
+  // viewport for it (and may scroll it), but the sheet must not shrink
+  // with it: on iOS 26 the page stays visible past the visual viewport,
+  // behind Safari's floating address pill and the see-through bar over
+  // the keys, so a sheet cut to that height let the floor show through
+  // underneath. It covers the whole screen instead, and pads its list by
+  // however much of it the keyboard hides.
   useEffect(() => {
     const sheet = sheetRef.current;
     const viewport = window.visualViewport;
@@ -89,8 +94,9 @@ export function SearchSheet({
     const fit = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        sheet.style.setProperty("--sheet-height", `${viewport.height}px`);
         sheet.style.setProperty("--sheet-top", `${viewport.offsetTop}px`);
+        const hidden = sheet.getBoundingClientRect().bottom - (viewport.offsetTop + viewport.height);
+        sheet.style.setProperty("--sheet-hidden", `${Math.max(0, hidden)}px`);
       });
     };
     fit();
@@ -101,6 +107,24 @@ export function SearchSheet({
       viewport.removeEventListener("resize", fit);
       viewport.removeEventListener("scroll", fit);
     };
+  }, [sheetRef]);
+
+  // Only the results move. A drag anywhere else on the sheet - the search
+  // bar, the empty state, a list too short to scroll - is handed by iOS to
+  // the page behind, `overflow: hidden` or not, and with the keyboard up
+  // it pans the whole visual viewport: the sheet slid about under the
+  // finger, a frame behind it. Overscroll at the list's own ends is kept
+  // in by `overscroll-contain`.
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!sheet) return;
+    const hold = (event: TouchEvent) => {
+      const list = listRef.current;
+      const inList = list && event.target instanceof Node && list.contains(event.target);
+      if (!inList || list.scrollHeight <= list.clientHeight) event.preventDefault();
+    };
+    sheet.addEventListener("touchmove", hold, { passive: false });
+    return () => sheet.removeEventListener("touchmove", hold);
   }, [sheetRef]);
 
   // Start clean every time it is opened.
@@ -131,7 +155,7 @@ export function SearchSheet({
     <dialog
       ref={sheetRef}
       aria-labelledby={titleId}
-      className="dance-sheet m-0 max-h-none w-full max-w-none overflow-hidden bg-(--night) p-0 text-(--moon) sm:mx-auto sm:max-w-[32rem] sm:border-x sm:border-(--line)"
+      className="dance-sheet m-0 max-h-none w-full max-w-none overflow-hidden p-0 text-(--moon) sm:mx-auto sm:max-w-[32rem] sm:border-x sm:border-(--line)"
       onClick={(event) => {
         // A tap on the backdrop, where the sheet does not cover the screen.
         if (event.target === event.currentTarget) event.currentTarget.close();
@@ -195,12 +219,13 @@ export function SearchSheet({
         </div>
 
         <div
+          ref={listRef}
           // A swipe through the results puts the keyboard away, as every
           // music app does, so the whole list can be seen.
           onTouchMove={() => {
             if (document.activeElement === inputRef.current) inputRef.current?.blur();
           }}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(env(safe-area-inset-bottom)+1.5rem)]"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(max(var(--sheet-hidden,0px),env(safe-area-inset-bottom))+1.5rem)]"
         >
           {!searching ? (
             <div className="px-6 pt-14 text-center">
