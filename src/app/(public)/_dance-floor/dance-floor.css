@@ -302,25 +302,30 @@
   }
 }
 /*
- * Sized to what the phone can actually show, not to the screen: with the
- * keyboard up, 100dvh still reaches behind it, and the last results (and
- * the "ask for it by name" row) sat where no scrolling could reach them.
- * `SearchSheet` keeps these two in step with the visual viewport.
+ * Top to bottom of the screen, keyboard or not: what lies behind the
+ * keyboard is the sheet's own night, never the floor. The top follows
+ * the visual viewport in case iOS scrolls it, and `--sheet-hidden` (how
+ * much of the sheet the keyboard covers) pads the list so the last
+ * results and the "ask for it by name" row can still be scrolled clear.
+ * `SearchSheet` keeps both in step.
  */
 .dance-sheet {
   top: var(--sheet-top, 0px);
-  bottom: auto;
-  height: var(--sheet-height, 100dvh);
+  bottom: 0;
+  height: auto;
   /*
    * The sheet covers the room, so it carries the room's black edges
-   * itself, over its own night: otherwise the notch and the home
-   * indicator meet a band of night against the browser's black.
+   * itself. Black is its background *colour*, with the night painted
+   * over it, because that colour is what Safari fills the strip round
+   * the dynamic island with: a night-coloured sheet got a night strip
+   * there, ending in a hard line where the black edge began.
    */
+  background-color: var(--edge);
   background-image: linear-gradient(
     to bottom,
     var(--edge) env(safe-area-inset-top),
-    transparent calc(env(safe-area-inset-top) + 2.5rem),
-    transparent calc(100% - env(safe-area-inset-bottom) - 2.5rem),
+    var(--night) calc(env(safe-area-inset-top) + 2.5rem),
+    var(--night) calc(100% - env(safe-area-inset-bottom) - 2.5rem),
     var(--edge) calc(100% - env(safe-area-inset-bottom))
   );
 }
