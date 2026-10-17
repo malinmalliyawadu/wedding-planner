@@ -29,6 +29,54 @@ type Status = "idle" | "searching" | "ok" | "unavailable" | "slow";
 /** Where a song already is, from the floor's own list. */
 export type QueuedState = { stage: "playing" | "next" | "waiting"; votedUp: boolean };
 
+/** Hands the page back after `openSearchSheet`; null while the sheet is shut. */
+let releasePage: (() => void) | null = null;
+
+/**
+ * Opens the sheet with the floor behind it pinned where it was.
+ *
+ * `overflow: hidden` on the root is not enough on iOS: raising the
+ * keyboard for the search field, and dropping it again, scrolls the
+ * document underneath regardless, so a guest who cancelled came back to
+ * a different part of the list from the one they left. Fixing the body
+ * at its own offset leaves the document nothing to scroll, and the
+ * offset is handed back to the window when the sheet closes, however it
+ * closes. Done before `showModal`, because that is what focuses the
+ * field. Called from the tap itself, or iOS will not raise the keyboard.
+ */
+export function openSearchSheet(sheet: HTMLDialogElement, input: HTMLInputElement) {
+  if (sheet.open) return;
+  const { body } = document;
+  const y = window.scrollY;
+  body.style.position = "fixed";
+  body.style.top = `${-y}px`;
+  body.style.insetInline = "0";
+  const release = () => {
+    if (releasePage !== release) return;
+    releasePage = null;
+    body.style.position = "";
+    body.style.top = "";
+    body.style.insetInline = "";
+    window.scrollTo({ top: y, behavior: "instant" });
+  };
+  releasePage = release;
+  // And for Escape, which closes it without going through here.
+  sheet.addEventListener("close", release, { once: true });
+  sheet.showModal();
+  input.focus();
+}
+
+/**
+ * Closes the sheet with the page already back where it was. The `close`
+ * event comes a task later, after React has run the effects of the same
+ * tap - one of which scrolls to the song just asked for, and would be
+ * undone by a restore that waited for the event.
+ */
+export function closeSearchSheet(sheet: HTMLDialogElement) {
+  releasePage?.();
+  sheet.close();
+}
+
 export function SearchSheet({
   sheetRef,
   inputRef,
@@ -158,7 +206,7 @@ export function SearchSheet({
       className="dance-sheet m-0 max-h-none w-full max-w-none overflow-hidden p-0 text-(--moon) sm:mx-auto sm:max-w-[32rem] sm:border-x sm:border-(--line)"
       onClick={(event) => {
         // A tap on the backdrop, where the sheet does not cover the screen.
-        if (event.target === event.currentTarget) event.currentTarget.close();
+        if (event.target === event.currentTarget) closeSearchSheet(event.currentTarget);
       }}
     >
       <div className="flex h-full flex-col">
@@ -211,7 +259,9 @@ export function SearchSheet({
           </label>
           <button
             type="button"
-            onClick={() => sheetRef.current?.close()}
+            onClick={() => {
+              if (sheetRef.current) closeSearchSheet(sheetRef.current);
+            }}
             className="min-h-12 shrink-0 cursor-pointer px-2 text-[1rem] font-semibold text-(--champagne)"
           >
             Cancel

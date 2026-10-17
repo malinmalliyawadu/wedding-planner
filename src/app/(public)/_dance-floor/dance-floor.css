@@ -330,15 +330,6 @@
   );
 }
 
-/*
- * The floor behind the sheet must not scroll while it is open. A swipe
- * that reached it would scroll a page nobody can see and, on iOS, fold
- * Safari's toolbar away and resize the sheet under the finger.
- */
-html:has(.dance-sheet[open]) {
-  overflow: hidden;
-}
-
 .dance-sheet::backdrop {
   background: rgb(8 6 12 / 0.6);
 }
