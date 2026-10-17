@@ -16,7 +16,7 @@ import { songKey } from "@/lib/songs";
 import type { FloorActionResult, FloorSongInput } from "./action-results";
 import { MirrorBall } from "./mirror-ball";
 import { Room } from "./room";
-import { SearchSheet, type QueuedState } from "./search-sheet";
+import { closeSearchSheet, openSearchSheet, SearchSheet, type QueuedState } from "./search-sheet";
 
 /**
  * The live half of the dance floor, shared by both ways in: a household's
@@ -196,13 +196,11 @@ export function Floor({
   }
 
   function openSearch() {
-    // Focused in the same tap that opened it, or iOS will not raise the keyboard.
-    sheetRef.current?.showModal();
-    searchRef.current?.focus();
+    if (sheetRef.current && searchRef.current) openSearchSheet(sheetRef.current, searchRef.current);
   }
 
   function pick(song: FloorSongInput) {
-    sheetRef.current?.close();
+    if (sheetRef.current) closeSearchSheet(sheetRef.current);
     if (!view.open) return;
     const key = songKey(song.title, song.artist);
     const on = view.nowPlaying && songKey(view.nowPlaying.title, view.nowPlaying.artist) === key;
