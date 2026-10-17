@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gt, inArray, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, ne, or } from "drizzle-orm";
 import { cache } from "react";
 import { db } from "@/db";
 import {
@@ -117,6 +117,8 @@ export type GalleryPhoto = {
   uploaderName: string | null;
   width: number | null;
   height: number | null;
+  /** Sent by the photo booth. Whether, never which session: that is the booth's QR code's secret. */
+  fromBooth: boolean;
   createdAt: Date;
 };
 
@@ -320,6 +322,7 @@ export const getGallery = cache(async (): Promise<GalleryPhoto[]> => {
       uploaderName: photos.uploaderName,
       width: photos.width,
       height: photos.height,
+      fromBooth: isNotNull(photos.boothSessionId).mapWith(Boolean),
       createdAt: photos.createdAt,
     })
     .from(photos)

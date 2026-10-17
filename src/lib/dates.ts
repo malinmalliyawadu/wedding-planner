@@ -74,6 +74,24 @@ export function formatMomentNZ(at: Date): string {
   }).format(at);
 }
 
+/**
+ * The Auckland calendar day an instant falls on, as "YYYY-MM-DD", and the
+ * time of day as "8:42 pm". Both for instants, like `formatMomentNZ`: a
+ * photograph added at half past midnight belongs to the next day here
+ * whatever the server's own zone says.
+ */
+export function dayKeyNZ(at: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(at);
+}
+
+export function formatClockNZ(at: Date): string {
+  return new Intl.DateTimeFormat("en-NZ", {
+    timeZone: TZ,
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(at);
+}
+
 /** Whole days from today (NZ) until the given ISO date. Negative if past. */
 export function daysUntilNZ(iso: string): number {
   const msPerDay = 24 * 60 * 60 * 1000;

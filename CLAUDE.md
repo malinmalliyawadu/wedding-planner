@@ -548,11 +548,22 @@ and gave the long page a way to be *used* as well as read.
   block's own height: written as a percentage, a section heading was
   over in under one turn of a mouse wheel and simply appeared, while the
   reply card stayed translucent for most of a screen.
-- **The album lays prints at their own proportions** in columns, using
-  the width and height recorded at upload so nothing reflows, and opens
-  one at a time on a native `<dialog>` lightbox. The invitation shows
-  the three latest fanned on the table. The uploader takes a drop as
-  well as a tap.
+- **The album lays prints at their own proportions** in justified rows,
+  using the width and height recorded at upload so nothing reflows. The
+  invitation shows the three latest fanned on the table, each opening
+  the album on itself. The uploader takes a drop as well as a tap.
+- **One gallery, two audiences.** `src/components/gallery/` is the album
+  and the planner's `/admin/photos` alike; `source` picks the routes
+  (`/i/photo` refuses hidden photographs, `/admin/photos` does not) and
+  the planner adds Hide/Show on each tile and in the lightbox. Rows are
+  flex items whose grow and basis are both the aspect ratio - every tile
+  in a row the same height with no measuring - because CSS columns read
+  top to bottom and broke "newest first". The open photograph is
+  `?photo=<id>`, pushed on open, so a phone's back gesture closes the
+  lightbox and a link to one photograph opens on it. The lightbox is a
+  three-slide track (swipe along, pinch or double-tap to zoom, drag down
+  to put it back); its pan and zoom arithmetic is `src/lib/gallery.ts`,
+  pure and tested.
 - **The front door is a calling card**: the unbroken seal at the head,
   names, the date, the town - and nothing more than before.
 - **The venue is drawn** (`lodge.tsx`): Pencarrow Lodge from the

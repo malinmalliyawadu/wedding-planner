@@ -1,21 +1,29 @@
-import { desc } from "drizzle-orm";
+import { desc, isNotNull } from "drizzle-orm";
 import Link from "next/link";
 import { MonitorPlay } from "lucide-react";
 import { db } from "@/db";
 import { photos } from "@/db/schema";
 import { EmptyState, PageHeader } from "@/components/ui";
+import { toGalleryItem } from "@/lib/gallery";
 import { isStorageConfigured } from "@/lib/storage";
-import { PhotoTile } from "./photo-tile";
+import { PlannerGallery } from "./planner-gallery";
 
 export const dynamic = "force-dynamic";
 
 export default async function PhotosPage() {
   const rows = await db
-    .select()
+    .select({
+      id: photos.id,
+      caption: photos.caption,
+      uploaderName: photos.uploaderName,
+      width: photos.width,
+      height: photos.height,
+      fromBooth: isNotNull(photos.boothSessionId).mapWith(Boolean),
+      hidden: photos.hidden,
+      createdAt: photos.createdAt,
+    })
     .from(photos)
     .orderBy(desc(photos.createdAt), desc(photos.id));
-
-  const hidden = rows.filter((photo) => photo.hidden).length;
 
   return (
     <>
@@ -53,28 +61,7 @@ export default async function PhotosPage() {
           hint="They will appear here as guests add them from their invitation links."
         />
       ) : (
-        <>
-          <p className="mb-4 text-xs text-ink-faint">
-            <span className="figures">{rows.length}</span> in all
-            {hidden > 0 && (
-              <>
-                {", "}
-                <span className="figures">{hidden}</span> hidden
-              </>
-            )}
-          </p>
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-            {rows.map((photo) => (
-              <PhotoTile
-                key={photo.id}
-                id={photo.id}
-                caption={photo.caption}
-                uploaderName={photo.uploaderName}
-                hidden={photo.hidden}
-              />
-            ))}
-          </ul>
-        </>
+        <PlannerGallery photos={rows.map(toGalleryItem)} />
       )}
     </>
   );
