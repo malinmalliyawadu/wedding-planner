@@ -1884,8 +1884,14 @@ main[data-envelope="pending"] .rise-now {
 
 /*
  * The lightbox: one photograph at a time on the spine dark, the way a
- * print looks on a lightbox. The dialog is native, so dismissal is the
- * platform's; only the backdrop and the sizing are ours.
+ * print looks on a lightbox. Shared by the guests' album and the planner
+ * (`src/components/gallery`). The dialog is native, so focus and the
+ * top layer are the platform's; the rest is ours.
+ *
+ * The dark is the dialog's own background rather than its ::backdrop,
+ * because dragging a photograph down to put it back fades the room up
+ * with it, and a ::backdrop cannot be relied on to see a variable set on
+ * its dialog in every browser a guest might have.
  */
 .lightbox {
   position: fixed;
@@ -1897,14 +1903,90 @@ main[data-envelope="pending"] .rise-now {
   margin: 0;
   padding: 0;
   border: 0;
-  background: transparent;
+  overflow: hidden;
+  /* Solid at rest: a page showing through reads as a layer left half-drawn. */
+  background: rgb(29 38 33 / var(--dim, 1));
   color: var(--color-spine-ink);
+  overscroll-behavior: contain;
 }
 .lightbox::backdrop {
-  background: rgb(29 38 33 / 0.94);
+  background: transparent;
 }
 .lightbox[open] {
   animation: fade 220ms ease-out;
+}
+/* The page under a modal still scrolls on iOS unless it is told not to. */
+html:has(.lightbox[open]) {
+  overflow: hidden;
+}
+
+/*
+ * Where the photograph sits. Edge to edge on a phone, with the controls
+ * laid over it; on anything larger it keeps clear of the arrows and the
+ * film strip so nothing ever sits on top of a face.
+ */
+.lightbox-stage {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+@media (min-width: 40rem) {
+  .lightbox-stage {
+    inset: 4rem 5rem 9.5rem;
+  }
+}
+
+.lightbox-button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 9999px;
+  padding-inline: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-spine-ink);
+  transition: background-color 150ms;
+}
+.lightbox-button:hover {
+  background: rgb(255 255 255 / 0.1);
+}
+.lightbox-button:focus-visible {
+  outline: 2px solid var(--color-brass-bright);
+  outline-offset: 2px;
+}
+.lightbox-arrow {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  padding-inline: 0;
+}
+/* A phone swipes; arrows there would only sit on the photograph. */
+@media (pointer: coarse) and (max-width: 40rem) {
+  .lightbox-arrow {
+    display: none;
+  }
+}
+
+/* A tap on the photograph puts the controls away, and another brings them back. */
+.lightbox-chrome {
+  transition: opacity 200ms ease-out;
+}
+.lightbox[data-chrome="hidden"] .lightbox-chrome {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* A row that scrolls sideways without drawing a bar under itself. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 /* ------------------------------------------------------------------ *

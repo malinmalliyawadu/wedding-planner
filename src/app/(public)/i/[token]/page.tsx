@@ -600,10 +600,10 @@ export default async function InvitationPage({
             {gallery.length > 0 && (
               <div className="relative mx-auto h-56 w-full max-w-md sm:h-64" aria-hidden>
                 {/* The three latest prints, put down on the table. Each is
-                    a way into the album - pick one up and it straightens
-                    in your hand - but out of the tab order and hidden
-                    from a screen reader, which has the button below and
-                    does not need three more of it. */}
+                    a way into the album, open on that print - pick one up
+                    and it straightens in your hand - but out of the tab
+                    order and hidden from a screen reader, which has the
+                    button below and does not need three more of it. */}
                 {gallery.slice(0, 3).map((photo, index) => {
                   const place = [
                     { left: "34%", angle: "-9deg", z: "z-0" },
@@ -613,7 +613,7 @@ export default async function InvitationPage({
                   return (
                     <Link
                       key={photo.id}
-                      href={`/i/${token}/photos`}
+                      href={`/i/${token}/photos?photo=${photo.id}`}
                       tabIndex={-1}
                       data-reveal=""
                       className={`fan fan-in absolute top-2 ${place.z} w-36 bg-card p-1.5 shadow-overlay sm:w-44`}

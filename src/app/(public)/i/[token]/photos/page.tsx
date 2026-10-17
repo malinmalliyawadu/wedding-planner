@@ -4,11 +4,12 @@ import {
   getInvitation,
   getSiteContent,
 } from "@/lib/public/queries";
+import { PhotoGallery } from "@/components/gallery/photo-gallery";
+import { toGalleryItem } from "@/lib/gallery";
 import { isStorageConfigured } from "@/lib/storage";
 import { Motif } from "../../../motifs";
 import { Ribbon } from "../../../ribbon";
 import { Ornament, Rise, Section } from "../../../sections";
-import { Gallery } from "./gallery";
 import { Uploader } from "./uploader";
 
 /**
@@ -95,7 +96,7 @@ export default async function PhotosPage({
                   {photos.length === 1 ? " photograph" : " photographs"} so far, newest first
                 </p>
               </Rise>
-              <Gallery photos={photos} />
+              <PhotoGallery source="album" photos={photos.map(toGalleryItem)} />
             </>
           )}
         </section>
