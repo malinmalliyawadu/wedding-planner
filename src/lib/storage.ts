@@ -75,7 +75,7 @@ function readConfig(): StorageConfig | null {
     bucket,
     // Non-AWS S3 services ignore the region but the SDK insists on one.
     // R2 reads `us-east-1` as its own `auto`, so this default works there
-    // too; MinIO, used locally, wants this exact value.
+    // too, and so does SeaweedFS, which stands in for R2 locally.
     region: process.env.S3_REGION ?? "us-east-1",
     endpoint: process.env.S3_ENDPOINT || undefined,
     accessKeyId,

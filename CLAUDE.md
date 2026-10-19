@@ -93,7 +93,8 @@ before the server.
 
 ## Commands
 
-- `docker compose up -d` - local dev Postgres (port 5433)
+- `docker compose up -d` - local dev Postgres (port 5433) and the photo
+  bucket (SeaweedFS, S3 API on 9010)
 - `pnpm dev` - dev server
 - `pnpm db:generate` - generate migration from schema changes (never push/sync)
 - `pnpm db:migrate` - apply migrations
@@ -365,9 +366,10 @@ shaped by that.
   disagree about when the ceremony is - but `detail` is written for
   suppliers ("power is on the north wall") and is never published.
 - **Photographs** go to Cloudflare R2 (any S3-compatible bucket works;
-  MinIO stands in locally) via a presigned PUT, so the browser uploads
-  straight to the bucket and a hundred guests on marquee wifi are not
-  funnelled through the VPS. **PUT, not the S3 POST-with-policy form**,
+  SeaweedFS stands in locally, since MinIO stopped publishing images)
+  via a presigned PUT, so the browser uploads straight to the bucket
+  and a hundred guests on marquee wifi are not funnelled through the
+  VPS. **PUT, not the S3 POST-with-policy form**,
   because R2 answers 501 to that form. The difference that matters: a
   policy accepts a size *range*, a signature accepts one exact size, so
   the uploader asks for a ticket per blob and `createUploadTicket` signs
