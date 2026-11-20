@@ -6,28 +6,24 @@ import { Galaxy } from "./galaxy";
 const STARS = ["#fbf4ea", "#f3d9a4", "#f2a7b4", "#e3d6ff"];
 
 /**
- * The light the room is lit by: what is playing, blurred huge, with the
- * starfield drifting over it, and the whole of it going to black at the
+ * The room: the starfield drifting on the night, going to black at the
  * top and bottom (`dance-room::after`) so that it meets the phone's own
  * black under the notch and the home indicator rather than stopping in
  * a band.
  *
- * With no cover it is the stars alone on the night. A wash of colour
- * standing in for the cover was tried and read as haze.
+ * The playing cover used to light it, blurred huge behind the stars. It
+ * was cut: under a shader that redraws every frame, iOS Safari re-ran
+ * that blur every frame as well, and the page stuttered whenever a song
+ * was on. A wash of colour in its place was tried before that and read
+ * as haze.
  *
  * The stars are pointer-free on purpose. Every tap here is on a button
  * - a vote, a request - and a field that warped or swerved under each
  * one would be answering the wrong thing.
  */
-export function Room({ coverUrl }: { coverUrl: string | null }) {
+export function Room() {
   return (
     <div className="dance-room" aria-hidden>
-      {coverUrl && (
-        <div key={coverUrl} className="dance-glow">
-          {/* eslint-disable-next-line @next/next/no-img-element -- the catalogue's CDN; `/_next/image` is not public */}
-          <img src={coverUrl} alt="" referrerPolicy="no-referrer" decoding="async" />
-        </div>
-      )}
       <Galaxy
         className="dance-stars"
         starColors={STARS}

@@ -417,8 +417,6 @@ export type FloorNowPlaying = {
   mine: boolean;
   /** Large enough to fill a phone's width; null when there is no cover. */
   coverUrl: string | null;
-  /** The same cover, small: the page blurs it into the room's light. */
-  coverSmallUrl: string | null;
 };
 
 /**
@@ -505,7 +503,7 @@ export async function getDanceFloorForShareCode(
 
 /**
  * Cover sizes, in pixels. Large fills a phone's width at 2x; small is a
- * list row at 3x, and blurred into the background it needs no more.
+ * list row at 3x.
  */
 const COVER_LARGE_PX = 720;
 const COVER_SMALL_PX = 144;
@@ -586,7 +584,6 @@ async function readDanceFloor(asker: Asker | null, door: FloorDoor): Promise<Dan
           votedSkip: mineVoted(playing.id, "skip"),
           mine: isMine(playing),
           coverUrl: playing.coverUrl && coverAtSize(playing.coverUrl, COVER_LARGE_PX),
-          coverSmallUrl: playing.coverUrl && coverAtSize(playing.coverUrl, COVER_SMALL_PX),
         }
       : null,
     upNext: [

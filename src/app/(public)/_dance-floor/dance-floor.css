@@ -4,10 +4,9 @@
  * Deliberately not the invitation's paper and ink. Guests reach this page
  * from a QR code on the night, in a dark marquee, phone in one hand and a
  * drink in the other - a bright ivory sheet would be a torch in their
- * face. So the page is the room: aubergine night, lit by whatever is
- * playing (its cover, blurred huge behind everything) under a slow drift
- * of stars, going to black at the top and bottom. That is the one
- * flourish; everything else is plain, large and within reach of a thumb.
+ * face. So the page is the room: aubergine night under a slow drift of
+ * stars, going to black at the top and bottom. That is the one flourish;
+ * everything else is plain, large and within reach of a thumb.
  *
  * Self-contained on purpose: these tokens exist for this page only, so
  * they live here rather than in `globals.css`'s `@theme`.
@@ -81,7 +80,7 @@
 }
 
 /* ------------------------------------------------------------------ *
- * The room: the playing cover's light, and the stars over it.
+ * The room: the night, and the stars in it.
  * ------------------------------------------------------------------ */
 
 .dance-room {
@@ -93,31 +92,14 @@
 }
 
 /*
- * The cover, blurred into the light the room is lit by. A small copy is
- * plenty, since the blur throws away every detail it has. The filter is
- * static and the layer never moves, so it is rasterised once per song,
- * not per frame.
- */
-.dance-glow {
-  position: absolute;
-  inset: -20% -30% auto;
-  height: 95%;
-  -webkit-mask-image: linear-gradient(to bottom, #000 30%, transparent 92%);
-  mask-image: linear-gradient(to bottom, #000 30%, transparent 92%);
-  animation: dance-fade-in 1.4s var(--ease-out) both;
-}
-.dance-glow img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  filter: blur(56px) saturate(1.5);
-  opacity: 0.62;
-  transform: scale(1.15);
-}
-
-/*
- * The starfield (`Galaxy`, React Bits). One canvas, drawn by a shader;
- * it sits over the cover's glow and is transparent between the stars.
+ * The starfield (`Galaxy`, React Bits). One canvas, drawn by a shader,
+ * transparent between the stars.
+ *
+ * Nothing may sit behind it with a `filter` or a `mask`. The shader
+ * redraws the whole screen every frame, and iOS Safari then re-runs
+ * whatever is under it every frame too: the playing cover, blurred huge
+ * behind the stars, took the page from smooth to a stutter on an iPhone,
+ * and was removed rather than baked.
  */
 .galaxy-container {
   position: relative;

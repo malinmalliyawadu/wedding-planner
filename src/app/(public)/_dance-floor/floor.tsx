@@ -242,7 +242,7 @@ export function Floor({
 
   return (
     <>
-      <Room coverUrl={live?.nowPlaying?.coverSmallUrl ?? null} />
+      <Room />
 
       <header className="mx-auto flex w-full max-w-[30rem] items-center justify-between gap-4 px-5 pt-[max(env(safe-area-inset-top),1rem)] pb-1">
         <h1 className="font-display text-[1.125rem] leading-none">
