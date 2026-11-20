@@ -6,6 +6,7 @@ import {
   describeSong,
   normaliseSongRequests,
   sameSong,
+  sameSongLoosely,
   songKey,
 } from "./songs";
 
@@ -45,6 +46,40 @@ describe("songKey", () => {
 
   it("does not match a bare title against one with an artist", () => {
     expect(sameSong({ title: "Hallelujah", artist: null }, { title: "Hallelujah", artist: "Jeff Buckley" })).toBe(false);
+  });
+});
+
+describe("sameSongLoosely", () => {
+  const deezer = { title: "Jai Ho! (You Are My Destiny)", artist: "A. R. Rahman" };
+  const appleMusic = {
+    title: "Jai Ho! (You Are My Destiny) [feat. Nicole Scherzinger]",
+    artist: "A.R. Rahman & The Pussycat Dolls",
+  };
+
+  it("matches when one side credits more artists, either way round", () => {
+    expect(sameSong(deezer, appleMusic)).toBe(false);
+    expect(sameSongLoosely(deezer, appleMusic)).toBe(true);
+    expect(sameSongLoosely(appleMusic, deezer)).toBe(true);
+  });
+
+  it("matches everything sameSong does", () => {
+    expect(sameSongLoosely({ title: "ABBA - Dancing Queen", artist: null }, { title: "Dancing Queen", artist: "ABBA" })).toBe(true);
+  });
+
+  it("still needs the title to agree", () => {
+    expect(sameSongLoosely({ title: "Waterloo", artist: "ABBA" }, { title: "Dancing Queen", artist: "ABBA & Friends" })).toBe(false);
+  });
+
+  it("needs the shorter credit to appear whole and in order", () => {
+    // Every word of "Isley Brothers" is there, but not as a run.
+    expect(
+      sameSongLoosely({ title: "Shout", artist: "Isley Brothers" }, { title: "Shout", artist: "Isley & The Brothers Four" }),
+    ).toBe(false);
+    expect(sameSongLoosely({ title: "Dancing Queen", artist: "ABBA" }, { title: "Dancing Queen", artist: "Glee Cast" })).toBe(false);
+  });
+
+  it("does not match a bare title against one with an artist", () => {
+    expect(sameSongLoosely({ title: "Hallelujah", artist: null }, { title: "Hallelujah", artist: "Jeff Buckley" })).toBe(false);
   });
 });
 
@@ -164,6 +199,24 @@ describe("coverFor", () => {
     const matches = [match("Hallelujah", "Jeff Buckley", "https://c/jb.jpg")];
     expect(coverFor(matches, { title: "Hallelujah", artist: null })).toBeNull();
     expect(coverFor([], { title: "Anything", artist: "Anyone" })).toBeNull();
+  });
+
+  it("takes the cover of the same song credited to fewer artists", () => {
+    // A song the DJ played arrives with Apple Music's longer credits.
+    expect(
+      coverFor([match("Jai Ho! (You Are My Destiny)", "A.R. Rahman", "https://c/jaiho.jpg")], {
+        title: "Jai Ho! (You Are My Destiny) [feat. Nicole Scherzinger]",
+        artist: "A.R. Rahman & The Pussycat Dolls",
+      }),
+    ).toBe("https://c/jaiho.jpg");
+  });
+
+  it("prefers an exact match to a loose one", () => {
+    const matches = [
+      match("Shout", "The Isley Brothers & Friends", "https://c/loose.jpg"),
+      match("Shout", "The Isley Brothers", "https://c/exact.jpg"),
+    ];
+    expect(coverFor(matches, { title: "Shout", artist: "The Isley Brothers" })).toBe("https://c/exact.jpg");
   });
 
   it("falls back to the small cover when there is no large one", () => {

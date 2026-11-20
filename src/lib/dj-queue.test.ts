@@ -325,6 +325,45 @@ describe("planOnAir", () => {
     expect(planOnAir([cued], { title: "Valerie (Live at BBC)", artist: "amy winehouse" }).start).toBe(cued.id);
   });
 
+  it("matches a request djay reports with more artists credited", () => {
+    // Picked from Deezer; djay reports Apple Music's credits for the same track.
+    const cued = item({ title: "Jai Ho! (You Are My Destiny)", artist: "A. R. Rahman", status: "cued" });
+    expect(
+      planOnAir([cued], {
+        title: "Jai Ho! (You Are My Destiny) [feat. Nicole Scherzinger]",
+        artist: "A.R. Rahman & The Pussycat Dolls",
+      }),
+    ).toEqual({ end: [], start: cued.id, create: null });
+  });
+
+  it("keeps a loosely matched song on air on the next report", () => {
+    const on = item({ title: "Jai Ho! (You Are My Destiny)", artist: "A. R. Rahman", status: "playing" });
+    expect(
+      planOnAir([on], { title: "Jai Ho! (You Are My Destiny)", artist: "A.R. Rahman & The Pussycat Dolls" }),
+    ).toEqual({ end: [], start: null, create: null });
+  });
+
+  it("prefers an exact match over a loose one", () => {
+    const loose = item({ title: "Shout", artist: "The Isley Brothers" });
+    const exact = item({ title: "Shout", artist: "The Isley Brothers & Friends" });
+    expect(planOnAir([loose, exact], { title: "Shout", artist: "The Isley Brothers & Friends" }).start).toBe(exact.id);
+  });
+
+  it("prefers the request djay was given, even when it only matches loosely", () => {
+    const cued = item({ title: "Shout", artist: "The Isley Brothers", status: "cued" });
+    const queued = item({ title: "Shout", artist: "The Isley Brothers & Friends" });
+    expect(planOnAir([queued, cued], { title: "Shout", artist: "The Isley Brothers & Friends" }).start).toBe(cued.id);
+  });
+
+  it("does not take a different artist's song of the same name for the request", () => {
+    const cued = item({ title: "Hallelujah", artist: "Jeff Buckley", status: "cued" });
+    expect(planOnAir([cued], { title: "Hallelujah", artist: "Leonard Cohen" })).toEqual({
+      end: [],
+      start: null,
+      create: { title: "Hallelujah", artist: "Leonard Cohen" },
+    });
+  });
+
   it("ends what was playing when something else comes on", () => {
     const was = item({ title: "September", status: "playing" });
     const cued = item({ title: "Valerie", artist: "Amy Winehouse", status: "cued" });

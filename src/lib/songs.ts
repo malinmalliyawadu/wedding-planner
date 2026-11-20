@@ -41,14 +41,17 @@ export type SongMatch = {
  * "Hallelujah" returns a dozen artists' covers, and showing the wrong one
  * on the dance floor would be worse than showing none, so a request with
  * no artist only gets a cover if the catalogue agrees on the words, which
- * it rarely will. The same rule that says "already on the list".
+ * it rarely will. The same rule that says "already on the list", except
+ * that a match crediting more (or fewer) artists counts when nothing
+ * matches exactly (`sameSongLoosely`): a song the DJ played comes in
+ * with Apple Music's credits, which are often longer than the catalogue's.
  */
 export function coverFor(
   matches: readonly SongMatch[],
   song: { title: string; artist: string | null },
 ): string | null {
-  const key = songKey(song.title, song.artist);
-  const match = matches.find((m) => songKey(m.title, m.artist) === key);
+  const match =
+    matches.find((m) => sameSong(m, song)) ?? matches.find((m) => sameSongLoosely(m, song));
   return match ? (match.cover ?? match.artwork) : null;
 }
 
@@ -114,6 +117,51 @@ export function sameSong(
   b: { title: string; artist: string | null },
 ): boolean {
   return songKey(a.title, a.artist) === songKey(b.title, b.artist);
+}
+
+/**
+ * The same song, allowing one side to credit more artists than the other.
+ *
+ * Catalogues disagree about credits far more than about titles. Deezer
+ * has "Jai Ho! (You Are My Destiny)" by A. R. Rahman; Apple Music, which
+ * is what djay reports, has it by "A.R. Rahman & The Pussycat Dolls".
+ * `songKey` folds every artist word into the key, so the two never meet,
+ * and a request djay played would read as the DJ's own choice.
+ *
+ * So: the titles must agree exactly as `songKey` sees them, and one
+ * side's artist must appear, word for word and in order, inside the
+ * other's. "A R Rahman" sits inside "A R Rahman and The Pussycat Dolls";
+ * "ABBA" does not sit inside "Glee Cast". Contiguous on purpose, so a
+ * long credit cannot collect a short one's words from all over the line.
+ *
+ * Where either side has no artist this is plain `sameSong`: a typed
+ * "ABBA - Dancing Queen" carries its artist in the title, and a bare
+ * "Hallelujah" must still match nothing with an artist.
+ *
+ * This is for matching a song against what was *seen* - on air, or in a
+ * catalogue's answer - never for "already on the list", where two
+ * requests credited differently are rare and a false match would turn a
+ * guest away.
+ */
+export function sameSongLoosely(
+  a: { title: string; artist: string | null },
+  b: { title: string; artist: string | null },
+): boolean {
+  if (sameSong(a, b)) return true;
+  const artistA = words(a.artist ?? "");
+  const artistB = words(b.artist ?? "");
+  if (artistA.length === 0 || artistB.length === 0) return false;
+  const titleKey = (title: string) => words(stripVersionTags(title)).sort().join(" ");
+  if (titleKey(a.title) !== titleKey(b.title)) return false;
+  const [short, long] = artistA.length <= artistB.length ? [artistA, artistB] : [artistB, artistA];
+  return containsRun(long, short);
+}
+
+function containsRun(haystack: readonly string[], run: readonly string[]): boolean {
+  for (let start = 0; start + run.length <= haystack.length; start++) {
+    if (run.every((word, i) => haystack[start + i] === word)) return true;
+  }
+  return false;
 }
 
 /** The playlist's line for a request: the title, and the artist if known. */
