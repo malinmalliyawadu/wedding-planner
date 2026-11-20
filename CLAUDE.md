@@ -1283,16 +1283,19 @@ stationery, on purpose - see below.
   code during dinner should not meet "page not found".
 - **Covers are sized by the server** (`coverAtSize` in `song-search.ts`,
   the only file that knows the catalogue's CDN takes the size from the
-  path): 720px for the hero, 144px for a list row and for the blurred
-  backdrop.
+  path): 720px for the hero, 144px for a list row.
 
 **Its design is the room, not the card.** Guests are in a dark marquee
 holding a drink, so the page is aubergine night (`dance-floor.css`, its
-own tokens), lit by what is playing - the cover blurred huge behind
-everything - under a drifting starfield (`galaxy.tsx`, React Bits'
+own tokens), under a drifting starfield (`galaxy.tsx`, React Bits'
 `<Galaxy />` ported to TypeScript, in the room's colours and deaf to
 the pointer, since every tap here is meant for a button). That is the
-one flourish. It makes its canvas per effect run: upstream renders one
+one flourish. **Nothing sits behind it with a `filter` or a `mask`**:
+the shader redraws the whole screen every frame, and iOS Safari then
+re-runs whatever is under it every frame too. The playing cover,
+blurred huge behind the stars, did exactly that - smooth with nothing
+on, a stutter whenever a song played, on a real iPhone - and was cut.
+It makes its canvas per effect run: upstream renders one
 and calls `loseContext()` on cleanup, and `getContext` then hands the
 next mount the dead context. **The room fades to black at the top and
 bottom** (`--edge`), and the theme colour and the document behind the

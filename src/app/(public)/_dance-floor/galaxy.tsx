@@ -5,7 +5,7 @@
  * (reactbits.dev, MIT), ported to TypeScript and otherwise left as it
  * came, so it can be compared with upstream. One full-screen fragment
  * shader on WebGL2; with no WebGL2 the canvas stays empty and the room
- * is lit by the cover's glow alone.
+ * is the night alone.
  *
  * It renders nothing on the server, stops drawing while the page is
  * hidden or off screen, and draws one still frame under reduced motion.
