@@ -497,27 +497,48 @@ function UpNext({
   onVote: (id: number, on: boolean) => void;
 }) {
   const listRef = useRef<HTMLOListElement>(null);
+  /** Where each row sat in the layout at the last render, by song. */
   const tops = useRef(new Map<string, number>());
+  const glides = useRef(new WeakMap<HTMLElement, Animation>());
 
+  // Runs on every render, and a vote alone makes several close together
+  // (the tap, the server's answer, the transition settling), with a poll
+  // every few seconds on top. So it compares *layout* positions only:
+  // `offsetTop` ignores transforms, where a bounding rect would catch a
+  // row mid-glide, read that as a move, and start a second glide from
+  // the wrong place - a bounce past the row's new slot on every vote,
+  // then a phantom slide at the next poll.
   useLayoutEffect(() => {
     const list = listRef.current;
     if (!list) return;
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const next = new Map<string, number>();
-    // Measured against the list, not the viewport: scrolling moves every
-    // row on screen, and that is not a reorder.
-    const origin = list.getBoundingClientRect().top;
+    // The list is the rows' offset parent, so these are measured against
+    // it, not the page: scrolling, or the song above changing height,
+    // moves every row and is not a reorder.
+    let origin: number | null = null;
     for (const row of list.querySelectorAll<HTMLElement>("[data-key]")) {
       const key = row.dataset.key!;
-      const top = row.getBoundingClientRect().top - origin;
+      const top = row.offsetTop;
       next.set(key, top);
       const before = tops.current.get(key);
-      if (!still && before !== undefined && Math.abs(before - top) > 1) {
-        row.animate([{ transform: `translateY(${before - top}px)` }, { transform: "none" }], {
+      if (still || before === undefined || before === top) continue;
+      // Reordered again while still gliding: carry on from where the row
+      // is on screen now, rather than snapping back to where it began.
+      const running = glides.current.get(row);
+      let from = before - top;
+      if (running?.playState === "running") {
+        origin ??= list.getBoundingClientRect().top;
+        from += row.getBoundingClientRect().top - origin - top;
+        running.cancel();
+      }
+      glides.current.set(
+        row,
+        row.animate([{ transform: `translateY(${from}px)` }, { transform: "none" }], {
           duration: 420,
           easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-        });
-      }
+        }),
+      );
     }
     tops.current = next;
   });
@@ -551,7 +572,7 @@ function UpNext({
           <p className="mt-2 text-[1rem] text-(--moon-soft)">Be the first - tap Request a song below.</p>
         </div>
       ) : (
-        <ol ref={listRef}>
+        <ol ref={listRef} className="relative">
           {songs.map((song, i) => {
             const key = songKey(song.title, song.artist);
             return (
