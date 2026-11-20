@@ -1,4 +1,4 @@
-import { cleanSongText, songKey } from "./songs";
+import { cleanSongText, sameSongLoosely, songKey } from "./songs";
 
 /**
  * The dance floor's request queue, the pure half.
@@ -352,8 +352,9 @@ export type OnAirPlan = {
  * it sees is the truth: the DJ can override anything from the laptop, and
  * the queue should follow the room rather than argue with it. So a song
  * that comes on is matched to a request by `songKey` - the same rule that
- * stops it being requested twice - and whatever was playing before it
- * has ended. It ended `skipped` if the couple asked for a skip or the
+ * stops it being requested twice - or, failing that, by the same title
+ * with one side crediting more artists (`sameSongLoosely`), and whatever
+ * was playing before it has ended. It ended `skipped` if the couple asked for a skip or the
  * floor voted it off, otherwise `played`; the bridge pressing Skip and the song changing are one fact.
  *
  * `null` means nothing is on air. A song that is still on air is left
@@ -371,8 +372,17 @@ export function planOnAir(
       : { title: cleanSongText(seen.title), artist: cleanSongText(seen.artist) || null };
   const key = clean ? songKey(clean.title, clean.artist) : null;
 
+  // Exactly the same song first; then one credited differently, which is
+  // how a song looks when djay reports Apple Music's credits for a
+  // request picked from the reply card's catalogue (`sameSongLoosely`).
+  const find = (candidates: readonly QueueItem[]): QueueItem | undefined =>
+    clean === null
+      ? undefined
+      : (candidates.find((item) => item.songKey === key) ??
+        candidates.find((item) => sameSongLoosely(item, clean)));
+
   const playing = items.filter((item) => item.status === "playing");
-  const stillOn = key === null ? undefined : playing.find((item) => item.songKey === key);
+  const stillOn = find(playing);
 
   const end = playing
     .filter((item) => item !== stillOn)
@@ -389,7 +399,7 @@ export function planOnAir(
   // Prefer what djay was given; then anything else of ours with that key.
   const preference: QueueStatus[] = ["cued", "queued"];
   for (const status of preference) {
-    const match = items.find((item) => item.status === status && item.songKey === key);
+    const match = find(items.filter((item) => item.status === status));
     if (match) return { end, start: match.id, create: null };
   }
   return { end, start: null, create: clean };

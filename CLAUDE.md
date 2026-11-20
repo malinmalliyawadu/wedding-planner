@@ -1338,6 +1338,16 @@ Decisions worth knowing before changing any of it:
   as an unrequested row so the floor can vote that off too. The DJ can
   take over at any moment and the queue follows the room rather than
   arguing with it.
+- **What is on air is matched more loosely than a request is.** Now
+  Playing carries Apple Music's credits and requests carry Deezer's, and
+  the two disagree about artists far more than titles: Deezer's "Jai Ho!"
+  is by A. R. Rahman, Apple Music's by "A.R. Rahman & The Pussycat
+  Dolls". On exact `songKey` alone the request sat in djay's one cue
+  slot while the same song played as the DJ's own choice. So `planOnAir`
+  and `coverFor` try `songKey` first and then `sameSongLoosely` in
+  `songs.ts`: the same title, with one side's artist appearing word for
+  word and in order inside the other's. "Already on the list" stays on
+  exact `songKey`, where a false match would turn a guest away.
 - **djay has no API, so Claude drives it by computer use** (`claude.mjs`,
   the default `DJ_DRIVER`). Each job - add this song, skip this one,
   what is playing - is a short task with a screenshot, and Claude ends
@@ -1402,7 +1412,7 @@ Decisions worth knowing before changing any of it:
   choose would be a picture of anyone's choosing. `fillCoversLater`
   (`src/lib/dj-cover.ts`) searches the reply card's catalogue after the
   response has gone (`after`), keeps a cover only when the match is the
-  same song by `songKey` (`coverFor`) - no cover beats the wrong one -
+  same song (`coverFor`, by `songKey` and then `sameSongLoosely`) - no cover beats the wrong one -
   and only https covers are parsed at all. The `<img>`s send no referrer,
   so the CDN never sees an invitation link.
 
